@@ -1,0 +1,15 @@
+[package]
+name = "netabase"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+libp2p = { version = "*", features = ["full"] }
+serde = { version = "*" }
+once_cell = "*"
+gdelt_fetcher = { path = "../gdelt_fetcher" }
+sled = "*"
+bincode = "*"
+log = "*"
+env_logger = "*"
+tokio = { version = "*", features = ["full"] }
