@@ -2,17 +2,37 @@ use libp2p::{
     self, StreamProtocol,
     identity::Keypair,
     kad::{self, store::MemoryStore},
-    mdns, ping,
+    mdns::{self, Event},
+    ping,
     swarm::NetworkBehaviour,
 };
 
 #[derive(NetworkBehaviour)]
+#[behaviour(to_swarm = "NetEvent")]
 pub struct NetabaseBehaviour {
     pub event_kad: kad::Behaviour<MemoryStore>,
     pub mentions_kad: kad::Behaviour<MemoryStore>,
     pub gkg_kad: kad::Behaviour<MemoryStore>,
     pub mdns: mdns::tokio::Behaviour,
-    pub ping: ping::Behaviour,
+}
+
+#[derive(Clone, Debug)]
+pub enum NetEvent {
+    Test,
+    Kad(kad::Event),
+    Mdns(mdns::Event),
+}
+
+impl From<kad::Event> for NetEvent {
+    fn from(value: kad::Event) -> Self {
+        Self::Kad(value)
+    }
+}
+
+impl From<mdns::Event> for NetEvent {
+    fn from(value: mdns::Event) -> Self {
+        Self::Mdns(value)
+    }
 }
 
 impl NetabaseBehaviour {
@@ -45,7 +65,6 @@ impl NetabaseBehaviour {
             mentions_kad,
             gkg_kad,
             mdns,
-            ping,
         }
     }
 }

@@ -1,0 +1,495 @@
+warning: unused import: `std::str::FromStr`
+ --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/event.rs:1:5
+  |
+1 | use std::str::FromStr;
+  |     ^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `ToProto`
+ --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/event.rs:7:61
+  |
+7 | use crate::models::gdelt::{DatabaseTableEntry, GDELTObject, ToProto};
+  |                                                             ^^^^^^^
+
+warning: unused import: `ToProto`
+  --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/gkg.rs:12:71
+   |
+12 | use crate::models::gdelt::{CellItem, DatabaseTableEntry, GDELTObject, ToProto};
+   |                                                                       ^^^^^^^
+
+warning: unused import: `ToProto`
+ --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/mentions.rs:7:61
+  |
+7 | use crate::models::gdelt::{DatabaseTableEntry, GDELTObject, ToProto};
+  |                                                             ^^^^^^^
+
+warning: unused import: `ToProto`
+ --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_counts.rs:6:51
+  |
+6 | use crate::models::gdelt::{CellItem, GDELTObject, ToProto};
+  |                                                   ^^^^^^^
+
+warning: unused import: `ToProto`
+ --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_date.rs:1:51
+  |
+1 | use crate::models::gdelt::{CellItem, GDELTObject, ToProto};
+  |                                                   ^^^^^^^
+
+warning: unused import: `chrono::Timelike`
+ --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_date.rs:3:5
+  |
+3 | use chrono::Timelike;
+  |     ^^^^^^^^^^^^^^^^
+
+warning: unused imports: `TimestampError` and `Timestamp`
+ --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_date.rs:5:19
+  |
+5 | use prost_types::{Timestamp, TimestampError};
+  |                   ^^^^^^^^^  ^^^^^^^^^^^^^^
+
+warning: unused import: `std::fmt::Display`
+ --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_date.rs:7:5
+  |
+7 | use std::fmt::Display;
+  |     ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `ToProto`
+ --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_event_action.rs:5:41
+  |
+5 | use crate::models::gdelt::{GDELTObject, ToProto};
+  |                                         ^^^^^^^
+
+warning: unused import: `ToProto`
+ --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_location.rs:5:70
+  |
+5 | use crate::models::gdelt::{CellItem, DatabaseTableEnum, GDELTObject, ToProto};
+  |                                                                      ^^^^^^^
+
+warning: unused import: `crate::models::gdelt::ToProto`
+ --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_location_types.rs:4:5
+  |
+4 | use crate::models::gdelt::ToProto;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::models::gdelt::ToProto`
+ --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_source_collection_identifier.rs:4:5
+  |
+4 | use crate::models::gdelt::ToProto;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `ToProto`
+ --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_tone.rs:5:41
+  |
+5 | use crate::models::gdelt::{GDELTObject, ToProto};
+  |                                         ^^^^^^^
+
+warning: unused imports: `Deserialize` and `Serialize`
+ --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_languages.rs:2:13
+  |
+2 | use serde::{Serialize, Deserialize};
+  |             ^^^^^^^^^  ^^^^^^^^^^^
+
+warning: crate-level attribute should be in the root module
+ --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_categorylist.rs:1:1
+  |
+1 | #![feature(repr64)]
+  | ^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_attributes)]` on by default
+
+warning: use of deprecated associated function `chrono::DateTime::<Tz>::from_utc`: Use TimeZone::from_utc_datetime() or DateTime::from_naive_utc_and_offset instead
+   --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_date.rs:369:50
+    |
+369 |                     .map(|date| DateTime::<Utc>::from_utc(date.and_hms(0, 0, 0), Utc))
+    |                                                  ^^^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated method `chrono::NaiveDate::and_hms`: use `and_hms_opt()` instead
+   --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_date.rs:369:64
+    |
+369 |                     .map(|date| DateTime::<Utc>::from_utc(date.and_hms(0, 0, 0), Utc))
+    |                                                                ^^^^^^^
+
+warning: use of deprecated associated function `chrono::DateTime::<Tz>::from_utc`: Use TimeZone::from_utc_datetime() or DateTime::from_naive_utc_and_offset instead
+   --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_date.rs:375:50
+    |
+375 |                     .map(|date| DateTime::<Utc>::from_utc(date.and_hms(0, 0, 0), Utc))
+    |                                                  ^^^^^^^^
+
+warning: use of deprecated method `chrono::NaiveDate::and_hms`: use `and_hms_opt()` instead
+   --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_date.rs:375:64
+    |
+375 |                     .map(|date| DateTime::<Utc>::from_utc(date.and_hms(0, 0, 0), Utc))
+    |                                                                ^^^^^^^
+
+warning: use of deprecated associated function `chrono::DateTime::<Tz>::from_utc`: Use TimeZone::from_utc_datetime() or DateTime::from_naive_utc_and_offset instead
+   --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_date.rs:382:50
+    |
+382 |                     .map(|date| DateTime::<Utc>::from_utc(date.and_hms(0, 0, 0), Utc))
+    |                                                  ^^^^^^^^
+
+warning: use of deprecated method `chrono::NaiveDate::and_hms`: use `and_hms_opt()` instead
+   --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_date.rs:382:64
+    |
+382 |                     .map(|date| DateTime::<Utc>::from_utc(date.and_hms(0, 0, 0), Utc))
+    |                                                                ^^^^^^^
+
+warning: use of deprecated associated function `chrono::DateTime::<Tz>::from_utc`: Use TimeZone::from_utc_datetime() or DateTime::from_naive_utc_and_offset instead
+   --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_date.rs:392:50
+    |
+392 |                     .map(|date| DateTime::<Utc>::from_utc(date.and_hms(hour, minute, second), Utc))
+    |                                                  ^^^^^^^^
+
+warning: use of deprecated method `chrono::NaiveDate::and_hms`: use `and_hms_opt()` instead
+   --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_date.rs:392:64
+    |
+392 |                     .map(|date| DateTime::<Utc>::from_utc(date.and_hms(hour, minute, second), Utc))
+    |                                                                ^^^^^^^
+
+warning: use of deprecated associated function `chrono::DateTime::<Tz>::from_utc`: Use TimeZone::from_utc_datetime() or DateTime::from_naive_utc_and_offset instead
+   --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_date.rs:400:50
+    |
+400 |                     .map(|date| DateTime::<Utc>::from_utc(date.and_hms(0, 0, 0), Utc))
+    |                                                  ^^^^^^^^
+
+warning: use of deprecated method `chrono::NaiveDate::and_hms`: use `and_hms_opt()` instead
+   --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_date.rs:400:64
+    |
+400 |                     .map(|date| DateTime::<Utc>::from_utc(date.and_hms(0, 0, 0), Utc))
+    |                                                                ^^^^^^^
+
+warning: unused variable: `offset_u128`
+   --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_categorylist.rs:901:24
+    |
+901 |                     Ok(offset_u128) => match GDELTCategoryList::from_str(split.get(0)?) {
+    |                        ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_offset_u128`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `value`
+    --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_categorylist.rs:1007:33
+     |
+1007 |     pub(crate) fn extract_value(value: GDELTCategoryList) -> Option<u64> {
+     |                                 ^^^^^ help: if this is intentional, prefix it with an underscore: `_value`
+
+warning: associated function `extract_value` is never used
+    --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/utils/gdelt_categorylist.rs:1007:19
+     |
+987  | impl GDELTCategoryList {
+     | ---------------------- associated function in this implementation
+...
+1007 |     pub(crate) fn extract_value(value: GDELTCategoryList) -> Option<u64> {
+     |                   ^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` on by default
+
+warning: `models` (lib) generated 29 warnings (run `cargo fix --lib -p models` to apply 15 suggestions)
+warning: unused import: `OpenOptions`
+  --> /home/bigguy/Projects/gdelt_fetcher/data/src/gdelt_fetcher.rs:11:29
+   |
+11 | use tokio::fs::{self, File, OpenOptions};
+   |                             ^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `self`
+  --> /home/bigguy/Projects/gdelt_fetcher/data/src/gdelt_fetcher.rs:16:15
+   |
+16 | use std::io::{self, Write, Read};
+   |               ^^^^
+
+warning: unused import: `models::models::gdelt::utils::gdelt_languages::GDELTLanguage`
+ --> /home/bigguy/Projects/gdelt_fetcher/data/src/utils/types/api_types/mod.rs:1:5
+  |
+1 | use models::models::gdelt::utils::gdelt_languages::GDELTLanguage;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `self`
+ --> /home/bigguy/Projects/gdelt_fetcher/data/src/gdelt_api.rs:6:50
+  |
+6 | use crate::utils::types::api_types::translator::{self, Translator};
+  |                                                  ^^^^
+
+warning: variable does not need to be mutable
+  --> /home/bigguy/Projects/gdelt_fetcher/data/src/csv_to_structs.rs:57:10
+   |
+57 |     let (mut r_object, extension) = match database_type {
+   |          ----^^^^^^^^
+   |          |
+   |          help: remove this `mut`
+   |
+   = note: `#[warn(unused_mut)]` on by default
+
+warning: unused import: `Write`
+  --> /home/bigguy/Projects/gdelt_fetcher/data/src/gdelt_fetcher.rs:16:21
+   |
+16 | use std::io::{self, Write, Read};
+   |                     ^^^^^
+
+warning: unused import: `Read`
+  --> /home/bigguy/Projects/gdelt_fetcher/data/src/gdelt_fetcher.rs:16:28
+   |
+16 | use std::io::{self, Write, Read};
+   |                            ^^^^
+
+warning: associated function `prepend_line_to_file` is never used
+   --> /home/bigguy/Projects/gdelt_fetcher/data/src/gdelt_fetcher.rs:155:4
+    |
+71  | impl GdeltFileFetcher {
+    | --------------------- associated function in this implementation
+...
+155 | fn prepend_line_to_file(file_path: &str) -> &str {
+    |    ^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: static `JSON_PATH_FOLDER` is never used
+  --> /home/bigguy/Projects/gdelt_fetcher/data/src/csv_to_json.rs:20:8
+   |
+20 | static JSON_PATH_FOLDER: Lazy<&Path> = Lazy::new(|| Path::new("./data/json"));
+   |        ^^^^^^^^^^^^^^^^
+
+warning: call to `.clone()` on a reference in this situation does nothing
+   --> /home/bigguy/Projects/gdelt_fetcher/data/src/gdelt_api.rs:140:39
+    |
+140 |         let mut request = BASE_API_URL.clone().to_string();
+    |                                       ^^^^^^^^ help: remove this redundant call
+    |
+    = note: the type `str` does not implement `Clone`, so calling `clone` on `&str` copies the reference, which does not do anything and can be removed
+    = note: `#[warn(noop_method_call)]` on by default
+
+warning: `data` (lib) generated 10 warnings (run `cargo fix --lib -p data` to apply 6 suggestions)
+   Compiling netabase v0.1.0 (/home/bigguy/Projects/netabase)
+warning: unused import: `Event`
+ --> src/config/behaviour.rs:5:18
+  |
+5 |     mdns::{self, Event},
+  |                  ^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `io::Read`
+ --> src/config/database/mod.rs:3:24
+  |
+3 | use std::{borrow::Cow, io::Read, iter};
+  |                        ^^^^^^^^
+
+warning: unused import: `PutRecordOk`
+ --> src/config/swarm.rs:7:48
+  |
+7 |     kad::{self, GetRecordOk, Mode, PeerRecord, PutRecordOk, Record, RecordKey},
+  |                                                ^^^^^^^^^^^
+
+warning: unused import: `Receiver`
+  --> src/config/swarm.rs:16:22
+   |
+16 |         mpsc::{self, Receiver},
+   |                      ^^^^^^^^
+
+warning: unused imports: `Multiaddr`, `PeerId`, `RecordKey`, `Record`, and `self`
+   --> src/config/swarm.rs:287:9
+    |
+287 |         Multiaddr, PeerId,
+    |         ^^^^^^^^^  ^^^^^^
+288 |         kad::{self, Record, RecordKey},
+    |               ^^^^  ^^^^^^  ^^^^^^^^^
+
+warning: unused import: `std::sync::Arc`
+ --> src/gdelt_operations/mod.rs:1:5
+  |
+1 | use std::sync::Arc;
+  |     ^^^^^^^^^^^^^^
+
+warning: unused imports: `DatabaseTableEntry` and `event::Event`
+ --> src/gdelt_operations/mod.rs:4:5
+  |
+4 |     DatabaseTableEntry, DatabaseTableEnum, PrimaryKey, event::Event,
+  |     ^^^^^^^^^^^^^^^^^^                                 ^^^^^^^^^^^^
+
+warning: unused imports: `PutRecordError`, `PutRecordOk`, `QueryId`, `Record`, `Swarm`, `self`, and `swarm::SwarmEvent`
+ --> src/gdelt_operations/mod.rs:7:24
+  |
+7 |     Multiaddr, PeerId, Swarm,
+  |                        ^^^^^
+8 |     kad::{self, PutRecordError, PutRecordOk, QueryId, Record},
+  |           ^^^^  ^^^^^^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^  ^^^^^^
+9 |     swarm::SwarmEvent,
+  |     ^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `Mutex`, `broadcast`, and `mpsc`
+  --> src/gdelt_operations/mod.rs:11:19
+   |
+11 | use tokio::sync::{Mutex, broadcast, mpsc};
+   |                   ^^^^^  ^^^^^^^^^  ^^^^
+
+warning: unused imports: `NetEvent` and `NetabaseBehaviour`
+  --> src/gdelt_operations/mod.rs:13:32
+   |
+13 | use crate::config::behaviour::{NetEvent, NetabaseBehaviour};
+   |                                ^^^^^^^^  ^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `items`
+   --> src/config/swarm.rs:102:46
+    |
+102 |                 libp2p::mdns::Event::Expired(items) => EventSent::NotSent,
+    |                                              ^^^^^ help: if this is intentional, prefix it with an underscore: `_items`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `mentions`
+   --> src/config/swarm.rs:146:87
+    |
+146 | ...                   gdelt_fetcher::models::gdelt::DatabaseTableEnum::Mentions(mentions) => {
+    |                                                                                 ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_mentions`
+
+warning: unused variable: `global_knowledge_graph`
+   --> src/config/swarm.rs:149:99
+    |
+149 | ...                   gdelt_fetcher::models::gdelt::DatabaseTableEnum::GlobalKnowledgeGraph(global_knowledge_graph) => {
+    |                                                                                             ^^^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_global_knowledge_graph`
+
+warning: unused variable: `event`
+   --> src/config/swarm.rs:152:84
+    |
+152 | ...                   gdelt_fetcher::models::gdelt::DatabaseTableEnum::Event(event) => {
+    |                                                                              ^^^^^ help: if this is intentional, prefix it with an underscore: `_event`
+
+warning: unused variable: `database_table_enum`
+   --> src/config/swarm.rs:171:52
+    |
+171 |                     KadAction::Update(primary_key, database_table_enum) => {
+    |                                                    ^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_database_table_enum`
+
+warning: unused variable: `stats`
+   --> src/config/swarm.rs:183:41
+    |
+183 | ...                   stats,
+    |                       ^^^^^ help: try ignoring the field: `stats: _`
+
+warning: unused variable: `step`
+   --> src/config/swarm.rs:184:41
+    |
+184 | ...                   step,
+    |                       ^^^^ help: try ignoring the field: `step: _`
+
+warning: unused variable: `peer`
+   --> src/config/swarm.rs:192:53
+    |
+192 | ...                   peer,
+    |                       ^^^^ help: try ignoring the field: `peer: _`
+
+warning: unused variable: `stats`
+   --> src/config/swarm.rs:215:41
+    |
+215 | ...                   stats,
+    |                       ^^^^^ help: try ignoring the field: `stats: _`
+
+warning: unused variable: `step`
+   --> src/config/swarm.rs:216:41
+    |
+216 | ...                   step,
+    |                       ^^^^ help: try ignoring the field: `step: _`
+
+warning: unused variable: `peer`
+   --> src/config/swarm.rs:224:53
+    |
+224 | ...                   peer,
+    |                       ^^^^ help: try ignoring the field: `peer: _`
+
+warning: unused variable: `stats`
+   --> src/config/swarm.rs:247:41
+    |
+247 | ...                   stats,
+    |                       ^^^^^ help: try ignoring the field: `stats: _`
+
+warning: unused variable: `step`
+   --> src/config/swarm.rs:248:41
+    |
+248 | ...                   step,
+    |                       ^^^^ help: try ignoring the field: `step: _`
+
+warning: unused variable: `peer`
+   --> src/config/swarm.rs:256:53
+    |
+256 | ...                   peer,
+    |                       ^^^^ help: try ignoring the field: `peer: _`
+
+warning: unreachable expression
+   --> src/config/swarm.rs:351:9
+    |
+346 | /         loop {
+347 | |             println!("Sender Started loop");
+348 | |             tokio::time::sleep(Duration::from_millis(100)).await;
+349 | |         }
+    | |_________- any code following this expression is unreachable
+350 |
+351 | /         for handle in handles {
+352 | |             let res = handle.await;
+353 | |
+354 | |             println!("mpsc::Receiver {:?} finished", res);
+355 | |         }
+    | |_________^ unreachable expression
+    |
+    = note: `#[warn(unreachable_code)]` on by default
+
+warning: unused variable: `ping`
+  --> src/config/behaviour.rs:62:13
+   |
+62 |         let ping = ping::Behaviour::default();
+   |             ^^^^ help: if this is intentional, prefix it with an underscore: `_ping`
+
+warning: variable does not need to be mutable
+   --> src/config/database/mod.rs:199:29
+    |
+199 |                         let mut vect = bincode::deserialize::<Vec<ProviderRecordWrapper>>(bytes)
+    |                             ----^^^^
+    |                             |
+    |                             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: unused variable: `rec`
+   --> src/config/swarm.rs:305:21
+    |
+305 |             let mut rec = sender.subscribe();
+    |                     ^^^ help: if this is intentional, prefix it with an underscore: `_rec`
+
+warning: variable does not need to be mutable
+   --> src/config/swarm.rs:300:14
+    |
+300 |         let (mut ac_sender, mut ac_reciever) = mpsc::channel(1000);
+    |              ----^^^^^^^^^
+    |              |
+    |              help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> src/config/swarm.rs:305:17
+    |
+305 |             let mut rec = sender.subscribe();
+    |                 ----^^^
+    |                 |
+    |                 help: remove this `mut`
+
+error[E0382]: borrow of moved value: `ac_reciever`
+   --> src/config/swarm.rs:345:44
+    |
+300 |         let (mut ac_sender, mut ac_reciever) = mpsc::channel(1000);
+    |                             --------------- move occurs because `ac_reciever` has type `tokio::sync::mpsc::Receiver<SwarmAction>`, which does not implement the `Copy` trait
+...
+304 |         for i in 0..5 {
+    |         ------------- inside of this loop
+...
+308 |             let handle = tokio::spawn(async move {
+    |                                       ---------- value moved here, in previous iteration of loop
+309 |                 println!("mpsc::Receiver {} started", i);
+310 |                 loop {
+    |                 ---- inside of this loop
+...
+345 |         run_swarm(&mut swarm, &mut sender, &mut ac_reciever, &mut rec).await;
+    |                                            ^^^^^^^^^^^^^^^^ value borrowed here after move
+
+For more information about this error, try `rustc --explain E0382`.
+warning: `netabase` (bin "netabase" test) generated 30 warnings
+error: could not compile `netabase` (bin "netabase" test) due to 1 previous error; 30 warnings emitted

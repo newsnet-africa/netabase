@@ -1,39 +1,21 @@
-use gdelt_fetcher::models::gdelt::{DatabaseTableEntry, PrimaryKey, event::Event};
+use std::sync::Arc;
+
+use gdelt_fetcher::models::gdelt::{
+    DatabaseTableEntry, DatabaseTableEnum, PrimaryKey, event::Event,
+};
 use libp2p::{
-    Swarm,
-    kad::{self, QueryId, Record},
+    Multiaddr, PeerId, Swarm,
+    kad::{self, PutRecordError, PutRecordOk, QueryId, Record},
     swarm::SwarmEvent,
 };
-use tokio::sync::mpsc;
+use tokio::sync::{Mutex, broadcast, mpsc};
 
-use crate::config::behaviour::{NetabaseBehaviour, NetabaseBehaviourEvent};
+use crate::config::behaviour::{NetEvent, NetabaseBehaviour};
 
-pub mod event;
-pub mod mentions;
-
-pub trait DatabaseOperation<T>
-where
-    T: DatabaseTableEntry,
-{
-    type UpdateEnum;
-    async fn create(
-        rx: mpsc::Receiver<SwarmEvent<NetabaseBehaviourEvent>>,
-        swarm: &mut Swarm<NetabaseBehaviour>,
-        item: T,
-    ) -> Result<QueryId, kad::store::Error>;
-    async fn read(
-        rx: mpsc::Receiver<SwarmEvent<NetabaseBehaviourEvent>>,
-        swarm: &mut Swarm<NetabaseBehaviour>,
-        key: PrimaryKey,
-    ) -> QueryId;
-    async fn update(
-        rx: mpsc::Receiver<SwarmEvent<NetabaseBehaviourEvent>>,
-        swarm: &mut Swarm<NetabaseBehaviour>,
-        update: Self::UpdateEnum,
-    );
-    async fn delete(
-        rx: mpsc::Receiver<SwarmEvent<NetabaseBehaviourEvent>>,
-        swarm: &mut Swarm<NetabaseBehaviour>,
-        key: PrimaryKey,
-    );
+#[derive(Clone, Debug)]
+pub enum KadAction {
+    AddAddress(PeerId, Multiaddr),
+    Create(DatabaseTableEnum),
+    Read(PrimaryKey),
+    Update(PrimaryKey, DatabaseTableEnum),
 }
