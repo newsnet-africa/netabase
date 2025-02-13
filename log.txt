@@ -1,3 +1,4 @@
+    Blocking waiting for file lock on build directory
 warning: unused import: `std::str::FromStr`
  --> /home/bigguy/Projects/gdelt_fetcher/models/src/models/gdelt/event.rs:1:5
   |
@@ -261,7 +262,6 @@ warning: call to `.clone()` on a reference in this situation does nothing
     = note: `#[warn(noop_method_call)]` on by default
 
 warning: `data` (lib) generated 10 warnings (run `cargo fix --lib -p data` to apply 6 suggestions)
-   Compiling netabase v0.1.0 (/home/bigguy/Projects/netabase)
 warning: unused import: `Event`
  --> src/config/behaviour.rs:5:18
   |
@@ -276,25 +276,41 @@ warning: unused import: `io::Read`
 3 | use std::{borrow::Cow, io::Read, iter};
   |                        ^^^^^^^^
 
-warning: unused import: `PutRecordOk`
- --> src/config/swarm.rs:7:48
+warning: unused imports: `DatabaseTableEntry` and `event::Event`
+ --> src/config/swarm/mod.rs:5:36
   |
-7 |     kad::{self, GetRecordOk, Mode, PeerRecord, PutRecordOk, Record, RecordKey},
-  |                                                ^^^^^^^^^^^
+5 | use gdelt_fetcher::models::gdelt::{DatabaseTableEntry, event::Event};
+  |                                    ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^
+
+warning: unused imports: `GetRecordOk`, `PeerRecord`, `PutRecordOk`, `RecordKey`, and `Record`
+  --> src/config/swarm/mod.rs:10:17
+   |
+10 |     kad::{self, GetRecordOk, Mode, PeerRecord, PutRecordOk, Record, RecordKey},
+   |                 ^^^^^^^^^^^        ^^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^  ^^^^^^^^^
 
 warning: unused import: `Receiver`
-  --> src/config/swarm.rs:16:22
+  --> src/config/swarm/mod.rs:20:22
    |
-16 |         mpsc::{self, Receiver},
+20 |         mpsc::{self, Receiver},
    |                      ^^^^^^^^
 
-warning: unused imports: `Multiaddr`, `PeerId`, `RecordKey`, `Record`, and `self`
-   --> src/config/swarm.rs:287:9
+warning: unused import: `crate::gdelt_operations::KadAction`
+  --> src/config/swarm/mod.rs:24:5
+   |
+24 | use crate::gdelt_operations::KadAction;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `time::Duration`
+   --> src/config/swarm/mod.rs:106:23
     |
-287 |         Multiaddr, PeerId,
-    |         ^^^^^^^^^  ^^^^^^
-288 |         kad::{self, Record, RecordKey},
-    |               ^^^^  ^^^^^^  ^^^^^^^^^
+106 |     use std::{thread, time::Duration};
+    |                       ^^^^^^^^^^^^^^
+
+warning: unused import: `Record`
+   --> src/config/swarm/mod.rs:110:29
+    |
+110 |     use libp2p::kad::{Mode, Record};
+    |                             ^^^^^^
 
 warning: unused import: `std::sync::Arc`
  --> src/gdelt_operations/mod.rs:1:5
@@ -330,109 +346,97 @@ warning: unused imports: `NetEvent` and `NetabaseBehaviour`
 13 | use crate::config::behaviour::{NetEvent, NetabaseBehaviour};
    |                                ^^^^^^^^  ^^^^^^^^^^^^^^^^^
 
-warning: unused variable: `items`
-   --> src/config/swarm.rs:102:46
-    |
-102 |                 libp2p::mdns::Event::Expired(items) => EventSent::NotSent,
-    |                                              ^^^^^ help: if this is intentional, prefix it with an underscore: `_items`
-    |
-    = note: `#[warn(unused_variables)]` on by default
+warning: unused variable: `swarm`
+  --> src/config/swarm/mod.rs:95:5
+   |
+95 |     swarm: &mut Swarm<NetabaseBehaviour>,
+   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_swarm`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `sender`
+  --> src/config/swarm/mod.rs:97:5
+   |
+97 |     sender: &mut Sender<kad::Event>,
+   |     ^^^^^^ help: if this is intentional, prefix it with an underscore: `_sender`
 
 warning: unused variable: `mentions`
-   --> src/config/swarm.rs:146:87
-    |
-146 | ...                   gdelt_fetcher::models::gdelt::DatabaseTableEnum::Mentions(mentions) => {
-    |                                                                                 ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_mentions`
+  --> src/config/swarm/swarm_action.rs:41:87
+   |
+41 | ...                   gdelt_fetcher::models::gdelt::DatabaseTableEnum::Mentions(mentions) => {
+   |                                                                                 ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_mentions`
 
 warning: unused variable: `global_knowledge_graph`
-   --> src/config/swarm.rs:149:99
-    |
-149 | ...                   gdelt_fetcher::models::gdelt::DatabaseTableEnum::GlobalKnowledgeGraph(global_knowledge_graph) => {
-    |                                                                                             ^^^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_global_knowledge_graph`
+  --> src/config/swarm/swarm_action.rs:44:99
+   |
+44 | ...                   gdelt_fetcher::models::gdelt::DatabaseTableEnum::GlobalKnowledgeGraph(global_knowledge_graph) => {
+   |                                                                                             ^^^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_global_knowledge_graph`
 
 warning: unused variable: `event`
-   --> src/config/swarm.rs:152:84
-    |
-152 | ...                   gdelt_fetcher::models::gdelt::DatabaseTableEnum::Event(event) => {
-    |                                                                              ^^^^^ help: if this is intentional, prefix it with an underscore: `_event`
+  --> src/config/swarm/swarm_action.rs:47:84
+   |
+47 | ...                   gdelt_fetcher::models::gdelt::DatabaseTableEnum::Event(event) => {
+   |                                                                              ^^^^^ help: if this is intentional, prefix it with an underscore: `_event`
 
 warning: unused variable: `database_table_enum`
-   --> src/config/swarm.rs:171:52
-    |
-171 |                     KadAction::Update(primary_key, database_table_enum) => {
-    |                                                    ^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_database_table_enum`
+  --> src/config/swarm/swarm_action.rs:67:52
+   |
+67 |                     KadAction::Update(primary_key, database_table_enum) => {
+   |                                                    ^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_database_table_enum`
 
 warning: unused variable: `stats`
-   --> src/config/swarm.rs:183:41
+  --> src/config/swarm/swarm_action.rs:82:41
+   |
+82 | ...                   stats,
+   |                       ^^^^^ help: try ignoring the field: `stats: _`
+
+warning: unused variable: `step`
+  --> src/config/swarm/swarm_action.rs:83:41
+   |
+83 | ...                   step,
+   |                       ^^^^ help: try ignoring the field: `step: _`
+
+warning: unused variable: `peer`
+  --> src/config/swarm/swarm_action.rs:93:53
+   |
+93 | ...                   peer,
+   |                       ^^^^ help: try ignoring the field: `peer: _`
+
+warning: unused variable: `stats`
+   --> src/config/swarm/swarm_action.rs:119:41
     |
-183 | ...                   stats,
+119 | ...                   stats,
     |                       ^^^^^ help: try ignoring the field: `stats: _`
 
 warning: unused variable: `step`
-   --> src/config/swarm.rs:184:41
+   --> src/config/swarm/swarm_action.rs:120:41
     |
-184 | ...                   step,
+120 | ...                   step,
     |                       ^^^^ help: try ignoring the field: `step: _`
 
 warning: unused variable: `peer`
-   --> src/config/swarm.rs:192:53
+   --> src/config/swarm/swarm_action.rs:128:53
     |
-192 | ...                   peer,
+128 | ...                   peer,
     |                       ^^^^ help: try ignoring the field: `peer: _`
 
 warning: unused variable: `stats`
-   --> src/config/swarm.rs:215:41
+   --> src/config/swarm/swarm_action.rs:151:41
     |
-215 | ...                   stats,
+151 | ...                   stats,
     |                       ^^^^^ help: try ignoring the field: `stats: _`
 
 warning: unused variable: `step`
-   --> src/config/swarm.rs:216:41
+   --> src/config/swarm/swarm_action.rs:152:41
     |
-216 | ...                   step,
+152 | ...                   step,
     |                       ^^^^ help: try ignoring the field: `step: _`
 
 warning: unused variable: `peer`
-   --> src/config/swarm.rs:224:53
+   --> src/config/swarm/swarm_action.rs:160:53
     |
-224 | ...                   peer,
+160 | ...                   peer,
     |                       ^^^^ help: try ignoring the field: `peer: _`
-
-warning: unused variable: `stats`
-   --> src/config/swarm.rs:247:41
-    |
-247 | ...                   stats,
-    |                       ^^^^^ help: try ignoring the field: `stats: _`
-
-warning: unused variable: `step`
-   --> src/config/swarm.rs:248:41
-    |
-248 | ...                   step,
-    |                       ^^^^ help: try ignoring the field: `step: _`
-
-warning: unused variable: `peer`
-   --> src/config/swarm.rs:256:53
-    |
-256 | ...                   peer,
-    |                       ^^^^ help: try ignoring the field: `peer: _`
-
-warning: unreachable expression
-   --> src/config/swarm.rs:351:9
-    |
-346 | /         loop {
-347 | |             println!("Sender Started loop");
-348 | |             tokio::time::sleep(Duration::from_millis(100)).await;
-349 | |         }
-    | |_________- any code following this expression is unreachable
-350 |
-351 | /         for handle in handles {
-352 | |             let res = handle.await;
-353 | |
-354 | |             println!("mpsc::Receiver {:?} finished", res);
-355 | |         }
-    | |_________^ unreachable expression
-    |
-    = note: `#[warn(unreachable_code)]` on by default
 
 warning: unused variable: `ping`
   --> src/config/behaviour.rs:62:13
@@ -450,46 +454,81 @@ warning: variable does not need to be mutable
     |
     = note: `#[warn(unused_mut)]` on by default
 
-warning: unused variable: `rec`
-   --> src/config/swarm.rs:305:21
-    |
-305 |             let mut rec = sender.subscribe();
-    |                     ^^^ help: if this is intentional, prefix it with an underscore: `_rec`
-
 warning: variable does not need to be mutable
-   --> src/config/swarm.rs:300:14
+   --> src/config/swarm/mod.rs:121:14
     |
-300 |         let (mut ac_sender, mut ac_reciever) = mpsc::channel(1000);
-    |              ----^^^^^^^^^
+121 |         let (mut swarm_action_sender, mut swarm_action_receiver) = mpsc::channel(1000);
+    |              ----^^^^^^^^^^^^^^^^^^^
     |              |
     |              help: remove this `mut`
 
-warning: variable does not need to be mutable
-   --> src/config/swarm.rs:305:17
-    |
-305 |             let mut rec = sender.subscribe();
-    |                 ----^^^
-    |                 |
-    |                 help: remove this `mut`
+warning: constant `BOOTNODES` is never used
+  --> src/config/swarm/mod.rs:30:7
+   |
+30 | const BOOTNODES: [&str; 4] = [
+   |       ^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
 
-error[E0382]: borrow of moved value: `ac_reciever`
-   --> src/config/swarm.rs:345:44
-    |
-300 |         let (mut ac_sender, mut ac_reciever) = mpsc::channel(1000);
-    |                             --------------- move occurs because `ac_reciever` has type `tokio::sync::mpsc::Receiver<SwarmAction>`, which does not implement the `Copy` trait
-...
-304 |         for i in 0..5 {
-    |         ------------- inside of this loop
-...
-308 |             let handle = tokio::spawn(async move {
-    |                                       ---------- value moved here, in previous iteration of loop
-309 |                 println!("mpsc::Receiver {} started", i);
-310 |                 loop {
-    |                 ---- inside of this loop
-...
-345 |         run_swarm(&mut swarm, &mut sender, &mut ac_reciever, &mut rec).await;
-    |                                            ^^^^^^^^^^^^^^^^ value borrowed here after move
+warning: constant `IPFS_PROTO_NAME` is never used
+  --> src/config/swarm/mod.rs:37:7
+   |
+37 | const IPFS_PROTO_NAME: StreamProtocol = StreamProtocol::new("/ipfs/kad/1.0.0");
+   |       ^^^^^^^^^^^^^^^
 
-For more information about this error, try `rustc --explain E0382`.
-warning: `netabase` (bin "netabase" test) generated 30 warnings
-error: could not compile `netabase` (bin "netabase" test) due to 1 previous error; 30 warnings emitted
+warning: unused `Result` that must be used
+  --> src/config/database/mod.rs:59:9
+   |
+59 |         records.insert(key.clone(), RecordWrapper::from(r));
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+   = note: `#[warn(unused_must_use)]` on by default
+help: use `let _ = ...` to ignore the resulting value
+   |
+59 |         let _ = records.insert(key.clone(), RecordWrapper::from(r));
+   |         +++++++
+
+warning: call to `.clone()` on a reference in this situation does nothing
+   --> src/config/database/mod.rs:170:68
+    |
+170 |                         .map(|wrapper| ProviderRecord::from(wrapper.clone()))
+    |                                                                    ^^^^^^^^
+    |
+    = note: the type `ProviderRecordWrapper` does not implement `Clone`, so calling `clone` on `&ProviderRecordWrapper` copies the reference, which does not do anything and can be removed
+    = note: `#[warn(noop_method_call)]` on by default
+help: remove this redundant call
+    |
+170 -                         .map(|wrapper| ProviderRecord::from(wrapper.clone()))
+170 +                         .map(|wrapper| ProviderRecord::from(wrapper))
+    |
+help: if you meant to clone `ProviderRecordWrapper`, implement `Clone` for it
+   --> src/config/database/wrappers.rs:19:1
+    |
+19  + #[derive(Clone)]
+20  | pub struct ProviderRecordWrapper {
+    |
+
+warning: unused `Result` that must be used
+   --> src/config/swarm/mod.rs:160:9
+    |
+160 |         handle.join();
+    |         ^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+160 |         let _ = handle.join();
+    |         +++++++
+
+warning: `netabase` (bin "netabase" test) generated 36 warnings (run `cargo fix --bin "netabase" --tests` to apply 16 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.52s
+     Running unittests src/main.rs (target/debug/deps/netabase-384d60f91883c40e)
+
+running 1 test
+test config::swarm::run_swarm_test::swarm_test ... 
+Running Swarm
+event NewListenAddr { listener_id: ListenerId(1), address: /ip4/127.0.0.1/tcp/36921 }
+event NewListenAddr { listener_id: ListenerId(1), address: /ip4/192.168.24.161/tcp/36921 }
+event Behaviour(Mdns(Discovered([(PeerId("12D3KooWP5PghooNgeaRyzuwnzJjQD1v7z8jM8PaAm2PNxxMngR3"), /ip4/192.168.24.161/tcp/40461/p2p/12D3KooWP5PghooNgeaRyzuwnzJjQD1v7z8jM8PaAm2PNxxMngR3)])))
+event NewExternalAddrOfPeer { peer_id: PeerId("12D3KooWP5PghooNgeaRyzuwnzJjQD1v7z8jM8PaAm2PNxxMngR3"), address: /ip4/192.168.24.161/tcp/40461/p2p/12D3KooWP5PghooNgeaRyzuwnzJjQD1v7z8jM8PaAm2PNxxMngR3 }
