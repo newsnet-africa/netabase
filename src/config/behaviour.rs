@@ -54,7 +54,9 @@ impl From<mdns::Event> for NetEvent {
 
 impl NetabaseBehaviour {
     pub fn new(key: &Keypair) -> Self {
-        let kademlia_config = kad::Config::new(StreamProtocol::new("/newsnet"));
+        let kademlia_config = kad::Config::new(StreamProtocol::new("/newsnet"))
+            .set_kbucket_inserts(kad::BucketInserts::OnConnected)
+            .to_owned();
         let mdns_config = mdns::Config::default();
         let identify_config = identify::Config::new("1.0.0".to_string(), key.public());
 
