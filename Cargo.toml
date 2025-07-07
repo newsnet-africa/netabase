@@ -1,0 +1,16 @@
+[package]
+name = "netabase"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.98"
+bincode = { version = "2.0.1", features = ["serde"] }
+env_logger = "0.11.8"
+libp2p = { version = "0.56.0", features = ["full", "identify", "kad"] }
+log = "0.4.27"
+rand = "0.9.1"
+serde = { version = "1.0.219", features = ["derive"] }
+sled = "0.34.7"
+smallvec = { version = "1.15.1", features = ["bincode", "impl_bincode"] }
+tokio = { version = "1.45.1", features = ["full"] }
