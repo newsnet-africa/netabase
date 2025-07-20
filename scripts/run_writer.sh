@@ -2,6 +2,7 @@
 
 # NetaBase Cross-Machine Writer Test Runner
 # This script runs a writer node that stores records in the distributed hash table
+# Updated to use the new configuration system with improved argument handling
 
 set -e
 
@@ -9,16 +10,18 @@ set -e
 DEFAULT_WRITER_ADDR="0.0.0.0:9901"
 DEFAULT_TEST_KEY="cross_machine_key"
 DEFAULT_TEST_VALUES="Value1,Value2,Value3,HelloWorld"
+DEFAULT_WRITER_TIMEOUT="0"  # 0 means run indefinitely
 
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 show_usage() {
-    echo "NetaBase Cross-Machine Writer Test Runner"
+    echo -e "${CYAN}NetaBase Cross-Machine Writer Test Runner${NC}"
     echo ""
     echo "Usage: $0 [options]"
     echo ""
@@ -26,19 +29,43 @@ show_usage() {
     echo "  -a, --addr ADDR      Listen address (default: $DEFAULT_WRITER_ADDR)"
     echo "  -k, --key KEY        Test key to store records under (default: $DEFAULT_TEST_KEY)"
     echo "  -v, --values VALUES  Comma-separated values to store (default: $DEFAULT_TEST_VALUES)"
+    echo "  -t, --timeout SECS   Timeout in seconds, 0 for indefinite (default: $DEFAULT_WRITER_TIMEOUT)"
+    echo "  --verbose            Enable verbose logging"
+    echo "  --dry-run            Show configuration without running the test"
+    echo "  --validate-only      Only validate configuration and exit"
     echo "  -h, --help           Show this help message"
     echo ""
     echo "Environment Variables:"
-    echo "  NETABASE_WRITER_ADDR     Override listen address"
-    echo "  NETABASE_TEST_KEY        Override test key"
-    echo "  NETABASE_TEST_VALUES     Override test values"
+    echo "  NETABASE_WRITER_ADDR      Override listen address"
+    echo "  NETABASE_TEST_KEY         Override test key"
+    echo "  NETABASE_TEST_VALUES      Override test values"
+    echo "  NETABASE_WRITER_TIMEOUT   Override timeout (0 = indefinite)"
     echo ""
     echo "Examples:"
+    echo "  # Basic usage with defaults (runs indefinitely)"
     echo "  $0"
-    echo "  $0 --addr 0.0.0.0:8080 --key mykey --values 'Hello,World,Test'"
-    echo "  $0 -a 192.168.1.100:9901 -v 'Data1,Data2,Data3'"
     echo ""
-    echo "The writer will run indefinitely until stopped with Ctrl+C"
+    echo "  # Custom address and key"
+    echo "  $0 --addr 0.0.0.0:8080 --key mykey --values 'Hello,World,Test'"
+    echo ""
+    echo "  # Run for specific duration"
+    echo "  $0 -a 192.168.1.100:9901 -t 300 -v 'Data1,Data2,Data3'"
+    echo ""
+    echo "  # Verbose mode with dry-run"
+    echo "  $0 --verbose --dry-run -a 0.0.0.0:9901"
+    echo ""
+    echo "  # Using environment variables"
+    echo "  NETABASE_WRITER_ADDR=0.0.0.0:9901 \\"
+    echo "  NETABASE_TEST_KEY=distributed_test \\"
+    echo "  NETABASE_TEST_VALUES='Message1,Message2,Message3' \\"
+    echo "  $0"
+    echo ""
+    echo "Network Setup:"
+    echo "  1. Writer listens on specified address and stores records"
+    echo "  2. Reader machines connect to writer's IP address"
+    echo "  3. Ensure firewall allows UDP traffic on the specified port"
+    echo ""
+    echo "The writer will run until stopped with Ctrl+C (or timeout if specified)"
 }
 
 log_info() {
@@ -55,6 +82,12 @@ log_warning() {
 
 log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
+}
+
+log_debug() {
+    if [ "$VERBOSE" = "true" ]; then
+        echo -e "${CYAN}[DEBUG]${NC} $1"
+    fi
 }
 
 check_prerequisites() {
@@ -75,12 +108,65 @@ check_prerequisites() {
         exit 1
     fi
 
+    # Check for required dependencies
+    if ! grep -q "clap.*=" Cargo.toml && ! grep -q "envy.*=" Cargo.toml; then
+        log_warning "Configuration dependencies may not be installed."
+        log_info "Run 'cargo build' to ensure all dependencies are available."
+    fi
+
     log_success "Prerequisites check passed"
 }
 
+validate_config() {
+    local writer_addr="$1"
+    local timeout="$2"
+
+    log_debug "Validating configuration..."
+
+    # Validate address format
+    if [[ ! "$writer_addr" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+$ ]] && [[ ! "$writer_addr" =~ ^[a-zA-Z0-9.-]+:[0-9]+$ ]]; then
+        log_error "Invalid address format: $writer_addr"
+        log_error "Expected format: IP:PORT or HOSTNAME:PORT"
+        return 1
+    fi
+
+    # Extract and validate port
+    local port="${writer_addr##*:}"
+    if ! [[ "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+        log_error "Invalid port: $port (must be 1-65535)"
+        return 1
+    fi
+
+    # Validate timeout
+    if ! [[ "$timeout" =~ ^[0-9]+$ ]] || [ "$timeout" -lt 0 ]; then
+        log_error "Invalid timeout: $timeout (must be non-negative integer, 0 for indefinite)"
+        return 1
+    fi
+
+    # Check for potential issues
+    local host="${writer_addr%:*}"
+    if [[ "$host" != "0.0.0.0" ]] && [[ "$host" != "127.0.0.1" ]] && [[ "$host" != "localhost" ]]; then
+        log_warning "Using specific IP address: $host"
+        log_warning "Make sure this IP is actually bound to a network interface"
+    fi
+
+    if [ "$timeout" -gt 0 ] && [ "$timeout" -lt 30 ]; then
+        log_warning "Timeout is very short ($timeout seconds). May not give readers enough time to connect."
+    fi
+
+    # Check for port conflicts
+    if command -v netstat &> /dev/null; then
+        if netstat -ln 2>/dev/null | grep -q ":$port "; then
+            log_warning "Port $port appears to be in use. This may cause binding errors."
+        fi
+    fi
+
+    log_debug "Configuration validation passed"
+    return 0
+}
+
 get_local_ip() {
-    # Try to get the local IP address
-    local_ip=""
+    local local_ip=""
 
     # Try different methods to get local IP
     if command -v ip &> /dev/null; then
@@ -96,43 +182,195 @@ get_local_ip() {
     fi
 }
 
-display_network_info() {
+get_all_local_ips() {
+    local ips=""
+
+    if command -v ip &> /dev/null; then
+        ips=$(ip addr show | grep -oP 'inet \K[0-9.]+' | grep -v '127.0.0.1' | tr '\n' ' ')
+    elif command -v ifconfig &> /dev/null; then
+        ips=$(ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | tr '\n' ' ')
+    fi
+
+    echo "$ips"
+}
+
+display_configuration() {
     local writer_addr="$1"
+    local test_key="$2"
+    local test_values="$3"
+    local timeout="$4"
     local local_ip
+    local all_ips
+
     local_ip=$(get_local_ip)
+    all_ips=$(get_all_local_ips)
 
     echo ""
-    echo "========================== NETWORK INFO =========================="
-    echo -e "${GREEN}Writer Configuration:${NC}"
+    echo "========================== WRITER CONFIGURATION =========================="
+    echo -e "${GREEN}Network Settings:${NC}"
     echo "  Listen Address: $writer_addr"
-    echo "  Local IP: $local_ip"
+    echo "  Local IP(s): ${all_ips:-unknown}"
+
+    if [ "$timeout" = "0" ]; then
+        echo "  Runtime: Indefinite (until Ctrl+C)"
+    else
+        echo "  Runtime: ${timeout} seconds"
+    fi
+
     echo ""
-    echo -e "${BLUE}For Reader Machine:${NC}"
+    echo -e "${GREEN}Test Settings:${NC}"
+    echo "  Test Key: '$test_key'"
+    echo "  Test Values: $test_values"
+    echo "  Values Count: $(echo "$test_values" | tr ',' '\n' | wc -l)"
+    echo ""
+
+    echo -e "${BLUE}For Reader Machines:${NC}"
     if [[ "$writer_addr" == "0.0.0.0:"* ]]; then
         local port="${writer_addr#*:}"
-        echo "  Set NETABASE_READER_CONNECT_ADDR=\"$local_ip:$port\""
+        if [ "$local_ip" != "unknown" ]; then
+            echo "  NETABASE_READER_CONNECT_ADDR=\"$local_ip:$port\""
+        else
+            echo "  NETABASE_READER_CONNECT_ADDR=\"<your-ip>:$port\""
+        fi
     else
-        echo "  Set NETABASE_READER_CONNECT_ADDR=\"$writer_addr\""
+        echo "  NETABASE_READER_CONNECT_ADDR=\"$writer_addr\""
     fi
+    echo "  NETABASE_TEST_KEY=\"$test_key\""
+    echo "  NETABASE_TEST_VALUES=\"$test_values\""
     echo ""
-    echo -e "${YELLOW}Firewall:${NC}"
+
+    echo -e "${YELLOW}Firewall Configuration:${NC}"
     local port="${writer_addr##*:}"
-    echo "  Make sure port $port is open for UDP traffic"
+    echo "  Port $port must be open for UDP traffic"
     echo "  Ubuntu/Debian: sudo ufw allow $port/udp"
     echo "  CentOS/RHEL:   sudo firewall-cmd --add-port=$port/udp --permanent"
-    echo "==============================================================="
+    echo "  Windows:       netsh advfirewall firewall add rule name=\"NetaBase\" protocol=UDP dir=in localport=$port action=allow"
+    echo ""
+
+    echo -e "${CYAN}Network Testing:${NC}"
+    echo "  Test connectivity from reader machine:"
+    if [ "$local_ip" != "unknown" ]; then
+        echo "    ping $local_ip"
+        echo "    nc -u -z $local_ip $port"
+    else
+        echo "    ping <writer-ip>"
+        echo "    nc -u -z <writer-ip> $port"
+    fi
+    echo "========================================================================"
     echo ""
 }
 
+run_rust_test() {
+    local dry_run="$1"
+
+    if [ "$dry_run" = "true" ]; then
+        log_info "Dry run mode - configuration would be:"
+        echo "  NETABASE_WRITER_ADDR=$WRITER_ADDR"
+        echo "  NETABASE_TEST_KEY=$TEST_KEY"
+        echo "  NETABASE_TEST_VALUES=$TEST_VALUES"
+        echo "  NETABASE_WRITER_TIMEOUT=$WRITER_TIMEOUT"
+        log_info "Would run: cargo test cross_machine_writer -- --nocapture --ignored"
+        return 0
+    fi
+
+    log_info "Starting writer node..."
+    if [ "$WRITER_TIMEOUT" = "0" ]; then
+        log_warning "Writer will run indefinitely. Press Ctrl+C to stop."
+    else
+        log_info "Writer will run for $WRITER_TIMEOUT seconds"
+    fi
+    log_info "This may take a moment to compile and run..."
+    echo ""
+
+    # Export environment variables for the Rust test
+    export NETABASE_WRITER_ADDR="$WRITER_ADDR"
+    export NETABASE_TEST_KEY="$TEST_KEY"
+    export NETABASE_TEST_VALUES="$TEST_VALUES"
+    export NETABASE_WRITER_TIMEOUT="$WRITER_TIMEOUT"
+
+    # Set Rust log level based on verbose flag
+    if [ "$VERBOSE" = "true" ]; then
+        export RUST_LOG="debug"
+    else
+        export RUST_LOG="info"
+    fi
+
+    # Run the test with proper error handling
+    local exit_code=0
+    if cargo test cross_machine_writer -- --nocapture --ignored; then
+        echo ""
+        log_success "Writer test completed successfully!"
+        if [ "$WRITER_TIMEOUT" = "0" ]; then
+            log_info "Writer was stopped by user (Ctrl+C)"
+        else
+            log_info "Writer ran for the specified timeout duration"
+        fi
+    else
+        exit_code=$?
+        echo ""
+        log_error "Writer test failed with exit code $exit_code"
+
+        echo ""
+        echo "Common issues and solutions:"
+        echo "1. Port already in use:"
+        echo "   → Check with: netstat -ln | grep :$port"
+        echo "   → Kill conflicting process or use different port"
+        echo "2. Permission denied:"
+        echo "   → Use port > 1024 or run with appropriate privileges"
+        echo "3. Address binding failed:"
+        echo "   → Verify IP address is available on this machine"
+        echo "   → Use 0.0.0.0:<port> to bind to all interfaces"
+        echo "4. Compilation errors:"
+        echo "   → Run: cargo build to check for dependency issues"
+        echo "5. Network interface issues:"
+        echo "   → Check available IPs with: ip addr show"
+
+        return $exit_code
+    fi
+}
+
 cleanup() {
-    log_info "Shutting down writer node..."
+    log_info "Writer shutdown initiated by user"
+    log_info "Stopping writer node gracefully..."
     exit 0
+}
+
+validate_only_mode() {
+    log_info "Configuration validation mode"
+
+    # Test configuration parsing
+    export NETABASE_WRITER_ADDR="$WRITER_ADDR"
+    export NETABASE_TEST_KEY="$TEST_KEY"
+    export NETABASE_TEST_VALUES="$TEST_VALUES"
+    export NETABASE_WRITER_TIMEOUT="$WRITER_TIMEOUT"
+
+    # Shell-based validation (ideally would call Rust validation)
+    if validate_config "$WRITER_ADDR" "$WRITER_TIMEOUT"; then
+        log_success "Configuration is valid"
+        display_configuration "$WRITER_ADDR" "$TEST_KEY" "$TEST_VALUES" "$WRITER_TIMEOUT"
+
+        echo -e "${GREEN}Ready to run writer test with this configuration!${NC}"
+        echo ""
+        echo "Next steps:"
+        echo "1. Run this script without --validate-only to start the writer"
+        echo "2. On reader machines, use the NETABASE_READER_CONNECT_ADDR shown above"
+        echo "3. Ensure firewall allows UDP traffic on the specified port"
+
+        exit 0
+    else
+        log_error "Configuration validation failed"
+        exit 1
+    fi
 }
 
 # Parse command line arguments
 WRITER_ADDR="$DEFAULT_WRITER_ADDR"
 TEST_KEY="$DEFAULT_TEST_KEY"
 TEST_VALUES="$DEFAULT_TEST_VALUES"
+WRITER_TIMEOUT="$DEFAULT_WRITER_TIMEOUT"
+VERBOSE=false
+DRY_RUN=false
+VALIDATE_ONLY=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -148,22 +386,40 @@ while [[ $# -gt 0 ]]; do
             TEST_VALUES="$2"
             shift 2
             ;;
+        -t|--timeout)
+            WRITER_TIMEOUT="$2"
+            shift 2
+            ;;
+        --verbose)
+            VERBOSE=true
+            shift
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        --validate-only)
+            VALIDATE_ONLY=true
+            shift
+            ;;
         -h|--help)
             show_usage
             exit 0
             ;;
         *)
             log_error "Unknown option: $1"
+            echo ""
             show_usage
             exit 1
             ;;
     esac
 done
 
-# Override with environment variables if set
+# Override with environment variables if set (env vars have lower priority than CLI args)
 WRITER_ADDR="${NETABASE_WRITER_ADDR:-$WRITER_ADDR}"
 TEST_KEY="${NETABASE_TEST_KEY:-$TEST_KEY}"
 TEST_VALUES="${NETABASE_TEST_VALUES:-$TEST_VALUES}"
+WRITER_TIMEOUT="${NETABASE_WRITER_TIMEOUT:-$WRITER_TIMEOUT}"
 
 # Main execution
 main() {
@@ -172,27 +428,46 @@ main() {
     echo "                  NetaBase Cross-Machine Writer"
     echo "====================================================================="
 
+    # Handle special modes first
+    if [ "$VALIDATE_ONLY" = "true" ]; then
+        validate_only_mode
+        return
+    fi
+
     check_prerequisites
-    display_network_info "$WRITER_ADDR"
+
+    if ! validate_config "$WRITER_ADDR" "$WRITER_TIMEOUT"; then
+        log_error "Configuration validation failed"
+        exit 1
+    fi
+
+    display_configuration "$WRITER_ADDR" "$TEST_KEY" "$TEST_VALUES" "$WRITER_TIMEOUT"
 
     # Set up trap for graceful shutdown
     trap cleanup SIGINT SIGTERM
 
-    log_info "Starting writer node..."
-    log_info "Listen Address: $WRITER_ADDR"
-    log_info "Test Key: $TEST_KEY"
-    log_info "Test Values: $TEST_VALUES"
-    log_info ""
-    log_warning "Writer will run indefinitely. Press Ctrl+C to stop."
+    log_info "Configuration validated successfully"
+
+    if [ "$VERBOSE" = "true" ]; then
+        log_debug "Verbose mode enabled"
+        log_debug "Writer will listen on: $WRITER_ADDR"
+        log_debug "Storing records under key: $TEST_KEY"
+        log_debug "Values to store: $TEST_VALUES"
+        log_debug "Timeout: ${WRITER_TIMEOUT}s (0 = indefinite)"
+    fi
+
     echo ""
 
-    # Export environment variables
-    export NETABASE_WRITER_ADDR="$WRITER_ADDR"
-    export NETABASE_TEST_KEY="$TEST_KEY"
-    export NETABASE_TEST_VALUES="$TEST_VALUES"
+    # Run the actual test
+    if ! run_rust_test "$DRY_RUN"; then
+        exit 1
+    fi
 
-    # Run the test
-    cargo test cross_machine_writer -- --nocapture --ignored
+    if [ "$DRY_RUN" != "true" ]; then
+        echo ""
+        log_success "Writer operation completed!"
+        log_info "Check the logs above for detailed results"
+    fi
 }
 
 # Run main function

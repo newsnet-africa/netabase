@@ -6,7 +6,9 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.98"
 bincode = { version = "2.0.1", features = ["serde"] }
+clap = { version = "4.4", features = ["derive", "env"] }
 env_logger = "0.11.8"
+envy = "0.4"
 libp2p = { version = "0.56.0", features = ["full", "identify", "kad"] }
 log = "0.4.27"
 rand = "0.9.1"

@@ -13,45 +13,99 @@ The cross-machine tests allow you to:
 
 ### Machine 1 (Writer)
 ```bash
-# Set the IP address this machine should listen on
+# Using the writer script with CLI arguments
+./scripts/run_writer.sh \
+  --addr 0.0.0.0:9901 \
+  --key my_test_key \
+  --values "Hello,World,Distributed,Hash,Table"
+
+# Or using environment variables
 export NETABASE_WRITER_ADDR="0.0.0.0:9901"
 export NETABASE_TEST_KEY="my_test_key"
 export NETABASE_TEST_VALUES="Hello,World,Distributed,Hash,Table"
+./scripts/run_writer.sh
 
-# Run the writer test (it will run indefinitely until stopped)
-cargo test cross_machine_writer  -- --nocapture --ignored
+# Or run directly with cargo (legacy method)
+cargo test cross_machine_writer -- --nocapture --ignored
 ```
 
 ### Machine 2 (Reader)
 ```bash
-# Set the IP address of the writer machine
-export NETABASE_READER_CONNECT_ADDR="192.168.1.100:9901"  # Use Machine 1's IP
+# Using the reader script with CLI arguments
+./scripts/run_reader.sh \
+  --connect 192.168.24.160:9901 \
+  --key my_test_key \
+  --values "Hello,World,Distributed,Hash,Table" \
+  --timeout 60
+
+# Or using environment variables
+export NETABASE_READER_CONNECT_ADDR="192.168.1.100:9901"
 export NETABASE_TEST_KEY="my_test_key"
 export NETABASE_TEST_VALUES="Hello,World,Distributed,Hash,Table"
 export NETABASE_TEST_TIMEOUT="60"
+./scripts/run_reader.sh
 
-# Run the reader test
+# Or run directly with cargo (legacy method)
 cargo test cross_machine_reader -- --nocapture --ignored
 ```
 
-## Environment Variables
+## Configuration Options
 
-### Writer Node Variables
+### Shell Scripts (Recommended)
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `NETABASE_WRITER_ADDR` | IP:PORT to listen on | `0.0.0.0:9901` |
-| `NETABASE_TEST_KEY` | Key to store records under | `cross_machine_key` |
-| `NETABASE_TEST_VALUES` | Comma-separated values to store | `Value1,Value2,Value3` |
+The easiest way to run cross-machine tests is using the provided shell scripts:
 
-### Reader Node Variables
+- `./scripts/run_writer.sh` - Start a writer node
+- `./scripts/run_reader.sh` - Start a reader node
+- `./scripts/run_local.sh` - Run local test with both nodes
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `NETABASE_READER_CONNECT_ADDR` | Writer's IP:PORT to connect to | `127.0.0.1:9901` |
-| `NETABASE_TEST_KEY` | Key to retrieve records from | `cross_machine_key` |
-| `NETABASE_TEST_VALUES` | Expected comma-separated values | `Value1,Value2,Value3` |
-| `NETABASE_TEST_TIMEOUT` | Timeout in seconds | `120` |
+### Writer Script Options
+
+```bash
+./scripts/run_writer.sh [options]
+```
+
+| CLI Option | Environment Variable | Description | Default |
+|------------|---------------------|-------------|---------|
+| `-a, --addr` | `NETABASE_WRITER_ADDR` | IP:PORT to listen on | `0.0.0.0:9901` |
+| `-k, --key` | `NETABASE_TEST_KEY` | Key to store records under | `cross_machine_key` |
+| `-v, --values` | `NETABASE_TEST_VALUES` | Comma-separated values to store | `Value1,Value2,Value3,HelloWorld` |
+| `-t, --timeout` | `NETABASE_WRITER_TIMEOUT` | Timeout in seconds (0=indefinite) | `0` |
+| `--verbose` | - | Enable verbose logging | `false` |
+| `--dry-run` | - | Show configuration without running | `false` |
+| `--validate-only` | - | Only validate configuration | `false` |
+
+### Reader Script Options
+
+```bash
+./scripts/run_reader.sh [options]
+```
+
+| CLI Option | Environment Variable | Description | Default |
+|------------|---------------------|-------------|---------|
+| `-c, --connect` | `NETABASE_READER_CONNECT_ADDR` | Writer's IP:PORT to connect to | `127.0.0.1:9901` |
+| `-k, --key` | `NETABASE_TEST_KEY` | Key to retrieve records from | `cross_machine_key` |
+| `-v, --values` | `NETABASE_TEST_VALUES` | Expected comma-separated values | `Value1,Value2,Value3,HelloWorld` |
+| `-t, --timeout` | `NETABASE_TEST_TIMEOUT` | Timeout in seconds | `120` |
+| `-r, --retries` | `NETABASE_READER_RETRIES` | Number of retry attempts | `3` |
+| `--verbose` | - | Enable verbose logging | `false` |
+| `--dry-run` | - | Show configuration without running | `false` |
+| `--validate-only` | - | Only validate configuration | `false` |
+
+### Local Test Script Options
+
+```bash
+./scripts/run_local.sh [options]
+```
+
+| CLI Option | Environment Variable | Description | Default |
+|------------|---------------------|-------------|---------|
+| `-k, --key` | `NETABASE_TEST_KEY` | Test key to use | `cross_machine_key` |
+| `-v, --values` | `NETABASE_TEST_VALUES` | Comma-separated test values | `Value1,Value2,Value3,HelloWorld` |
+| `-t, --timeout` | `NETABASE_TEST_TIMEOUT` | Timeout in seconds | `60` |
+| `--verbose` | - | Enable verbose logging | `false` |
+| `--dry-run` | - | Show configuration without running | `false` |
+| `--validate-only` | - | Only validate configuration | `false` |
 
 ## Detailed Instructions
 
@@ -91,13 +145,35 @@ cargo test cross_machine_reader -- --nocapture --ignored
 On the writer machine:
 
 ```bash
-# Example configuration
+# Using shell script with CLI arguments (recommended)
+./scripts/run_writer.sh \
+  --addr 0.0.0.0:9901 \
+  --key distributed_test \
+  --values "Message1,Message2,Message3,Hello from Writer" \
+  --verbose
+
+# Or using environment variables
 export NETABASE_WRITER_ADDR="0.0.0.0:9901"
 export NETABASE_TEST_KEY="distributed_test"
 export NETABASE_TEST_VALUES="Message1,Message2,Message3,Hello from Writer"
+./scripts/run_writer.sh
 
-# Start the writer (runs indefinitely)
+# Or legacy method with cargo
 cargo test cross_machine_writer -- --nocapture --ignored
+```
+
+#### Validation and Testing
+
+Before starting the actual writer, you can validate your configuration:
+
+```bash
+# Validate configuration only
+./scripts/run_writer.sh --validate-only \
+  --addr 0.0.0.0:9901 \
+  --key distributed_test
+
+# Dry run to see what would be executed
+./scripts/run_writer.sh --dry-run --verbose
 ```
 
 **Expected output:**
@@ -123,15 +199,38 @@ Test values: ["Message1", "Message2", "Message3", "Hello from Writer"]
 On the reader machine (use the writer machine's actual IP address):
 
 ```bash
-# Example configuration - replace 192.168.1.100 with actual writer IP
+# Using shell script with CLI arguments (recommended)
+./scripts/run_reader.sh \
+  --connect 192.168.1.100:9901 \
+  --key distributed_test \
+  --values "Message1,Message2,Message3,Hello from Writer" \
+  --timeout 60 \
+  --retries 5 \
+  --verbose
+
+# Or using environment variables
 export NETABASE_READER_CONNECT_ADDR="192.168.1.100:9901"
 export NETABASE_TEST_KEY="distributed_test"
 export NETABASE_TEST_VALUES="Message1,Message2,Message3,Hello from Writer"
 export NETABASE_TEST_TIMEOUT="60"
+./scripts/run_reader.sh
 
-# Start the reader
+# Or legacy method with cargo
 cargo test cross_machine_reader -- --nocapture --ignored
+```
 
+#### Pre-flight Checks
+
+Test your configuration before running:
+
+```bash
+# Validate configuration and test connectivity
+./scripts/run_reader.sh --validate-only \
+  --connect 192.168.1.100:9901 \
+  --key distributed_test
+
+# Dry run to see what would be executed
+./scripts/run_reader.sh --dry-run --verbose
 ```
 
 **Expected output:**
@@ -162,9 +261,29 @@ Timeout: 60 seconds
 Before running across machines, test the setup locally:
 
 ```bash
-# Test the cross-machine setup on a single machine
+# Using the local test script (recommended)
+./scripts/run_local.sh
+
+# With custom configuration
+./scripts/run_local.sh \
+  --key local_test \
+  --values "Local1,Local2,Local3" \
+  --timeout 30 \
+  --verbose
+
+# Validate configuration first
+./scripts/run_local.sh --validate-only
+
+# Or legacy method with cargo
 cargo test cross_machine_local_test -- --nocapture --ignored
 ```
+
+The local test script automatically:
+- Starts a writer node on a random local port
+- Waits for the writer to be ready
+- Starts a reader node to connect to the writer
+- Verifies all records are retrieved correctly
+- Shuts down both nodes automatically
 
 ## Advanced Usage
 
@@ -174,31 +293,43 @@ You can run multiple reader instances from different machines:
 
 ```bash
 # Machine 2
-export NETABASE_READER_CONNECT_ADDR="192.168.1.100:9901"
-cargo test cross_machine_reader
+./scripts/run_reader.sh --connect 192.168.1.100:9901
 
 # Machine 3 (simultaneously)
+./scripts/run_reader.sh --connect 192.168.1.100:9901 --verbose
+
+# Or with environment variables
 export NETABASE_READER_CONNECT_ADDR="192.168.1.100:9901"
-cargo test cross_machine_reader -- --nocapture --ignored
+./scripts/run_reader.sh
 ```
 
 ### Custom Port
 
 ```bash
 # Writer on custom port
-export NETABASE_WRITER_ADDR="0.0.0.0:8888"
-cargo test cross_machine_writer -- --nocapture --ignored
+./scripts/run_writer.sh --addr 0.0.0.0:8888 --key custom_test
 
 # Reader connecting to custom port
-export NETABASE_READER_CONNECT_ADDR="192.168.1.100:8888"
-cargo test cross_machine_reader -- --nocapture --ignored
+./scripts/run_reader.sh --connect 192.168.1.100:8888 --key custom_test
 ```
 
 ### Large Data Test
 
 ```bash
 # Test with larger payload
-export NETABASE_TEST_VALUES="$(python3 -c 'print(",".join([f"Data{i}" for i in range(100)]))')"
+LARGE_VALUES="$(python3 -c 'print(",".join([f"Data{i}" for i in range(100)]))')"
+./scripts/run_writer.sh --values "$LARGE_VALUES" --key large_test
+./scripts/run_reader.sh --values "$LARGE_VALUES" --key large_test
+```
+
+### Timed Tests
+
+```bash
+# Writer that runs for specific duration
+./scripts/run_writer.sh --timeout 300 --key timed_test
+
+# Reader with custom timeout and retries
+./scripts/run_reader.sh --timeout 60 --retries 10 --key timed_test
 ```
 
 ## Troubleshooting
@@ -269,8 +400,26 @@ After successful cross-machine testing, you can:
 
 ## Notes
 
-- The writer test runs indefinitely until manually stopped (Ctrl+C)
-- The reader test has a configurable timeout and will exit automatically
+### Script Features
+- **Configuration validation**: All scripts validate input before running
+- **Dry-run mode**: Test configuration without actually running nodes
+- **Verbose logging**: Detailed output for debugging
+- **Connectivity testing**: Scripts test network connectivity before starting
+- **Graceful shutdown**: Proper cleanup on Ctrl+C interruption
+
+### Network Requirements
+- Writer test runs indefinitely by default (use `--timeout` to limit)
+- Reader test has configurable timeout and retries automatically
 - Tests use UDP/QUIC for transport, ensure UDP traffic is allowed
-- IPv6 addresses are supported by modifying the address format
-- For production use, consider implementing proper peer discovery mechanisms
+- IPv6 addresses are supported by using IPv6 format in `--addr`
+- Firewall must allow UDP traffic on specified ports
+
+### Configuration Priority
+1. Command-line arguments (highest priority)
+2. Environment variables
+3. Default values (lowest priority)
+
+### Legacy Support
+- Direct `cargo test` commands still work for backward compatibility
+- Environment-only configuration is still supported
+- New scripts provide better UX and validation on top of existing tests

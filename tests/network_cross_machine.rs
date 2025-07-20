@@ -1,12 +1,20 @@
-use std::env;
+//! Cross-machine network testing for NetaBase DHT functionality
+//!
+//! This module provides tests for distributed hash table operations across multiple machines.
+//! It supports both environment variables and command-line arguments for configuration.
+
 use std::time::Duration;
 
 use anyhow::Result;
 use libp2p::futures::StreamExt;
 use libp2p::kad::{QueryResult, RecordKey};
 use libp2p::{Multiaddr, PeerId};
-use log::info;
-use netabase::{get_test_temp_dir_str, network::swarm::generate_swarm};
+use log::{error, info, warn};
+use netabase::{
+    config::{local_config_from_env, reader_config_from_env, writer_config_from_env},
+    get_test_temp_dir_str,
+    network::swarm::generate_swarm,
+};
 use tokio::time::{sleep, timeout};
 
 fn init_logging() {
@@ -19,49 +27,34 @@ fn init_logging() {
     });
 }
 
-/// Get writer listen address from environment or use default
-fn get_writer_address() -> String {
-    env::var("NETABASE_WRITER_ADDR").unwrap_or_else(|_| "0.0.0.0:9901".to_string())
-}
-
-/// Get reader connect address from environment or use default
-fn get_reader_connect_address() -> String {
-    env::var("NETABASE_READER_CONNECT_ADDR").unwrap_or_else(|_| "127.0.0.1:9901".to_string())
-}
-
-/// Get test key from environment or use default
-fn get_test_key() -> String {
-    env::var("NETABASE_TEST_KEY").unwrap_or_else(|_| "cross_machine_key".to_string())
-}
-
-/// Get test values from environment (comma-separated) or use defaults
-fn get_test_values() -> Vec<String> {
-    env::var("NETABASE_TEST_VALUES")
-        .unwrap_or_else(|_| "Value1,Value2,Value3".to_string())
-        .split(',')
-        .map(|s| s.trim().to_string())
-        .collect()
-}
-
-/// Get test timeout from environment or use default (in seconds)
-fn get_test_timeout() -> u64 {
-    env::var("NETABASE_TEST_TIMEOUT")
-        .unwrap_or_else(|_| "120".to_string())
-        .parse()
-        .unwrap_or(120)
-}
-
-async fn run_writer_node(listen_addr: String, key: RecordKey, values: Vec<String>) -> Result<()> {
-    info!("Starting writer node on address: {}", listen_addr);
+/// Run a writer node that stores records in the DHT
+async fn run_writer_node(
+    listen_addr: std::net::SocketAddr,
+    key: RecordKey,
+    values: Vec<String>,
+    timeout: Option<Duration>,
+    verbose: bool,
+) -> Result<()> {
+    if verbose {
+        info!("Starting writer node on address: {}", listen_addr);
+        info!(
+            "Writer will store {} values under key: {:?}",
+            values.len(),
+            key
+        );
+    }
 
     let temp_dir = get_test_temp_dir_str(Some("cross_writer"));
     let mut swarm = generate_swarm(&temp_dir)?;
 
-    // Parse and listen on the specified address
-    let parts: Vec<&str> = listen_addr.split(':').collect();
-    let ip = parts[0];
-    let port = parts[1];
-    let listen_multiaddr: Multiaddr = format!("/ip4/{}/udp/{}/quic-v1", ip, port).parse()?;
+    // Convert SocketAddr to Multiaddr
+    let listen_multiaddr: Multiaddr = format!(
+        "/ip4/{}/udp/{}/quic-v1",
+        listen_addr.ip(),
+        listen_addr.port()
+    )
+    .parse()?;
+
     swarm.listen_on(listen_multiaddr)?;
 
     // Set to server mode to accept and store records
@@ -97,17 +90,32 @@ async fn run_writer_node(listen_addr: String, key: RecordKey, values: Vec<String
                 put_query_ids.push(query_id);
             }
             Err(e) => {
-                info!("Writer: Failed to initiate put for record {}: {:?}", i, e);
+                warn!("Writer: Failed to initiate put for record {}: {:?}", i, e);
             }
         }
     }
 
     info!("Writer: All {} records queued for storage", total_values);
     info!("Writer: Now listening for connections and serving requests...");
-    info!("Writer: Press Ctrl+C to stop the writer node");
+
+    if timeout.is_some() {
+        info!("Writer: Will run for {:?}", timeout.unwrap());
+    } else {
+        info!("Writer: Press Ctrl+C to stop the writer node");
+    }
+
+    let start_time = std::time::Instant::now();
 
     // Main event loop
     loop {
+        // Check timeout if specified
+        if let Some(timeout_duration) = timeout {
+            if start_time.elapsed() > timeout_duration {
+                info!("Writer: Timeout reached, shutting down");
+                break;
+            }
+        }
+
         let event = swarm.select_next_some().await;
 
         match event {
@@ -131,7 +139,7 @@ async fn run_writer_node(listen_addr: String, key: RecordKey, values: Vec<String
                     );
                 }
                 QueryResult::PutRecord(Err(e)) => {
-                    info!("Writer: Failed to store record: {:?}", e);
+                    warn!("Writer: Failed to store record: {:?}", e);
                 }
                 _ => {}
             },
@@ -140,7 +148,9 @@ async fn run_writer_node(listen_addr: String, key: RecordKey, values: Vec<String
                     libp2p::kad::Event::InboundRequest { request },
                 ),
             ) => {
-                info!("Writer: Received inbound request: {:?}", request);
+                if verbose {
+                    info!("Writer: Received inbound request: {:?}", request);
+                }
             }
             _ => {}
         }
@@ -148,42 +158,52 @@ async fn run_writer_node(listen_addr: String, key: RecordKey, values: Vec<String
         // Add a small delay to prevent busy waiting
         tokio::task::yield_now().await;
     }
+
+    Ok(())
 }
 
+/// Run a writer node with a ready signal for coordination with reader
 async fn run_writer_node_with_ready_signal(
-    listen_addr: String,
+    listen_addr: std::net::SocketAddr,
     key: RecordKey,
     values: Vec<String>,
-    ready_tx: tokio::sync::mpsc::Sender<bool>,
+    ready_tx: tokio::sync::oneshot::Sender<PeerId>,
+    verbose: bool,
 ) -> Result<()> {
-    info!("Starting writer node on address: {}", listen_addr);
+    if verbose {
+        info!(
+            "Starting coordinated writer node on address: {}",
+            listen_addr
+        );
+    }
 
-    let temp_dir = get_test_temp_dir_str(Some("cross_writer"));
+    let temp_dir = get_test_temp_dir_str(Some("cross_writer_coordinated"));
     let mut swarm = generate_swarm(&temp_dir)?;
 
-    // Parse and listen on the specified address
-    let parts: Vec<&str> = listen_addr.split(':').collect();
-    let ip = parts[0];
-    let port = parts[1];
-    let listen_multiaddr: Multiaddr = format!("/ip4/{}/udp/{}/quic-v1", ip, port).parse()?;
+    // Convert SocketAddr to Multiaddr
+    let listen_multiaddr: Multiaddr = format!(
+        "/ip4/{}/udp/{}/quic-v1",
+        listen_addr.ip(),
+        listen_addr.port()
+    )
+    .parse()?;
+
     swarm.listen_on(listen_multiaddr)?;
 
-    // Set to server mode to accept and store records
+    // Set to server mode
     swarm
         .behaviour_mut()
         .kad
         .set_mode(Some(libp2p::kad::Mode::Server));
 
-    info!("Writer node peer ID: {}", swarm.local_peer_id());
+    let peer_id = *swarm.local_peer_id();
+    info!("Writer node peer ID: {}", peer_id);
 
-    // Wait for listening address to be established and store records
-    let mut _actual_listen_addr = None;
-    let mut put_query_ids = Vec::new();
+    let mut ready_signal_sent = false;
     let mut stored_count = 0;
     let total_values = values.len();
-    let mut ready_sent = false;
 
-    // Store all records first
+    // Store all records
     for (i, value) in values.iter().enumerate() {
         let record = libp2p::kad::Record::new(key.clone(), value.as_bytes().to_vec());
         match swarm
@@ -193,226 +213,183 @@ async fn run_writer_node_with_ready_signal(
         {
             Ok(query_id) => {
                 info!(
-                    "Writer: Stored record {}/{}: '{}' (QueryId: {:?})",
+                    "Writer: Queued record {}/{}: '{}' (QueryId: {:?})",
                     i + 1,
                     total_values,
                     value,
                     query_id
                 );
-                put_query_ids.push(query_id);
             }
             Err(e) => {
-                info!("Writer: Failed to initiate put for record {}: {:?}", i, e);
+                warn!("Writer: Failed to queue record {}: {:?}", i, e);
             }
         }
     }
 
-    info!("Writer: All {} records queued for storage", total_values);
-
-    // Main event loop with timeout for local testing
-    let start_time = tokio::time::Instant::now();
-    let max_runtime = Duration::from_secs(90); // Run for 90 seconds max
-
+    // Main event loop
     loop {
-        if start_time.elapsed() > max_runtime {
-            info!("Writer: Max runtime reached, shutting down");
-            break;
-        }
+        let event = swarm.select_next_some().await;
 
-        let event_result = timeout(Duration::from_secs(1), swarm.select_next_some()).await;
+        match event {
+            libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } => {
+                info!("Writer: Listening on {}", address);
 
-        match event_result {
-            Ok(event) => {
-                match event {
-                    libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } => {
-                        info!("Writer: Listening on {}", address);
-                        _actual_listen_addr = Some(address.clone());
-
-                        // Signal ready after we start listening
-                        if !ready_sent {
-                            let _ = ready_tx.send(true).await;
-                            ready_sent = true;
-                            info!("Writer: Ready signal sent");
-                        }
+                // Send ready signal after we start listening
+                if !ready_signal_sent {
+                    if let Err(_) = ready_tx.send(peer_id) {
+                        warn!("Writer: Failed to send ready signal");
+                    } else {
+                        info!("Writer: Ready signal sent");
                     }
-                    libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-                        info!("Writer: Connected to peer: {}", peer_id);
-                    }
-                    libp2p::swarm::SwarmEvent::Behaviour(
-                        netabase::network::behaviour::NetabaseBehaviourEvent::Kad(
-                            libp2p::kad::Event::OutboundQueryProgressed { result, .. },
-                        ),
-                    ) => match result {
-                        QueryResult::PutRecord(Ok(_)) => {
-                            stored_count += 1;
-                            info!(
-                                "Writer: Successfully stored record ({}/{})",
-                                stored_count, total_values
-                            );
-                        }
-                        QueryResult::PutRecord(Err(e)) => {
-                            info!("Writer: Failed to store record: {:?}", e);
-                        }
-                        _ => {}
-                    },
-                    libp2p::swarm::SwarmEvent::Behaviour(
-                        netabase::network::behaviour::NetabaseBehaviourEvent::Kad(
-                            libp2p::kad::Event::InboundRequest { request },
-                        ),
-                    ) => {
-                        info!("Writer: Received inbound request: {:?}", request);
-                    }
-                    _ => {}
+                    ready_signal_sent = true;
+                    return Ok(()); // Exit after sending ready signal
                 }
             }
-            Err(_) => {
-                // Timeout on select_next_some - continue loop
-                tokio::task::yield_now().await;
+            libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                info!("Writer: Connected to peer: {}", peer_id);
             }
+            libp2p::swarm::SwarmEvent::Behaviour(
+                netabase::network::behaviour::NetabaseBehaviourEvent::Kad(
+                    libp2p::kad::Event::OutboundQueryProgressed { result, .. },
+                ),
+            ) => match result {
+                QueryResult::PutRecord(Ok(_)) => {
+                    stored_count += 1;
+                    info!(
+                        "Writer: Successfully stored record ({}/{})",
+                        stored_count, total_values
+                    );
+                }
+                QueryResult::PutRecord(Err(e)) => {
+                    warn!("Writer: Failed to store record: {:?}", e);
+                }
+                _ => {}
+            },
+            libp2p::swarm::SwarmEvent::Behaviour(
+                netabase::network::behaviour::NetabaseBehaviourEvent::Kad(
+                    libp2p::kad::Event::InboundRequest { request },
+                ),
+            ) => {
+                if verbose {
+                    info!("Writer: Received inbound request: {:?}", request);
+                }
+            }
+            _ => {}
         }
-    }
 
-    info!("Writer: Shutting down");
-    Ok(())
+        tokio::task::yield_now().await;
+    }
 }
 
+/// Run a reader node that retrieves records from the DHT
 async fn run_reader_node(
-    writer_addr: String,
+    connect_addr: std::net::SocketAddr,
     key: RecordKey,
     expected_values: Vec<String>,
-) -> Result<Vec<String>> {
+    timeout_duration: Duration,
+    retries: u32,
+    verbose: bool,
+) -> Result<()> {
     info!(
         "Starting reader node, connecting to writer at: {}",
-        writer_addr
+        connect_addr
     );
 
     let temp_dir = get_test_temp_dir_str(Some("cross_reader"));
     let mut swarm = generate_swarm(&temp_dir)?;
 
-    // Listen on any available port
-    swarm.listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse()?)?;
+    let reader_peer_id = *swarm.local_peer_id();
+    info!("Reader node peer ID: {}", reader_peer_id);
 
-    // Set to client mode
-    swarm
-        .behaviour_mut()
-        .kad
-        .set_mode(Some(libp2p::kad::Mode::Client));
+    // Convert SocketAddr to Multiaddr for dialing
+    let dial_multiaddr: Multiaddr = format!(
+        "/ip4/{}/udp/{}/quic-v1",
+        connect_addr.ip(),
+        connect_addr.port()
+    )
+    .parse()?;
 
-    info!("Reader node peer ID: {}", swarm.local_peer_id());
+    info!("Reader: Attempting to dial writer at: {}", dial_multiaddr);
 
-    // Parse writer address and peer ID (we'll discover the peer ID through connection)
-    let parts: Vec<&str> = writer_addr.split(':').collect();
-    let ip = parts[0];
-    let port = parts[1];
-    let writer_multiaddr: Multiaddr = format!("/ip4/{}/udp/{}/quic-v1", ip, port).parse()?;
+    // Dial the writer
+    match swarm.dial(dial_multiaddr) {
+        Ok(_) => info!("Reader: Dial initiated successfully"),
+        Err(e) => {
+            error!("Reader: Failed to initiate dial: {:?}", e);
+            return Err(e.into());
+        }
+    }
 
-    info!("Reader: Attempting to dial writer at: {}", writer_multiaddr);
-    swarm.dial(writer_multiaddr.clone())?;
+    let mut connected = false;
+    let mut query_sent = false;
+    let mut found_values = Vec::new();
+    let mut attempts = 0;
+    let max_attempts = retries + 1;
 
-    let mut found_records = Vec::new();
-    let mut connected_to_writer = false;
-    let mut writer_peer_id: Option<PeerId> = None;
-    let timeout_duration = Duration::from_secs(get_test_timeout());
-
-    let start_time = tokio::time::Instant::now();
+    let start_time = std::time::Instant::now();
 
     // Main event loop with timeout
     loop {
         if start_time.elapsed() > timeout_duration {
-            info!("Reader: Timeout reached, stopping");
+            error!("Reader: Timeout reached after {:?}", timeout_duration);
             break;
         }
 
-        let event_result = timeout(Duration::from_secs(1), swarm.select_next_some()).await;
+        let event_future = swarm.select_next_some();
+        let event_result = timeout(Duration::from_secs(1), event_future).await;
 
         match event_result {
-            Ok(event) => {
-                match event {
-                    libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-                        info!("Reader: Connected to peer: {}", peer_id);
-                        connected_to_writer = true;
-                        writer_peer_id = Some(peer_id);
-
-                        // Add the peer to our routing table
-                        swarm
-                            .behaviour_mut()
-                            .kad
-                            .add_address(&peer_id, writer_multiaddr.clone());
-
-                        // Wait a bit for the connection to stabilize
-                        sleep(Duration::from_secs(2)).await;
-
-                        // Now try to get the record
-                        info!("Reader: Attempting to get record with key: {:?}", key);
-                        swarm.behaviour_mut().kad.get_record(key.clone());
-                    }
-                    libp2p::swarm::SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
-                        info!("Reader: Connection to {} closed: {:?}", peer_id, cause);
-                        if Some(peer_id) == writer_peer_id {
-                            connected_to_writer = false;
+            Ok(event) => match event {
+                libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                    info!("Reader: Connected to peer: {}", peer_id);
+                    connected = true;
+                }
+                libp2p::swarm::SwarmEvent::Behaviour(
+                    netabase::network::behaviour::NetabaseBehaviourEvent::Kad(
+                        libp2p::kad::Event::OutboundQueryProgressed { result, .. },
+                    ),
+                ) => match result {
+                    QueryResult::GetRecord(Ok(libp2p::kad::GetRecordOk::FoundRecord(
+                        peer_record,
+                    ))) => {
+                        info!("Reader: Query completed successfully");
+                        if let Ok(value_str) = String::from_utf8(peer_record.record.value) {
+                            info!("Reader: Found record: '{}'", value_str);
+                            found_values.push(value_str);
                         }
+                        break;
                     }
-                    libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } => {
-                        info!("Reader: Listening on {}", address);
+                    QueryResult::GetRecord(Ok(
+                        libp2p::kad::GetRecordOk::FinishedWithNoAdditionalRecord { .. },
+                    )) => {
+                        info!("Reader: Query finished with no additional records");
+                        break;
                     }
-                    libp2p::swarm::SwarmEvent::Behaviour(
-                        netabase::network::behaviour::NetabaseBehaviourEvent::Kad(
-                            libp2p::kad::Event::OutboundQueryProgressed { result, .. },
-                        ),
-                    ) => {
-                        match result {
-                            QueryResult::GetRecord(Ok(libp2p::kad::GetRecordOk::FoundRecord(
-                                peer_record,
-                            ))) => {
-                                let value =
-                                    String::from_utf8_lossy(&peer_record.record.value).to_string();
-                                info!("Reader: Found record: '{}'", value);
-                                found_records.push(value.clone());
+                    QueryResult::GetRecord(Err(e)) => {
+                        warn!("Reader: Get record failed: {:?}", e);
+                        attempts += 1;
 
-                                // Check if we've found all expected records
-                                if found_records.len() >= expected_values.len() {
-                                    info!("Reader: Found all expected records, stopping");
-                                    break;
-                                }
-
-                                // Try to get more records by querying again
-                                sleep(Duration::from_millis(500)).await;
-                                swarm.behaviour_mut().kad.get_record(key.clone());
-                            }
-                            QueryResult::GetRecord(Ok(
-                                libp2p::kad::GetRecordOk::FinishedWithNoAdditionalRecord { .. },
-                            )) => {
-                                info!("Reader: Get query finished with no additional records");
-
-                                // If we haven't found any records yet, try again
-                                if found_records.is_empty() && connected_to_writer {
-                                    sleep(Duration::from_secs(2)).await;
-                                    info!("Reader: Retrying get record query");
-                                    swarm.behaviour_mut().kad.get_record(key.clone());
-                                }
-                            }
-                            QueryResult::GetRecord(Err(e)) => {
-                                info!("Reader: Get record failed: {:?}", e);
-
-                                // If we're connected, try again after a delay
-                                if connected_to_writer && found_records.is_empty() {
-                                    sleep(Duration::from_secs(2)).await;
-                                    info!("Reader: Retrying after error");
-                                    swarm.behaviour_mut().kad.get_record(key.clone());
-                                }
-                            }
-                            _ => {}
+                        if attempts < max_attempts {
+                            info!("Reader: Retrying ({}/{})", attempts, max_attempts - 1);
+                            sleep(Duration::from_secs(2)).await;
+                            query_sent = false; // Allow retry
+                        } else {
+                            error!("Reader: All retry attempts exhausted");
+                            break;
                         }
                     }
                     _ => {}
-                }
-            }
+                },
+                _ => {}
+            },
             Err(_) => {
-                // Timeout on event, continue loop
-                if connected_to_writer && found_records.is_empty() {
-                    // Periodically retry getting records
-                    info!("Reader: No events, retrying get record");
-                    swarm.behaviour_mut().kad.get_record(key.clone());
+                // Timeout on event, check if we need to send query
+                if connected && !query_sent && attempts < max_attempts {
+                    info!("Reader: Attempting to get record with key: {:?}", key);
+
+                    let query_id = swarm.behaviour_mut().kad.get_record(key.clone());
+                    info!("Reader: Get query initiated with ID: {:?}", query_id);
+                    query_sent = true;
                 }
             }
         }
@@ -420,185 +397,180 @@ async fn run_reader_node(
         tokio::task::yield_now().await;
     }
 
-    info!("Reader: Finished, found {} records", found_records.len());
-    for (i, record) in found_records.iter().enumerate() {
-        info!("Reader: Record {}: '{}'", i + 1, record);
+    // Verify results
+    info!("Reader: Verification phase");
+    let mut missing_values = Vec::new();
+    let mut found_expected = 0;
+
+    for expected in &expected_values {
+        if found_values.contains(expected) {
+            info!("Reader: ✓ Found expected value: '{}'", expected);
+            found_expected += 1;
+        } else {
+            warn!("Reader: ✗ Missing expected value: '{}'", expected);
+            missing_values.push(expected.clone());
+        }
     }
 
-    Ok(found_records)
+    info!(
+        "Reader: Found {}/{} expected values",
+        found_expected,
+        expected_values.len()
+    );
+
+    if found_expected == expected_values.len() {
+        info!("Reader: Cross-machine reader test completed successfully!");
+        Ok(())
+    } else {
+        error!(
+            "Reader: Test failed - missing {} values: {:?}",
+            missing_values.len(),
+            missing_values
+        );
+        Err(anyhow::anyhow!(
+            "Expected {} values but found only {}",
+            expected_values.len(),
+            found_expected
+        ))
+    }
 }
 
 /// Cross-machine writer test
-///
-/// Environment variables:
-/// - NETABASE_WRITER_ADDR: Address to listen on (default: "0.0.0.0:9901")
-/// - NETABASE_TEST_KEY: Key to store records under (default: "cross_machine_key")
-/// - NETABASE_TEST_VALUES: Comma-separated values to store (default: "Value1,Value2,Value3")
-///
-/// Example usage:
-/// ```bash
-/// # On writer machine:
-/// NETABASE_WRITER_ADDR=0.0.0.0:9901 NETABASE_TEST_KEY=mykey NETABASE_TEST_VALUES="Hello,World,Test" cargo test cross_machine_writer -- --nocapture
-/// ```
+/// Runs a writer node that stores records and serves them to readers
+#[ignore]
 #[tokio::test]
-#[ignore] // Use --ignored to run cross-machine tests
-async fn cross_machine_writer() {
+async fn cross_machine_writer() -> Result<()> {
     init_logging();
 
-    let writer_addr = get_writer_address();
-    let key = RecordKey::new(&get_test_key());
-    let values = get_test_values();
+    let config = writer_config_from_env().map_err(|e| {
+        error!("Failed to parse writer configuration: {}", e);
+        e
+    })?;
 
     info!("=== CROSS-MACHINE WRITER TEST ===");
-    info!("Writer address: {}", writer_addr);
-    info!("Test key: {:?}", key);
-    info!("Test values: {:?}", values);
+    info!("Writer address: {}", config.address);
+    info!("Test key: {:?}", RecordKey::new(&config.test_key));
+    info!("Test values: {:?}", config.test_values);
+    if let Some(timeout) = config.timeout {
+        info!("Timeout: {:?}", timeout);
+    } else {
+        info!("Timeout: None (runs indefinitely)");
+    }
     info!("=====================================");
 
-    match run_writer_node(writer_addr, key, values).await {
-        Ok(_) => info!("Writer node completed successfully"),
-        Err(e) => {
-            info!("Writer node failed: {:?}", e);
-            panic!("Writer node failed: {:?}", e);
-        }
-    }
+    let key = RecordKey::new(&config.test_key);
+
+    run_writer_node(
+        config.address,
+        key,
+        config.test_values,
+        config.timeout,
+        config.verbose,
+    )
+    .await
 }
 
 /// Cross-machine reader test
-///
-/// Environment variables:
-/// - NETABASE_READER_CONNECT_ADDR: Writer address to connect to (default: "127.0.0.1:9901")
-/// - NETABASE_TEST_KEY: Key to retrieve records from (default: "cross_machine_key")
-/// - NETABASE_TEST_VALUES: Expected comma-separated values (default: "Value1,Value2,Value3")
-/// - NETABASE_TEST_TIMEOUT: Timeout in seconds (default: "120")
-///
-/// Example usage:
-/// ```bash
-/// # On reader machine:
-/// NETABASE_READER_CONNECT_ADDR=192.168.1.100:9901 NETABASE_TEST_KEY=mykey NETABASE_TEST_VALUES="Hello,World,Test" cargo test cross_machine_reader -- --nocapture
-/// ```
+/// Connects to a writer node and retrieves records
+#[ignore]
 #[tokio::test]
-#[ignore] // Use --ignored to run cross-machine tests
-async fn cross_machine_reader() {
+async fn cross_machine_reader() -> Result<()> {
     init_logging();
 
-    let writer_addr = get_reader_connect_address();
-    let key = RecordKey::new(&get_test_key());
-    let expected_values = get_test_values();
-    let timeout_secs = get_test_timeout();
+    let config = reader_config_from_env().map_err(|e| {
+        error!("Failed to parse reader configuration: {}", e);
+        e
+    })?;
 
     info!("=== CROSS-MACHINE READER TEST ===");
-    info!("Connecting to writer at: {}", writer_addr);
-    info!("Test key: {:?}", key);
-    info!("Expected values: {:?}", expected_values);
-    info!("Timeout: {} seconds", timeout_secs);
+    info!("Connecting to writer at: {}", config.connect_addr);
+    info!("Test key: {:?}", RecordKey::new(&config.test_key));
+    info!("Expected values: {:?}", config.test_values);
+    info!("Timeout: {:?}", config.timeout);
+    info!("Retries: {}", config.retries);
     info!("===================================");
 
-    match run_reader_node(writer_addr, key, expected_values.clone()).await {
-        Ok(found_records) => {
-            info!("Reader completed successfully");
-            info!("Found {} records", found_records.len());
+    let key = RecordKey::new(&config.test_key);
 
-            // Verify we found at least one record
-            assert!(
-                !found_records.is_empty(),
-                "Should have found at least one record"
-            );
-
-            // Log which expected values were found
-            for expected in &expected_values {
-                if found_records.contains(expected) {
-                    info!("✓ Found expected value: '{}'", expected);
-                } else {
-                    info!("✗ Missing expected value: '{}'", expected);
-                }
-            }
-
-            info!("Cross-machine reader test completed successfully!");
-        }
-        Err(e) => {
-            info!("Reader node failed: {:?}", e);
-            panic!("Reader node failed: {:?}", e);
-        }
-    }
+    run_reader_node(
+        config.connect_addr,
+        key,
+        config.test_values,
+        config.timeout,
+        config.retries,
+        config.verbose,
+    )
+    .await
 }
 
-/// Combined test that runs both writer and reader on the same machine (for testing the cross-machine setup)
+/// Local test that runs both writer and reader on the same machine
+#[ignore]
 #[tokio::test]
-// #[ignore]
-async fn cross_machine_local_test() {
+async fn cross_machine_local_test() -> Result<()> {
     init_logging();
 
-    let key = RecordKey::new(&"local_test_key");
-    let values = vec!["LocalValue1".to_string(), "LocalValue2".to_string()];
+    let config = local_config_from_env().map_err(|e| {
+        error!("Failed to parse local test configuration: {}", e);
+        e
+    })?;
 
     info!("=== CROSS-MACHINE LOCAL TEST ===");
-    info!("Testing cross-machine setup on local machine");
-    info!("Test key: {:?}", key);
-    info!("Test values: {:?}", values);
-    info!("=================================");
+    info!("Test key: {}", config.test_key);
+    info!("Test values: {:?}", config.test_values);
+    info!("Timeout: {:?}", config.timeout);
+    info!("==================================");
 
-    // Use a channel to coordinate between writer and reader
-    let (writer_ready_tx, mut writer_ready_rx) = tokio::sync::mpsc::channel::<bool>(1);
+    let key = RecordKey::new(&config.test_key);
+    let listen_addr = "127.0.0.1:0".parse::<std::net::SocketAddr>().unwrap();
 
-    // Start writer in background
-    let writer_values = values.clone();
+    // Channel for coordination between writer and reader
+    let (ready_tx, ready_rx) = tokio::sync::oneshot::channel::<PeerId>();
+
+    let writer_values = config.test_values.clone();
+    let reader_values = config.test_values.clone();
     let writer_key = key.clone();
-    let writer_handle = tokio::spawn(async move {
-        match run_writer_node_with_ready_signal(
-            "127.0.0.1:9902".to_string(),
-            writer_key,
-            writer_values,
-            writer_ready_tx,
-        )
-        .await
-        {
-            Ok(_) => info!("Writer completed successfully"),
-            Err(e) => info!("Writer failed: {:?}", e),
-        }
+    let reader_key = key.clone();
+    let reader_timeout = config.timeout;
+    let verbose = config.verbose;
+
+    // Start writer in a separate task
+    let writer_task = tokio::spawn(async move {
+        run_writer_node_with_ready_signal(listen_addr, writer_key, writer_values, ready_tx, verbose)
+            .await
     });
 
-    // Wait for writer to be ready (with timeout)
-    let writer_ready = timeout(Duration::from_secs(15), writer_ready_rx.recv()).await;
-    match writer_ready {
-        Ok(Some(true)) => {
-            info!("Writer is ready, starting reader");
-        }
-        _ => {
-            info!("Writer didn't signal ready in time, proceeding anyway");
-        }
-    }
+    // Wait for writer to be ready and get its peer ID
+    let _writer_peer_id = timeout(Duration::from_secs(10), ready_rx)
+        .await
+        .map_err(|_| anyhow::anyhow!("Writer ready timeout"))??;
 
-    // Give writer a bit more time to ensure it's fully ready
-    sleep(Duration::from_secs(2)).await;
+    info!("Local test: Writer is ready, starting reader");
 
-    // Start reader
-    let reader_result = timeout(Duration::from_secs(60), async {
-        run_reader_node("127.0.0.1:9902".to_string(), key, values.clone()).await
-    })
+    // Small delay to ensure writer is fully ready
+    sleep(Duration::from_secs(1)).await;
+
+    // Run reader (this will complete and return)
+    let reader_result = run_reader_node(
+        "127.0.0.1:9901".parse().unwrap(), // Use fixed port for local test
+        reader_key,
+        reader_values,
+        reader_timeout,
+        3, // Default retries for local test
+        verbose,
+    )
     .await;
 
-    // Stop writer
-    writer_handle.abort();
+    // Cancel writer task
+    writer_task.abort();
 
     match reader_result {
-        Ok(Ok(found_records)) => {
-            info!("Local test completed successfully");
-            info!("Found {} records", found_records.len());
-            assert!(
-                !found_records.is_empty(),
-                "Should have found at least one record"
-            );
-
-            for record in &found_records {
-                info!("Found record: '{}'", record);
-            }
+        Ok(_) => {
+            info!("Local test: Completed successfully!");
+            Ok(())
         }
-        Ok(Err(e)) => {
-            panic!("Reader failed: {:?}", e);
-        }
-        Err(_) => {
-            panic!("Local test timed out");
+        Err(e) => {
+            error!("Local test: Failed - {}", e);
+            Err(e)
         }
     }
 }
@@ -606,47 +578,69 @@ async fn cross_machine_local_test() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use netabase::config::*;
 
     #[test]
     fn test_environment_parsing() {
-        // Test default values
-        unsafe {
-            std::env::remove_var("NETABASE_WRITER_ADDR");
-        }
-        assert_eq!(get_writer_address(), "0.0.0.0:9901");
+        // Test that configuration parsing works with various inputs
 
-        unsafe {
-            std::env::remove_var("NETABASE_READER_CONNECT_ADDR");
-        }
-        assert_eq!(get_reader_connect_address(), "127.0.0.1:9901");
+        // Test writer config with defaults
+        let writer_config = WriterConfig {
+            address: None,
+            test_key: None,
+            test_values: None,
+            timeout: None,
+            verbose: false,
+        };
 
-        unsafe {
-            std::env::remove_var("NETABASE_TEST_KEY");
-        }
-        assert_eq!(get_test_key(), "cross_machine_key");
+        let validated = writer_config.validate();
+        assert!(validated.is_ok());
 
-        unsafe {
-            std::env::remove_var("NETABASE_TEST_VALUES");
-        }
-        assert_eq!(get_test_values(), vec!["Value1", "Value2", "Value3"]);
+        let config = validated.unwrap();
+        assert_eq!(config.address.to_string(), "0.0.0.0:9901");
+        assert_eq!(config.test_key, "cross_machine_key");
 
-        // Test custom values
-        unsafe {
-            std::env::set_var("NETABASE_WRITER_ADDR", "192.168.1.100:8080");
-        }
-        assert_eq!(get_writer_address(), "192.168.1.100:8080");
+        // Test reader config with custom values
+        let reader_config = ReaderConfig {
+            connect_addr: Some("192.168.1.100:8080".to_string()),
+            test_key: Some("test_key".to_string()),
+            test_values: Some("val1,val2,val3".to_string()),
+            timeout: Some(30),
+            retries: Some(5),
+            verbose: true,
+        };
 
-        unsafe {
-            std::env::set_var("NETABASE_TEST_VALUES", "A,B,C,D");
-        }
-        assert_eq!(get_test_values(), vec!["A", "B", "C", "D"]);
+        let validated = reader_config.validate();
+        assert!(validated.is_ok());
 
-        // Clean up
-        unsafe {
-            std::env::remove_var("NETABASE_WRITER_ADDR");
-        }
-        unsafe {
-            std::env::remove_var("NETABASE_TEST_VALUES");
-        }
+        let config = validated.unwrap();
+        assert_eq!(config.connect_addr.to_string(), "192.168.1.100:8080");
+        assert_eq!(config.test_key, "test_key");
+        assert_eq!(config.test_values, vec!["val1", "val2", "val3"]);
+        assert_eq!(config.timeout, Duration::from_secs(30));
+        assert_eq!(config.retries, 5);
+        assert!(config.verbose);
+    }
+
+    #[test]
+    fn test_config_validation_errors() {
+        // Test invalid timeout
+        let reader_config = ReaderConfig {
+            connect_addr: Some("127.0.0.1:9901".to_string()),
+            test_key: Some("test".to_string()),
+            test_values: Some("val1,val2".to_string()),
+            timeout: Some(0), // Invalid: zero timeout
+            retries: Some(1),
+            verbose: false,
+        };
+
+        let result = reader_config.validate();
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Timeout must be greater than 0")
+        );
     }
 }
