@@ -9,6 +9,9 @@ use log::info;
 use sled::{Db, IVec, Tree};
 use smallvec::SmallVec;
 
+#[cfg(test)]
+use crate::init_logging;
+
 use crate::database::wrappers::{
     ProviderRecordWrapper, RecordWrapper, try_ivec_to_provider_record,
     try_ivec_to_providers_smallvec, try_ivec_to_record, try_record_to_ivec,
@@ -261,19 +264,9 @@ mod tests {
         Multihash::<32>::from_bytes(&digest_bytes).unwrap()
     }
 
-    fn init_logger() {
-        static INIT: std::sync::Once = std::sync::Once::new();
-        INIT.call_once(|| {
-            let _ = env_logger::builder()
-                .is_test(true)
-                .filter_level(log::LevelFilter::Info)
-                .try_init();
-        });
-    }
-
     #[test]
     fn put_get_remove_record() {
-        init_logger();
+        init_logging();
         let r = Record::new(random_multihash(), "Hello".into());
         let temp_dir = format!("./tmp/pgrr_{}", rand::random::<u64>());
         let mut store = SledStore::new(PeerId::random(), &temp_dir).expect("Creation Erruh");
@@ -286,7 +279,7 @@ mod tests {
 
     #[test]
     fn add_get_remove_provider() {
-        init_logger();
+        init_logging();
         let local_id = PeerId::random();
         let temp_dir = format!("./tmp/agrp_{}", rand::random::<u64>());
         let mut store = SledStore::new(local_id, &temp_dir).expect("Creation Erruh");
@@ -312,7 +305,7 @@ mod tests {
 
     #[test]
     fn provided() {
-        init_logger();
+        init_logging();
         let local_id = PeerId::random();
         let temp_dir = format!("./tmp/p_{}", rand::random::<u64>());
         let key = random_multihash();
@@ -373,7 +366,7 @@ mod tests {
 
     #[test]
     fn update_provider() {
-        init_logger();
+        init_logging();
         let local_id = PeerId::random();
         let mut store =
             SledStore::new(local_id, "./tmp/update_provider_test").expect("Creation Erruh");
@@ -392,7 +385,7 @@ mod tests {
 
     #[test]
     fn update_provided() {
-        init_logger();
+        init_logging();
         let local_id = PeerId::random();
         let mut store =
             SledStore::new(local_id, "./tmp/update_provided_test").expect("Creation Erruh");
@@ -417,6 +410,7 @@ mod tests {
 
     #[test]
     fn max_providers_per_key() {
+        init_logging();
         let config = SledStoreConfig::default();
         let key = random_multihash();
 
@@ -439,7 +433,7 @@ mod tests {
 
     #[test]
     fn max_provided_keys() {
-        init_logger();
+        init_logging();
         let temp_dir = format!("./tmp/mpk_{}", rand::random::<u64>());
         let local_id = PeerId::random();
         let mut store = SledStore::new(local_id, &temp_dir).expect("Creation Erruh");

@@ -196,13 +196,14 @@ mod tests {
     use rand::Rng;
 
     use super::*;
-    use crate::SHA_256_MH;
+    use crate::{SHA_256_MH, init_logging};
 
     fn random_multihash() -> Multihash<64> {
         Multihash::wrap(SHA_256_MH, &rand::thread_rng().gen::<[u8; 32]>()).unwrap()
     }
     #[test]
     fn put_get_remove_record() {
+        init_logging();
         fn prop(r: Record) {
             let mut store = MemoryStore::new(PeerId::random());
             assert!(store.put(r.clone()).is_ok());
@@ -215,6 +216,7 @@ mod tests {
 
     #[test]
     fn add_get_remove_provider() {
+        init_logging();
         fn prop(r: ProviderRecord) {
             let mut store = MemoryStore::new(PeerId::random());
             assert!(store.add_provider(r.clone()).is_ok());
@@ -227,6 +229,7 @@ mod tests {
 
     #[test]
     fn provided() {
+        init_logging();
         let id = PeerId::random();
         let mut store = MemoryStore::new(id);
         let key = random_multihash();
@@ -242,6 +245,7 @@ mod tests {
 
     #[test]
     fn update_provider() {
+        init_logging();
         let mut store = MemoryStore::new(PeerId::random());
         let key = random_multihash();
         let prv = PeerId::random();
@@ -255,6 +259,7 @@ mod tests {
 
     #[test]
     fn update_provided() {
+        init_logging();
         let prv = PeerId::random();
         let mut store = MemoryStore::new(prv);
         let key = random_multihash();
@@ -274,6 +279,7 @@ mod tests {
 
     #[test]
     fn max_providers_per_key() {
+        init_logging();
         let config = MemoryStoreConfig::default();
         let key = kbucket::Key::new(Key::from(random_multihash()));
 
@@ -295,6 +301,7 @@ mod tests {
 
     #[test]
     fn max_provided_keys() {
+        init_logging();
         let mut store = MemoryStore::new(PeerId::random());
         for _ in 0..store.config.max_provided_keys {
             let key = random_multihash();
