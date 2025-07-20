@@ -46,8 +46,47 @@ export NETABASE_TEST_TIMEOUT="60"
 ./scripts/run_reader.sh
 
 # Or run directly with cargo (legacy method)
-cargo test cross_machine_reader -- --nocapture --ignored
+cargo test cross_machine_reader_5_records -- --nocapture --ignored
 ```
+
+## 5-Record Cross-Machine Tests
+
+The project includes specialized tests for validating multi-record storage and retrieval across machines. These tests store exactly 5 records with unique keys and verify that all records can be retrieved correctly.
+
+### Standard 5-Record Tests
+
+NetaBase uses a standardized 5-record testing approach for all cross-machine validation:
+
+```bash
+# Run the writer test (stores 5 records)
+cargo test cross_machine_writer_5_records --ignored -- --nocapture
+
+# Or with shell script
+./scripts/run_writer.sh --addr 0.0.0.0:9901 --key multi_record_test
+
+# Run the reader test (retrieves 5 records)
+NETABASE_READER_CONNECT_ADDR="192.168.1.100:9901" \
+NETABASE_TEST_KEY="multi_record_test" \
+cargo test cross_machine_reader_5_records --ignored -- --nocapture
+
+# Or with shell script
+./scripts/run_reader.sh --connect 192.168.1.100:9901 --key multi_record_test
+```
+
+The system stores and retrieves these 5 records with unique keys:
+- `{base_key}__0`: "Hello World"
+- `{base_key}__1`: "Test Record" 
+- `{base_key}__2`: "Another Value"
+- `{base_key}__3`: "Fourth Record"
+- `{base_key}__4`: "Fifth Record"
+
+### Key Benefits
+
+- **Validates unique key generation**: Ensures records don't overwrite each other
+- **Tests systematic retrieval**: Confirms the reader can find multiple records
+- **Verifies data integrity**: Checks that all 5 records contain the correct values
+- **Consistent test data**: Uses the same 5 test values across all environments
+- **Eliminates configuration errors**: No need to manually specify values
 
 ## Configuration Options
 
@@ -67,13 +106,15 @@ The easiest way to run cross-machine tests is using the provided shell scripts:
 
 | CLI Option | Environment Variable | Description | Default |
 |------------|---------------------|-------------|---------|
-| `-a, --addr` | `NETABASE_WRITER_ADDR` | IP:PORT to listen on | `0.0.0.0:9901` |
-| `-k, --key` | `NETABASE_TEST_KEY` | Key to store records under | `cross_machine_key` |
-| `-v, --values` | `NETABASE_TEST_VALUES` | Comma-separated values to store | `Value1,Value2,Value3,HelloWorld` |
-| `-t, --timeout` | `NETABASE_WRITER_TIMEOUT` | Timeout in seconds (0=indefinite) | `0` |
+| `-a, --addr` | `NETABASE_WRITER_ADDR` | IP address and port to listen on | `0.0.0.0:9901` |
+| `-k, --key` | `NETABASE_TEST_KEY` | Base key for the 5 records | `cross_machine_key` |
+| `-t, --timeout` | `NETABASE_WRITER_TIMEOUT` | Timeout in seconds (0 = indefinite) | `0` |
 | `--verbose` | - | Enable verbose logging | `false` |
 | `--dry-run` | - | Show configuration without running | `false` |
 | `--validate-only` | - | Only validate configuration | `false` |
+
+**Note**: The 5 test values are now fixed and cannot be configured. The writer always stores:
+- "Hello World", "Test Record", "Another Value", "Fourth Record", "Fifth Record"
 
 ### Reader Script Options
 
@@ -84,13 +125,15 @@ The easiest way to run cross-machine tests is using the provided shell scripts:
 | CLI Option | Environment Variable | Description | Default |
 |------------|---------------------|-------------|---------|
 | `-c, --connect` | `NETABASE_READER_CONNECT_ADDR` | Writer's IP:PORT to connect to | `127.0.0.1:9901` |
-| `-k, --key` | `NETABASE_TEST_KEY` | Key to retrieve records from | `cross_machine_key` |
-| `-v, --values` | `NETABASE_TEST_VALUES` | Expected comma-separated values | `Value1,Value2,Value3,HelloWorld` |
+| `-k, --key` | `NETABASE_TEST_KEY` | Base key for the 5 records | `cross_machine_key` |
 | `-t, --timeout` | `NETABASE_TEST_TIMEOUT` | Timeout in seconds | `120` |
-| `-r, --retries` | `NETABASE_READER_RETRIES` | Number of retry attempts | `3` |
+| `-r, --retries` | `NETABASE_READER_RETRIES` | Number of retry attempts per record | `3` |
 | `--verbose` | - | Enable verbose logging | `false` |
 | `--dry-run` | - | Show configuration without running | `false` |
 | `--validate-only` | - | Only validate configuration | `false` |
+
+**Note**: The 5 expected values are now fixed and cannot be configured. The reader always expects:
+- "Hello World", "Test Record", "Another Value", "Fourth Record", "Fifth Record"
 
 ### Local Test Script Options
 
@@ -100,12 +143,13 @@ The easiest way to run cross-machine tests is using the provided shell scripts:
 
 | CLI Option | Environment Variable | Description | Default |
 |------------|---------------------|-------------|---------|
-| `-k, --key` | `NETABASE_TEST_KEY` | Test key to use | `cross_machine_key` |
-| `-v, --values` | `NETABASE_TEST_VALUES` | Comma-separated test values | `Value1,Value2,Value3,HelloWorld` |
+| `-k, --key` | `NETABASE_TEST_KEY` | Base test key for 5 records | `cross_machine_key` |
 | `-t, --timeout` | `NETABASE_TEST_TIMEOUT` | Timeout in seconds | `60` |
 | `--verbose` | - | Enable verbose logging | `false` |
 | `--dry-run` | - | Show configuration without running | `false` |
 | `--validate-only` | - | Only validate configuration | `false` |
+
+**Note**: Local tests also use the fixed 5-record approach for consistency.
 
 ## Detailed Instructions
 
@@ -149,17 +193,15 @@ On the writer machine:
 ./scripts/run_writer.sh \
   --addr 0.0.0.0:9901 \
   --key distributed_test \
-  --values "Message1,Message2,Message3,Hello from Writer" \
   --verbose
 
 # Or using environment variables
 export NETABASE_WRITER_ADDR="0.0.0.0:9901"
 export NETABASE_TEST_KEY="distributed_test"
-export NETABASE_TEST_VALUES="Message1,Message2,Message3,Hello from Writer"
 ./scripts/run_writer.sh
 
-# Or legacy method with cargo
-cargo test cross_machine_writer -- --nocapture --ignored
+# Or direct cargo method
+cargo test cross_machine_writer_5_records -- --nocapture --ignored
 ```
 
 #### Validation and Testing
@@ -178,20 +220,27 @@ Before starting the actual writer, you can validate your configuration:
 
 **Expected output:**
 ```
-=== CROSS-MACHINE WRITER TEST ===
-Writer address: 0.0.0.0:9901
-Test key: Key(b"distributed_test")
-Test values: ["Message1", "Message2", "Message3", "Hello from Writer"]
-=====================================
-[INFO] Starting writer node on address: 0.0.0.0:9901
+===================================================================
+             NetaBase Cross-Machine Writer (5-Record Version)
+===================================================================
+
+5-Record Test Settings:
+  Base Key: 'distributed_test'
+  Records to store:
+    distributed_test__0: 'Hello World'
+    distributed_test__1: 'Test Record'
+    distributed_test__2: 'Another Value'
+    distributed_test__3: 'Fourth Record'
+    distributed_test__4: 'Fifth Record'
+
+[INFO] Starting 5-record writer node...
 [INFO] Writer node peer ID: 12D3KooW...
-[INFO] Writer: Stored record 1/4: 'Message1' (QueryId: QueryId(0))
-[INFO] Writer: Stored record 2/4: 'Message2' (QueryId: QueryId(1))
-[INFO] Writer: Stored record 3/4: 'Message3' (QueryId: QueryId(2))
-[INFO] Writer: Stored record 4/4: 'Hello from Writer' (QueryId: QueryId(3))
-[INFO] Writer: Listening on /ip4/0.0.0.0/udp/9901/quic-v1
+[INFO] Writer Put Record 0: QueryId(QueryId(0))
+[INFO] Writer Put Record 1: QueryId(QueryId(1))
+[INFO] Writer Put Record 2: QueryId(QueryId(2))
+[INFO] Writer Put Record 3: QueryId(QueryId(3))
+[INFO] Writer Put Record 4: QueryId(QueryId(4))
 [INFO] Writer: Now listening for connections and serving requests...
-[INFO] Writer: Press Ctrl+C to stop the writer node
 ```
 
 ### Step 3: Start Reader Node
@@ -203,7 +252,6 @@ On the reader machine (use the writer machine's actual IP address):
 ./scripts/run_reader.sh \
   --connect 192.168.1.100:9901 \
   --key distributed_test \
-  --values "Message1,Message2,Message3,Hello from Writer" \
   --timeout 60 \
   --retries 5 \
   --verbose
@@ -211,12 +259,11 @@ On the reader machine (use the writer machine's actual IP address):
 # Or using environment variables
 export NETABASE_READER_CONNECT_ADDR="192.168.1.100:9901"
 export NETABASE_TEST_KEY="distributed_test"
-export NETABASE_TEST_VALUES="Message1,Message2,Message3,Hello from Writer"
 export NETABASE_TEST_TIMEOUT="60"
 ./scripts/run_reader.sh
 
-# Or legacy method with cargo
-cargo test cross_machine_reader -- --nocapture --ignored
+# Or direct cargo method
+cargo test cross_machine_reader_5_records -- --nocapture --ignored
 ```
 
 #### Pre-flight Checks
@@ -235,25 +282,32 @@ Test your configuration before running:
 
 **Expected output:**
 ```
-=== CROSS-MACHINE READER TEST ===
-Connecting to writer at: 192.168.1.100:9901
-Test key: Key(b"distributed_test")
-Expected values: ["Message1", "Message2", "Message3", "Hello from Writer"]
-Timeout: 60 seconds
-===================================
-[INFO] Starting reader node, connecting to writer at: 192.168.1.100:9901
+===================================================================
+             NetaBase Cross-Machine Reader (5-Record Version)
+===================================================================
+
+5-Record Test Settings:
+  Base Key: 'distributed_test'
+  Expected Records:
+    distributed_test__0: 'Hello World'
+    distributed_test__1: 'Test Record'
+    distributed_test__2: 'Another Value'
+    distributed_test__3: 'Fourth Record'
+    distributed_test__4: 'Fifth Record'
+
+[INFO] Starting 5-record reader node...
 [INFO] Reader node peer ID: 12D3KooW...
-[INFO] Reader: Attempting to dial writer at: /ip4/192.168.1.100/udp/9901/quic-v1
 [INFO] Reader: Connected to peer: 12D3KooW...
-[INFO] Reader: Attempting to get record with key: Key(b"distributed_test")
-[INFO] Reader: Found record: 'Message1'
-[INFO] Reader: Found record: 'Message2'
-[INFO] Reader: Found record: 'Hello from Writer'
-[INFO] ✓ Found expected value: 'Message1'
-[INFO] ✓ Found expected value: 'Message2'
-[INFO] ✗ Missing expected value: 'Message3'
-[INFO] ✓ Found expected value: 'Hello from Writer'
-[INFO] Cross-machine reader test completed successfully!
+[INFO] Reader: Attempting to get record 0 (attempt 1/5): QueryId(0)
+[INFO] Reader: Found record 0: Hello World
+[INFO] Reader: Attempting to get record 1 (attempt 1/5): QueryId(2)
+[INFO] Reader: Found record 1: Test Record
+[INFO] Reader: Found record 2: Another Value
+[INFO] Reader: Found record 3: Fourth Record
+[INFO] Reader: Found record 4: Fifth Record
+[INFO] Reader: Finished searching, found 5 out of 5 expected records
+[SUCCESS] 5-record reader test completed successfully!
+[SUCCESS] All 5 records were retrieved and verified correctly
 ```
 
 ## Local Testing
@@ -264,26 +318,28 @@ Before running across machines, test the setup locally:
 # Using the local test script (recommended)
 ./scripts/run_local.sh
 
-# With custom configuration
+# With custom configuration (5-record approach)
 ./scripts/run_local.sh \
   --key local_test \
-  --values "Local1,Local2,Local3" \
   --timeout 30 \
   --verbose
 
 # Validate configuration first
 ./scripts/run_local.sh --validate-only
 
-# Or legacy method with cargo
+# Or direct cargo method
 cargo test cross_machine_local_test -- --nocapture --ignored
 ```
 
 The local test script automatically:
-- Starts a writer node on a random local port
+- Starts a writer node on a random local port with 5 records
 - Waits for the writer to be ready
 - Starts a reader node to connect to the writer
-- Verifies all records are retrieved correctly
+- Verifies all 5 records are retrieved correctly with unique keys
 - Shuts down both nodes automatically
+
+**Note**: Local tests use the same fixed 5-record approach:
+- "Hello World", "Test Record", "Another Value", "Fourth Record", "Fifth Record"
 
 ## Advanced Usage
 
@@ -293,43 +349,45 @@ You can run multiple reader instances from different machines:
 
 ```bash
 # Machine 2
-./scripts/run_reader.sh --connect 192.168.1.100:9901
+./scripts/run_reader.sh --connect 192.168.1.100:9901 --key distributed_test
 
 # Machine 3 (simultaneously)
-./scripts/run_reader.sh --connect 192.168.1.100:9901 --verbose
+./scripts/run_reader.sh --connect 192.168.1.100:9901 --key distributed_test --verbose
 
 # Or with environment variables
 export NETABASE_READER_CONNECT_ADDR="192.168.1.100:9901"
+export NETABASE_TEST_KEY="distributed_test"
 ./scripts/run_reader.sh
 ```
 
 ### Custom Port
 
 ```bash
-# Writer on custom port
+# Writer on custom port (stores 5 records)
 ./scripts/run_writer.sh --addr 0.0.0.0:8888 --key custom_test
 
-# Reader connecting to custom port
+# Reader connecting to custom port (retrieves 5 records)
 ./scripts/run_reader.sh --connect 192.168.1.100:8888 --key custom_test
 ```
 
-### Large Data Test
+### High-Throughput Test
 
 ```bash
-# Test with larger payload
-LARGE_VALUES="$(python3 -c 'print(",".join([f"Data{i}" for i in range(100)]))')"
-./scripts/run_writer.sh --values "$LARGE_VALUES" --key large_test
-./scripts/run_reader.sh --values "$LARGE_VALUES" --key large_test
+# Test with multiple concurrent readers
+for i in {1..5}; do
+  ./scripts/run_reader.sh --connect 192.168.1.100:9901 --key throughput_test &
+done
+wait # Wait for all readers to complete
 ```
 
 ### Timed Tests
 
 ```bash
-# Writer that runs for specific duration
+# Writer that runs for specific duration (5 records)
 ./scripts/run_writer.sh --timeout 300 --key timed_test
 
-# Reader with custom timeout and retries
-./scripts/run_reader.sh --timeout 60 --retries 10 --key timed_test
+# Reader with custom timeout and retries (searches for 5 records)
+./scripts/run_reader.sh --timeout 120 --retries 5 --key timed_test
 ```
 
 ## Troubleshooting
@@ -679,11 +737,27 @@ If scalability tests show performance issues:
 
 ## What the Tests Validate
 
-- ✅ **Network connectivity**: Machines can establish libp2p connections
+The 5-record cross-machine tests provide comprehensive validation of NetaBase's distributed functionality:
+
+- ✅ **Network connectivity**: Machines can establish libp2p connections across networks
 - ✅ **DHT functionality**: Records stored on one node are retrievable from another
-- ✅ **Protocol compatibility**: Different instances can communicate correctly
-- ✅ **Data integrity**: Retrieved data matches stored data
-- ✅ **Error handling**: Graceful handling of network issues and timeouts
+- ✅ **Unique key generation**: Each record gets a distinct key (`base_key__0` through `base_key__4`)
+- ✅ **Multi-record storage**: Writer successfully stores all 5 records without overwrites
+- ✅ **Systematic retrieval**: Reader finds all 5 records using the same key generation logic
+- ✅ **Protocol compatibility**: Different instances communicate correctly with consistent data formats
+- ✅ **Data integrity**: All 5 retrieved records match their expected values exactly
+- ✅ **Error handling**: Graceful handling of network issues, timeouts, and missing records
+- ✅ **Retry mechanisms**: Reader retries failed record retrievals automatically
+- ✅ **Scalability validation**: Multiple readers can simultaneously retrieve records
+- ✅ **Consistency across environments**: Same 5 test values work across all setups
+
+### Key Advantages of 5-Record Testing
+
+- **Prevents overwrite bugs**: Ensures records don't replace each other
+- **Tests distributed indexing**: Validates DHT can handle multiple keys efficiently  
+- **Realistic workload**: Simulates applications that store multiple related records
+- **Comprehensive coverage**: Tests both successful and failed record operations
+- **Deterministic results**: Fixed test data eliminates configuration-related failures
 
 ## Next Steps
 
@@ -715,6 +789,9 @@ After successful cross-machine testing, you can:
 3. Default values (lowest priority)
 
 ### Legacy Support
-- Direct `cargo test` commands still work for backward compatibility
-- Environment-only configuration is still supported
-- New scripts provide better UX and validation on top of existing tests
+- Direct `cargo test` commands still work with new test names:
+  - `cargo test cross_machine_writer_5_records --ignored -- --nocapture`
+  - `cargo test cross_machine_reader_5_records --ignored -- --nocapture`
+- Environment-only configuration is still supported (except test values are now fixed)
+- Shell scripts provide better UX and validation on top of the core 5-record tests
+- Legacy test names (`cross_machine_writer`, `cross_machine_reader`) still exist but use different logic

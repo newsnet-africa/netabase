@@ -1,17 +1,25 @@
 #!/bin/bash
 
-# NetaBase Cross-Machine Reader Test Runner
-# This script runs a reader node that retrieves records from the distributed hash table
-# Updated to use the new configuration system with improved argument handling
+# NetaBase Cross-Machine Reader Test Runner (5-Record Version)
+# This script runs a reader node that retrieves exactly 5 records with unique keys
+# Updated to use the new 5-record approach with unique key generation
 
 set -e
 
 # Default configuration
 DEFAULT_READER_CONNECT_ADDR="127.0.0.1:9901"
 DEFAULT_TEST_KEY="cross_machine_key"
-DEFAULT_TEST_VALUES="Value1,Value2,Value3,HelloWorld"
 DEFAULT_TEST_TIMEOUT="120"
 DEFAULT_READER_RETRIES="3"
+
+# Fixed 5 expected test records (must match writer)
+readonly EXPECTED_RECORDS=(
+    "Hello World"
+    "Test Record"
+    "Another Value"
+    "Fourth Record"
+    "Fifth Record"
+)
 
 # Colors for output
 RED='\033[0;31m'
@@ -22,16 +30,20 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 show_usage() {
-    echo -e "${CYAN}NetaBase Cross-Machine Reader Test Runner${NC}"
+    echo -e "${CYAN}NetaBase Cross-Machine Reader Test Runner (5-Record Version)${NC}"
+    echo ""
+    echo "This script runs a reader node that retrieves exactly 5 records with unique keys:"
+    for i in "${!EXPECTED_RECORDS[@]}"; do
+        echo "  Record $i: '${EXPECTED_RECORDS[$i]}'"
+    done
     echo ""
     echo "Usage: $0 [options]"
     echo ""
     echo "Options:"
     echo "  -c, --connect ADDR   Writer address to connect to (default: $DEFAULT_READER_CONNECT_ADDR)"
-    echo "  -k, --key KEY        Test key to retrieve records from (default: $DEFAULT_TEST_KEY)"
-    echo "  -v, --values VALUES  Comma-separated expected values (default: $DEFAULT_TEST_VALUES)"
+    echo "  -k, --key KEY        Base test key for records (default: $DEFAULT_TEST_KEY)"
     echo "  -t, --timeout SECS   Timeout in seconds (default: $DEFAULT_TEST_TIMEOUT)"
-    echo "  -r, --retries NUM    Number of retry attempts (default: $DEFAULT_READER_RETRIES)"
+    echo "  -r, --retries NUM    Number of retry attempts per record (default: $DEFAULT_READER_RETRIES)"
     echo "  --verbose            Enable verbose logging"
     echo "  --dry-run            Show configuration without running the test"
     echo "  --validate-only      Only validate configuration and exit"
@@ -39,8 +51,7 @@ show_usage() {
     echo ""
     echo "Environment Variables:"
     echo "  NETABASE_READER_CONNECT_ADDR  Override writer address"
-    echo "  NETABASE_TEST_KEY             Override test key"
-    echo "  NETABASE_TEST_VALUES          Override expected values"
+    echo "  NETABASE_TEST_KEY             Override base test key"
     echo "  NETABASE_TEST_TIMEOUT         Override timeout"
     echo "  NETABASE_READER_RETRIES       Override retry attempts"
     echo ""
@@ -49,7 +60,7 @@ show_usage() {
     echo "  $0"
     echo ""
     echo "  # Connect to specific writer with custom key"
-    echo "  $0 --connect 192.168.1.100:9901 --key mykey --values 'Hello,World,Test'"
+    echo "  $0 --connect 192.168.1.100:9901 --key mykey"
     echo ""
     echo "  # Short timeout for quick testing"
     echo "  $0 -c 10.0.0.5:8080 -t 30 -r 5"
@@ -60,11 +71,18 @@ show_usage() {
     echo "  # Using environment variables"
     echo "  NETABASE_READER_CONNECT_ADDR=192.168.1.100:9901 \\"
     echo "  NETABASE_TEST_KEY=distributed_test \\"
-    echo "  NETABASE_TEST_VALUES='Data1,Data2,Data3' \\"
     echo "  $0"
     echo ""
-    echo "The reader will attempt to connect to the writer and retrieve records"
-    echo "matching the specified key and verify they match the expected values."
+    echo "Key Generation:"
+    echo "  The reader looks for records with unique keys based on the base key:"
+    echo "  - {base_key}__0: Expected 'Hello World'"
+    echo "  - {base_key}__1: Expected 'Test Record'"
+    echo "  - {base_key}__2: Expected 'Another Value'"
+    echo "  - {base_key}__3: Expected 'Fourth Record'"
+    echo "  - {base_key}__4: Expected 'Fifth Record'"
+    echo ""
+    echo "The reader will attempt to connect to the writer and retrieve all 5 records"
+    echo "with their unique keys and verify they match the expected values."
 }
 
 log_info() {
@@ -107,12 +125,6 @@ check_prerequisites() {
         exit 1
     fi
 
-    # Check for required dependencies
-    if ! grep -q "clap.*=" Cargo.toml && ! grep -q "envy.*=" Cargo.toml; then
-        log_warning "Configuration dependencies may not be installed."
-        log_info "Run 'cargo build' to ensure all dependencies are available."
-    fi
-
     log_success "Prerequisites check passed"
 }
 
@@ -150,8 +162,8 @@ validate_config() {
     fi
 
     # Check reasonable ranges
-    if [ "$timeout" -lt 5 ]; then
-        log_warning "Timeout is very short ($timeout seconds). Consider increasing it."
+    if [ "$timeout" -lt 10 ]; then
+        log_warning "Timeout is very short ($timeout seconds). 5-record test may need more time."
     elif [ "$timeout" -gt 600 ]; then
         log_warning "Timeout is very long ($timeout seconds). This may not be necessary."
     fi
@@ -205,33 +217,40 @@ test_connectivity() {
 display_configuration() {
     local connect_addr="$1"
     local test_key="$2"
-    local expected_values="$3"
-    local timeout="$4"
-    local retries="$5"
+    local timeout="$3"
+    local retries="$4"
 
     echo ""
     echo "========================== READER CONFIGURATION =========================="
     echo -e "${GREEN}Connection Settings:${NC}"
     echo "  Writer Address: $connect_addr"
     echo "  Connection Timeout: ${timeout}s"
-    echo "  Retry Attempts: $retries"
+    echo "  Retry Attempts per Record: $retries"
     echo ""
-    echo -e "${GREEN}Test Settings:${NC}"
-    echo "  Test Key: '$test_key'"
-    echo "  Expected Values: $expected_values"
-    echo "  Values Count: $(echo "$expected_values" | tr ',' '\n' | wc -l)"
+    echo -e "${GREEN}5-Record Test Settings:${NC}"
+    echo "  Base Key: '$test_key'"
+    echo "  Expected Records:"
+    for i in "${!EXPECTED_RECORDS[@]}"; do
+        echo "    ${test_key}__${i}: '${EXPECTED_RECORDS[$i]}'"
+    done
     echo ""
     echo -e "${BLUE}Prerequisites:${NC}"
     echo "  1. Writer node must be running on $connect_addr"
-    echo "  2. Writer must have stored records under key '$test_key'"
+    echo "  2. Writer must have stored 5 records under base key '$test_key'"
     echo "  3. Network connectivity must exist between machines"
     echo "  4. Firewall must allow UDP traffic on port ${connect_addr##*:}"
     echo ""
+    echo -e "${CYAN}Writer Commands:${NC}"
+    echo "  Start writer with:"
+    echo "    ./scripts/run_writer.sh --addr 0.0.0.0:${connect_addr##*:} --key $test_key"
+    echo "  Or:"
+    echo "    cargo test cross_machine_writer_5_records --ignored -- --nocapture"
+    echo ""
     echo -e "${YELLOW}Troubleshooting Tips:${NC}"
     echo "  - Connection fails: Check writer is running and firewall allows UDP"
-    echo "  - Records not found: Verify key matches and writer stored data"
+    echo "  - Records not found: Verify key matches and writer stored 5 records"
     echo "  - Timeout issues: Increase timeout or check network latency"
-    echo "  - Partial results: Check if writer has finished storing all records"
+    echo "  - Partial results: Check if writer has finished storing all 5 records"
     echo "========================================================================"
     echo ""
 }
@@ -243,21 +262,18 @@ run_rust_test() {
         log_info "Dry run mode - configuration would be:"
         echo "  NETABASE_READER_CONNECT_ADDR=$READER_CONNECT_ADDR"
         echo "  NETABASE_TEST_KEY=$TEST_KEY"
-        echo "  NETABASE_TEST_VALUES=$TEST_VALUES"
-        echo "  NETABASE_TEST_TIMEOUT=$TEST_TIMEOUT"
-        echo "  NETABASE_READER_RETRIES=$READER_RETRIES"
-        log_info "Would run: cargo test cross_machine_reader -- --nocapture --ignored"
+        echo "  Test: cross_machine_reader_5_records"
+        log_info "Would run: cargo test cross_machine_reader_5_records -- --nocapture --ignored"
         return 0
     fi
 
-    log_info "Starting reader node..."
+    log_info "Starting 5-record reader node..."
     log_info "This may take a moment to compile and run..."
     echo ""
 
     # Export environment variables for the Rust test
     export NETABASE_READER_CONNECT_ADDR="$READER_CONNECT_ADDR"
     export NETABASE_TEST_KEY="$TEST_KEY"
-    export NETABASE_TEST_VALUES="$TEST_VALUES"
     export NETABASE_TEST_TIMEOUT="$TEST_TIMEOUT"
     export NETABASE_READER_RETRIES="$READER_RETRIES"
 
@@ -268,21 +284,21 @@ run_rust_test() {
         export RUST_LOG="info"
     fi
 
-    # Run the test with proper error handling
+    # Run the 5-record test with proper error handling
     local exit_code=0
-    if cargo test cross_machine_reader -- --nocapture --ignored; then
+    if cargo test cross_machine_reader_5_records -- --nocapture --ignored; then
         echo ""
-        log_success "Reader test completed successfully!"
-        log_info "All expected records were retrieved and verified"
+        log_success "5-record reader test completed successfully!"
+        log_success "All 5 records were retrieved and verified correctly"
     else
         exit_code=$?
         echo ""
-        log_error "Reader test failed with exit code $exit_code"
+        log_error "5-record reader test failed with exit code $exit_code"
 
         echo ""
         echo "Common issues and solutions:"
         echo "1. Writer not running:"
-        echo "   → Start the writer node first using run_writer.sh"
+        echo "   → Start the 5-record writer node first using run_writer.sh"
         echo "2. Wrong address:"
         echo "   → Verify the writer's IP address and port with --connect"
         echo "3. Firewall blocking:"
@@ -292,16 +308,18 @@ run_rust_test() {
         echo "5. Key mismatch:"
         echo "   → Ensure both writer and reader use the same --key"
         echo "6. No records stored:"
-        echo "   → Check if writer successfully stored records"
+        echo "   → Check if writer successfully stored all 5 records"
         echo "7. Timeout too short:"
-        echo "   → Increase with --timeout <seconds>"
+        echo "   → Increase with --timeout <seconds> (5 records need more time)"
+        echo "8. Partial records found:"
+        echo "   → Wait for writer to complete, then retry"
 
         return $exit_code
     fi
 }
 
 cleanup() {
-    log_info "Reader test interrupted by user"
+    log_info "5-record reader test interrupted by user"
     exit 1
 }
 
@@ -311,16 +329,21 @@ validate_only_mode() {
     # Test configuration parsing
     export NETABASE_READER_CONNECT_ADDR="$READER_CONNECT_ADDR"
     export NETABASE_TEST_KEY="$TEST_KEY"
-    export NETABASE_TEST_VALUES="$TEST_VALUES"
     export NETABASE_TEST_TIMEOUT="$TEST_TIMEOUT"
     export NETABASE_READER_RETRIES="$READER_RETRIES"
 
-    # This would ideally call a Rust validation function
-    # For now, we'll do basic shell validation
+    # Shell-based validation
     if validate_config "$READER_CONNECT_ADDR" "$TEST_TIMEOUT" "$READER_RETRIES"; then
         log_success "Configuration is valid"
-        display_configuration "$READER_CONNECT_ADDR" "$TEST_KEY" "$TEST_VALUES" "$TEST_TIMEOUT" "$READER_RETRIES"
-        log_success "Ready to run reader test with this configuration"
+        display_configuration "$READER_CONNECT_ADDR" "$TEST_KEY" "$TEST_TIMEOUT" "$READER_RETRIES"
+
+        echo -e "${GREEN}Ready to run 5-record reader test with this configuration!${NC}"
+        echo ""
+        echo "Next steps:"
+        echo "1. Ensure the writer node is running on $READER_CONNECT_ADDR"
+        echo "2. Run this script without --validate-only to start the reader"
+        echo "3. The reader will systematically search for all 5 records"
+
         exit 0
     else
         log_error "Configuration validation failed"
@@ -331,7 +354,6 @@ validate_only_mode() {
 # Parse command line arguments
 READER_CONNECT_ADDR="$DEFAULT_READER_CONNECT_ADDR"
 TEST_KEY="$DEFAULT_TEST_KEY"
-TEST_VALUES="$DEFAULT_TEST_VALUES"
 TEST_TIMEOUT="$DEFAULT_TEST_TIMEOUT"
 READER_RETRIES="$DEFAULT_READER_RETRIES"
 VERBOSE=false
@@ -346,10 +368,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         -k|--key)
             TEST_KEY="$2"
-            shift 2
-            ;;
-        -v|--values)
-            TEST_VALUES="$2"
             shift 2
             ;;
         -t|--timeout)
@@ -388,7 +406,6 @@ done
 # Override with environment variables if set (env vars have lower priority than CLI args)
 READER_CONNECT_ADDR="${NETABASE_READER_CONNECT_ADDR:-$READER_CONNECT_ADDR}"
 TEST_KEY="${NETABASE_TEST_KEY:-$TEST_KEY}"
-TEST_VALUES="${NETABASE_TEST_VALUES:-$TEST_VALUES}"
 TEST_TIMEOUT="${NETABASE_TEST_TIMEOUT:-$TEST_TIMEOUT}"
 READER_RETRIES="${NETABASE_READER_RETRIES:-$READER_RETRIES}"
 
@@ -396,7 +413,7 @@ READER_RETRIES="${NETABASE_READER_RETRIES:-$READER_RETRIES}"
 main() {
     echo ""
     echo "====================================================================="
-    echo "                  NetaBase Cross-Machine Reader"
+    echo "             NetaBase Cross-Machine Reader (5-Record Version)"
     echo "====================================================================="
 
     # Handle special modes first
@@ -412,7 +429,7 @@ main() {
         exit 1
     fi
 
-    display_configuration "$READER_CONNECT_ADDR" "$TEST_KEY" "$TEST_VALUES" "$TEST_TIMEOUT" "$READER_RETRIES"
+    display_configuration "$READER_CONNECT_ADDR" "$TEST_KEY" "$TEST_TIMEOUT" "$READER_RETRIES"
 
     # Test connectivity (non-blocking)
     if [ "$DRY_RUN" != "true" ]; then
@@ -427,9 +444,8 @@ main() {
     if [ "$VERBOSE" = "true" ]; then
         log_debug "Verbose mode enabled"
         log_debug "Reader will connect to: $READER_CONNECT_ADDR"
-        log_debug "Looking for key: $TEST_KEY"
-        log_debug "Expected values: $TEST_VALUES"
-        log_debug "Timeout: ${TEST_TIMEOUT}s, Retries: $READER_RETRIES"
+        log_debug "Looking for 5 records under base key: $TEST_KEY"
+        log_debug "Timeout: ${TEST_TIMEOUT}s, Retries per record: $READER_RETRIES"
     fi
 
     echo ""
@@ -441,7 +457,7 @@ main() {
 
     if [ "$DRY_RUN" != "true" ]; then
         echo ""
-        log_success "Reader operation completed!"
+        log_success "5-record reader operation completed!"
         log_info "Check the logs above for detailed results"
     fi
 }

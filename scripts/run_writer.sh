@@ -1,16 +1,24 @@
 #!/bin/bash
 
-# NetaBase Cross-Machine Writer Test Runner
-# This script runs a writer node that stores records in the distributed hash table
-# Updated to use the new configuration system with improved argument handling
+# NetaBase Cross-Machine Writer Test Runner (5-Record Version)
+# This script runs a writer node that stores exactly 5 records with unique keys
+# Updated to use the new 5-record approach with unique key generation
 
 set -e
 
 # Default configuration
 DEFAULT_WRITER_ADDR="0.0.0.0:9901"
 DEFAULT_TEST_KEY="cross_machine_key"
-DEFAULT_TEST_VALUES="Value1,Value2,Value3,HelloWorld"
 DEFAULT_WRITER_TIMEOUT="0"  # 0 means run indefinitely
+
+# Fixed 5 test records
+readonly TEST_RECORDS=(
+    "Hello World"
+    "Test Record"
+    "Another Value"
+    "Fourth Record"
+    "Fifth Record"
+)
 
 # Colors for output
 RED='\033[0;31m'
@@ -21,14 +29,18 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 show_usage() {
-    echo -e "${CYAN}NetaBase Cross-Machine Writer Test Runner${NC}"
+    echo -e "${CYAN}NetaBase Cross-Machine Writer Test Runner (5-Record Version)${NC}"
+    echo ""
+    echo "This script runs a writer node that stores exactly 5 records with unique keys:"
+    for i in "${!TEST_RECORDS[@]}"; do
+        echo "  Record $i: '${TEST_RECORDS[$i]}'"
+    done
     echo ""
     echo "Usage: $0 [options]"
     echo ""
     echo "Options:"
     echo "  -a, --addr ADDR      Listen address (default: $DEFAULT_WRITER_ADDR)"
-    echo "  -k, --key KEY        Test key to store records under (default: $DEFAULT_TEST_KEY)"
-    echo "  -v, --values VALUES  Comma-separated values to store (default: $DEFAULT_TEST_VALUES)"
+    echo "  -k, --key KEY        Base test key for records (default: $DEFAULT_TEST_KEY)"
     echo "  -t, --timeout SECS   Timeout in seconds, 0 for indefinite (default: $DEFAULT_WRITER_TIMEOUT)"
     echo "  --verbose            Enable verbose logging"
     echo "  --dry-run            Show configuration without running the test"
@@ -37,8 +49,7 @@ show_usage() {
     echo ""
     echo "Environment Variables:"
     echo "  NETABASE_WRITER_ADDR      Override listen address"
-    echo "  NETABASE_TEST_KEY         Override test key"
-    echo "  NETABASE_TEST_VALUES      Override test values"
+    echo "  NETABASE_TEST_KEY         Override base test key"
     echo "  NETABASE_WRITER_TIMEOUT   Override timeout (0 = indefinite)"
     echo ""
     echo "Examples:"
@@ -46,10 +57,10 @@ show_usage() {
     echo "  $0"
     echo ""
     echo "  # Custom address and key"
-    echo "  $0 --addr 0.0.0.0:8080 --key mykey --values 'Hello,World,Test'"
+    echo "  $0 --addr 0.0.0.0:8080 --key mykey"
     echo ""
     echo "  # Run for specific duration"
-    echo "  $0 -a 192.168.1.100:9901 -t 300 -v 'Data1,Data2,Data3'"
+    echo "  $0 -a 192.168.1.100:9901 -t 300"
     echo ""
     echo "  # Verbose mode with dry-run"
     echo "  $0 --verbose --dry-run -a 0.0.0.0:9901"
@@ -57,11 +68,18 @@ show_usage() {
     echo "  # Using environment variables"
     echo "  NETABASE_WRITER_ADDR=0.0.0.0:9901 \\"
     echo "  NETABASE_TEST_KEY=distributed_test \\"
-    echo "  NETABASE_TEST_VALUES='Message1,Message2,Message3' \\"
     echo "  $0"
     echo ""
+    echo "Key Generation:"
+    echo "  Records are stored with unique keys based on the base key:"
+    echo "  - {base_key}__0: 'Hello World'"
+    echo "  - {base_key}__1: 'Test Record'"
+    echo "  - {base_key}__2: 'Another Value'"
+    echo "  - {base_key}__3: 'Fourth Record'"
+    echo "  - {base_key}__4: 'Fifth Record'"
+    echo ""
     echo "Network Setup:"
-    echo "  1. Writer listens on specified address and stores records"
+    echo "  1. Writer listens on specified address and stores 5 records"
     echo "  2. Reader machines connect to writer's IP address"
     echo "  3. Ensure firewall allows UDP traffic on the specified port"
     echo ""
@@ -106,12 +124,6 @@ check_prerequisites() {
     if ! grep -q "netabase" Cargo.toml; then
         log_error "Not in the netabase project directory. Please run from project root."
         exit 1
-    fi
-
-    # Check for required dependencies
-    if ! grep -q "clap.*=" Cargo.toml && ! grep -q "envy.*=" Cargo.toml; then
-        log_warning "Configuration dependencies may not be installed."
-        log_info "Run 'cargo build' to ensure all dependencies are available."
     fi
 
     log_success "Prerequisites check passed"
@@ -197,8 +209,7 @@ get_all_local_ips() {
 display_configuration() {
     local writer_addr="$1"
     local test_key="$2"
-    local test_values="$3"
-    local timeout="$4"
+    local timeout="$3"
     local local_ip
     local all_ips
 
@@ -218,10 +229,12 @@ display_configuration() {
     fi
 
     echo ""
-    echo -e "${GREEN}Test Settings:${NC}"
-    echo "  Test Key: '$test_key'"
-    echo "  Test Values: $test_values"
-    echo "  Values Count: $(echo "$test_values" | tr ',' '\n' | wc -l)"
+    echo -e "${GREEN}5-Record Test Settings:${NC}"
+    echo "  Base Key: '$test_key'"
+    echo "  Records to store:"
+    for i in "${!TEST_RECORDS[@]}"; do
+        echo "    ${test_key}__${i}: '${TEST_RECORDS[$i]}'"
+    done
     echo ""
 
     echo -e "${BLUE}For Reader Machines:${NC}"
@@ -236,7 +249,11 @@ display_configuration() {
         echo "  NETABASE_READER_CONNECT_ADDR=\"$writer_addr\""
     fi
     echo "  NETABASE_TEST_KEY=\"$test_key\""
-    echo "  NETABASE_TEST_VALUES=\"$test_values\""
+    echo ""
+    echo "  Run reader with:"
+    echo "    ./scripts/run_reader.sh --connect <writer-ip:port> --key $test_key --5-records"
+    echo "  Or:"
+    echo "    cargo test cross_machine_reader_5_records --ignored -- --nocapture"
     echo ""
 
     echo -e "${YELLOW}Firewall Configuration:${NC}"
@@ -267,13 +284,12 @@ run_rust_test() {
         log_info "Dry run mode - configuration would be:"
         echo "  NETABASE_WRITER_ADDR=$WRITER_ADDR"
         echo "  NETABASE_TEST_KEY=$TEST_KEY"
-        echo "  NETABASE_TEST_VALUES=$TEST_VALUES"
-        echo "  NETABASE_WRITER_TIMEOUT=$WRITER_TIMEOUT"
-        log_info "Would run: cargo test cross_machine_writer -- --nocapture --ignored"
+        echo "  Test: cross_machine_writer_5_records"
+        log_info "Would run: cargo test cross_machine_writer_5_records -- --nocapture --ignored"
         return 0
     fi
 
-    log_info "Starting writer node..."
+    log_info "Starting 5-record writer node..."
     if [ "$WRITER_TIMEOUT" = "0" ]; then
         log_warning "Writer will run indefinitely. Press Ctrl+C to stop."
     else
@@ -285,7 +301,6 @@ run_rust_test() {
     # Export environment variables for the Rust test
     export NETABASE_WRITER_ADDR="$WRITER_ADDR"
     export NETABASE_TEST_KEY="$TEST_KEY"
-    export NETABASE_TEST_VALUES="$TEST_VALUES"
     export NETABASE_WRITER_TIMEOUT="$WRITER_TIMEOUT"
 
     # Set Rust log level based on verbose flag
@@ -295,11 +310,12 @@ run_rust_test() {
         export RUST_LOG="info"
     fi
 
-    # Run the test with proper error handling
+    # Run the 5-record test with proper error handling
     local exit_code=0
-    if cargo test cross_machine_writer -- --nocapture --ignored; then
+    if cargo test cross_machine_writer_5_records -- --nocapture --ignored; then
         echo ""
-        log_success "Writer test completed successfully!"
+        log_success "5-record writer test completed successfully!"
+        log_success "All 5 records have been stored with unique keys"
         if [ "$WRITER_TIMEOUT" = "0" ]; then
             log_info "Writer was stopped by user (Ctrl+C)"
         else
@@ -308,7 +324,7 @@ run_rust_test() {
     else
         exit_code=$?
         echo ""
-        log_error "Writer test failed with exit code $exit_code"
+        log_error "5-record writer test failed with exit code $exit_code"
 
         echo ""
         echo "Common issues and solutions:"
@@ -331,7 +347,7 @@ run_rust_test() {
 
 cleanup() {
     log_info "Writer shutdown initiated by user"
-    log_info "Stopping writer node gracefully..."
+    log_info "Stopping 5-record writer node gracefully..."
     exit 0
 }
 
@@ -341,20 +357,20 @@ validate_only_mode() {
     # Test configuration parsing
     export NETABASE_WRITER_ADDR="$WRITER_ADDR"
     export NETABASE_TEST_KEY="$TEST_KEY"
-    export NETABASE_TEST_VALUES="$TEST_VALUES"
     export NETABASE_WRITER_TIMEOUT="$WRITER_TIMEOUT"
 
-    # Shell-based validation (ideally would call Rust validation)
+    # Shell-based validation
     if validate_config "$WRITER_ADDR" "$WRITER_TIMEOUT"; then
         log_success "Configuration is valid"
-        display_configuration "$WRITER_ADDR" "$TEST_KEY" "$TEST_VALUES" "$WRITER_TIMEOUT"
+        display_configuration "$WRITER_ADDR" "$TEST_KEY" "$WRITER_TIMEOUT"
 
-        echo -e "${GREEN}Ready to run writer test with this configuration!${NC}"
+        echo -e "${GREEN}Ready to run 5-record writer test with this configuration!${NC}"
         echo ""
         echo "Next steps:"
         echo "1. Run this script without --validate-only to start the writer"
         echo "2. On reader machines, use the NETABASE_READER_CONNECT_ADDR shown above"
-        echo "3. Ensure firewall allows UDP traffic on the specified port"
+        echo "3. Run the corresponding 5-record reader test"
+        echo "4. Ensure firewall allows UDP traffic on the specified port"
 
         exit 0
     else
@@ -366,7 +382,6 @@ validate_only_mode() {
 # Parse command line arguments
 WRITER_ADDR="$DEFAULT_WRITER_ADDR"
 TEST_KEY="$DEFAULT_TEST_KEY"
-TEST_VALUES="$DEFAULT_TEST_VALUES"
 WRITER_TIMEOUT="$DEFAULT_WRITER_TIMEOUT"
 VERBOSE=false
 DRY_RUN=false
@@ -380,10 +395,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         -k|--key)
             TEST_KEY="$2"
-            shift 2
-            ;;
-        -v|--values)
-            TEST_VALUES="$2"
             shift 2
             ;;
         -t|--timeout)
@@ -418,14 +429,13 @@ done
 # Override with environment variables if set (env vars have lower priority than CLI args)
 WRITER_ADDR="${NETABASE_WRITER_ADDR:-$WRITER_ADDR}"
 TEST_KEY="${NETABASE_TEST_KEY:-$TEST_KEY}"
-TEST_VALUES="${NETABASE_TEST_VALUES:-$TEST_VALUES}"
 WRITER_TIMEOUT="${NETABASE_WRITER_TIMEOUT:-$WRITER_TIMEOUT}"
 
 # Main execution
 main() {
     echo ""
     echo "====================================================================="
-    echo "                  NetaBase Cross-Machine Writer"
+    echo "             NetaBase Cross-Machine Writer (5-Record Version)"
     echo "====================================================================="
 
     # Handle special modes first
@@ -441,7 +451,7 @@ main() {
         exit 1
     fi
 
-    display_configuration "$WRITER_ADDR" "$TEST_KEY" "$TEST_VALUES" "$WRITER_TIMEOUT"
+    display_configuration "$WRITER_ADDR" "$TEST_KEY" "$WRITER_TIMEOUT"
 
     # Set up trap for graceful shutdown
     trap cleanup SIGINT SIGTERM
@@ -451,8 +461,7 @@ main() {
     if [ "$VERBOSE" = "true" ]; then
         log_debug "Verbose mode enabled"
         log_debug "Writer will listen on: $WRITER_ADDR"
-        log_debug "Storing records under key: $TEST_KEY"
-        log_debug "Values to store: $TEST_VALUES"
+        log_debug "Storing 5 records under base key: $TEST_KEY"
         log_debug "Timeout: ${WRITER_TIMEOUT}s (0 = indefinite)"
     fi
 
@@ -465,7 +474,7 @@ main() {
 
     if [ "$DRY_RUN" != "true" ]; then
         echo ""
-        log_success "Writer operation completed!"
+        log_success "5-record writer operation completed!"
         log_info "Check the logs above for detailed results"
     fi
 }

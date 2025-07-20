@@ -72,11 +72,14 @@ async fn run_writer_node(
     let mut stored_count = 0;
     let total_values = values.len();
 
-    // Store all records first
+    // Store all records first with unique keys
     for (i, value) in values.iter().enumerate() {
-        let mut new_key = key.to_vec();
-        new_key.push(i as u8);
-        let record = libp2p::kad::Record::new(new_key, value.as_bytes().to_vec());
+        let unique_key = libp2p::kad::RecordKey::new(&format!(
+            "{}__{}",
+            std::str::from_utf8(key.as_ref()).unwrap_or("test_key"),
+            i
+        ));
+        let record = libp2p::kad::Record::new(unique_key, value.as_bytes().to_vec());
         match swarm
             .behaviour_mut()
             .kad
@@ -284,7 +287,7 @@ async fn run_writer_node_with_ready_signal(
 /// Run a reader node that retrieves records from the DHT
 async fn run_reader_node(
     connect_addr: std::net::SocketAddr,
-    key: RecordKey,
+    base_key: RecordKey,
     expected_values: Vec<String>,
     timeout_duration: Duration,
     retries: u32,
@@ -320,81 +323,134 @@ async fn run_reader_node(
         }
     }
 
+    // Generate the same unique keys that the writer used
+    let mut records_to_find = Vec::new();
+    for i in 0..expected_values.len() {
+        let unique_key = libp2p::kad::RecordKey::new(&format!(
+            "{}__{}",
+            std::str::from_utf8(base_key.as_ref()).unwrap_or("test_key"),
+            i
+        ));
+        records_to_find.push(unique_key);
+    }
+
     let mut connected = false;
-    let mut query_sent = false;
     let mut found_values = Vec::new();
-    let mut attempts = 0;
-    let max_attempts = retries + 1;
+    let mut current_record_index = 0;
+    let mut record_attempts = 0;
+    let max_attempts_per_record = retries + 1;
 
     let start_time = std::time::Instant::now();
 
-    // Main event loop with timeout
-    loop {
-        if start_time.elapsed() > timeout_duration {
-            error!("Reader: Timeout reached after {:?}", timeout_duration);
-            break;
-        }
-
+    // Wait for connection first
+    while !connected && start_time.elapsed() < timeout_duration {
         let event_future = swarm.select_next_some();
         let event_result = timeout(Duration::from_secs(1), event_future).await;
 
-        match event_result {
-            Ok(event) => match event {
-                libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-                    info!("Reader: Connected to peer: {}", peer_id);
-                    connected = true;
-                }
-                libp2p::swarm::SwarmEvent::Behaviour(
-                    netabase::network::behaviour::NetabaseBehaviourEvent::Kad(
-                        libp2p::kad::Event::OutboundQueryProgressed { result, .. },
-                    ),
-                ) => match result {
-                    QueryResult::GetRecord(Ok(libp2p::kad::GetRecordOk::FoundRecord(
-                        peer_record,
-                    ))) => {
-                        info!("Reader: Query completed successfully");
-                        if let Ok(value_str) = String::from_utf8(peer_record.record.value) {
-                            info!("Reader: Found record: '{}'", value_str);
-                            found_values.push(value_str);
-                        }
-                        break;
-                    }
-                    QueryResult::GetRecord(Ok(
-                        libp2p::kad::GetRecordOk::FinishedWithNoAdditionalRecord { .. },
-                    )) => {
-                        info!("Reader: Query finished with no additional records");
-                        break;
-                    }
-                    QueryResult::GetRecord(Err(e)) => {
-                        warn!("Reader: Get record failed: {:?}", e);
-                        attempts += 1;
+        if let Ok(event) = event_result {
+            if let libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, .. } = event {
+                info!("Reader: Connected to peer: {}", peer_id);
+                connected = true;
+            }
+        }
+        tokio::task::yield_now().await;
+    }
 
-                        if attempts < max_attempts {
-                            info!("Reader: Retrying ({}/{})", attempts, max_attempts - 1);
-                            sleep(Duration::from_secs(2)).await;
-                            query_sent = false; // Allow retry
-                        } else {
-                            error!("Reader: All retry attempts exhausted");
+    if !connected {
+        return Err(anyhow::anyhow!("Failed to connect to writer node"));
+    }
+
+    // Wait a bit for connection to stabilize
+    sleep(Duration::from_secs(2)).await;
+
+    // Try to find each record
+    while current_record_index < records_to_find.len() && start_time.elapsed() < timeout_duration {
+        let key = &records_to_find[current_record_index];
+
+        info!(
+            "Reader: Attempting to get record {} (attempt {}/{})",
+            current_record_index,
+            record_attempts + 1,
+            max_attempts_per_record
+        );
+
+        let query_id = swarm.behaviour_mut().kad.get_record(key.clone());
+        info!("Reader: Get query initiated with ID: {:?}", query_id);
+
+        let mut record_found = false;
+        let query_timeout = timeout(Duration::from_secs(10), async {
+            loop {
+                let event = swarm.select_next_some().await;
+                match event {
+                    libp2p::swarm::SwarmEvent::Behaviour(
+                        netabase::network::behaviour::NetabaseBehaviourEvent::Kad(
+                            libp2p::kad::Event::OutboundQueryProgressed { result, .. },
+                        ),
+                    ) => match result {
+                        QueryResult::GetRecord(Ok(libp2p::kad::GetRecordOk::FoundRecord(
+                            peer_record,
+                        ))) => {
+                            if let Ok(value_str) = String::from_utf8(peer_record.record.value) {
+                                info!(
+                                    "Reader: Found record {}: '{}'",
+                                    current_record_index, value_str
+                                );
+                                found_values.push(value_str);
+                                record_found = true;
+                                break;
+                            }
+                        }
+                        QueryResult::GetRecord(Ok(
+                            libp2p::kad::GetRecordOk::FinishedWithNoAdditionalRecord { .. },
+                        )) => {
+                            info!(
+                                "Reader: Query finished with no additional records for record {}",
+                                current_record_index
+                            );
                             break;
                         }
-                    }
+                        QueryResult::GetRecord(Err(e)) => {
+                            warn!(
+                                "Reader: Get record {} failed: {:?}",
+                                current_record_index, e
+                            );
+                            break;
+                        }
+                        _ => {}
+                    },
                     _ => {}
-                },
-                _ => {}
-            },
-            Err(_) => {
-                // Timeout on event, check if we need to send query
-                if connected && !query_sent && attempts < max_attempts {
-                    info!("Reader: Attempting to get record with key: {:?}", key);
+                }
+            }
+        });
 
-                    let query_id = swarm.behaviour_mut().kad.get_record(key.clone());
-                    info!("Reader: Get query initiated with ID: {:?}", query_id);
-                    query_sent = true;
+        match query_timeout.await {
+            Ok(_) => {
+                if record_found {
+                    current_record_index += 1;
+                    record_attempts = 0;
+                } else {
+                    record_attempts += 1;
+                    if record_attempts >= max_attempts_per_record {
+                        warn!(
+                            "Reader: Failed to find record {} after {} attempts",
+                            current_record_index, max_attempts_per_record
+                        );
+                        current_record_index += 1;
+                        record_attempts = 0;
+                    } else {
+                        sleep(Duration::from_secs(1)).await;
+                    }
+                }
+            }
+            Err(_) => {
+                warn!("Reader: Timeout for record {}", current_record_index);
+                record_attempts += 1;
+                if record_attempts >= max_attempts_per_record {
+                    current_record_index += 1;
+                    record_attempts = 0;
                 }
             }
         }
-
-        tokio::task::yield_now().await;
     }
 
     // Verify results
@@ -470,6 +526,106 @@ async fn cross_machine_writer() -> Result<()> {
     .await
 }
 
+/// Cross-machine writer test for 5 records with unique keys
+/// Runs a writer node that stores exactly 5 records and serves them to readers
+#[ignore]
+#[tokio::test]
+async fn cross_machine_writer_5_records() -> Result<()> {
+    init_logging();
+
+    let config = writer_config_from_env().map_err(|e| {
+        error!("Failed to parse writer configuration: {}", e);
+        e
+    })?;
+
+    info!("=== CROSS-MACHINE 5-RECORD WRITER TEST ===");
+    info!("Writer address: {}", config.address);
+    info!("Test key: {:?}", RecordKey::new(&config.test_key));
+
+    // Use exactly 5 test values for consistency
+    let test_values = vec![
+        "Hello World".to_string(),
+        "Test Record".to_string(),
+        "Another Value".to_string(),
+        "Fourth Record".to_string(),
+        "Fifth Record".to_string(),
+    ];
+
+    info!("Test values: {:?}", test_values);
+    if let Some(timeout) = config.timeout {
+        info!("Timeout: {:?}", timeout);
+    } else {
+        info!("Timeout: None (runs indefinitely)");
+    }
+    info!("===========================================");
+
+    let key = RecordKey::new(&config.test_key);
+
+    run_writer_node(
+        config.address,
+        key,
+        test_values,
+        config.timeout,
+        config.verbose,
+    )
+    .await
+}
+
+/// Cross-machine reader test for 5 records with unique keys
+/// Connects to a writer node and retrieves exactly 5 records
+#[ignore]
+#[tokio::test]
+async fn cross_machine_reader_5_records() -> Result<()> {
+    init_logging();
+
+    let config = reader_config_from_env().map_err(|e| {
+        error!("Failed to parse reader configuration: {}", e);
+        e
+    })?;
+
+    info!("=== CROSS-MACHINE 5-RECORD READER TEST ===");
+    info!("Connecting to writer at: {}", config.connect_addr);
+    info!("Test key: {:?}", RecordKey::new(&config.test_key));
+
+    // Expect exactly 5 test values for consistency
+    let expected_values = vec![
+        "Hello World".to_string(),
+        "Test Record".to_string(),
+        "Another Value".to_string(),
+        "Fourth Record".to_string(),
+        "Fifth Record".to_string(),
+    ];
+
+    info!("Expected values: {:?}", expected_values);
+    info!("Timeout: {:?}", config.timeout);
+    info!("Retries: {}", config.retries);
+    info!("===========================================");
+
+    let key = RecordKey::new(&config.test_key);
+
+    let result = run_reader_node(
+        config.connect_addr,
+        key,
+        expected_values.clone(),
+        config.timeout,
+        config.retries,
+        config.verbose,
+    )
+    .await;
+
+    match &result {
+        Ok(_) => {
+            info!("✓ Cross-machine 5-record reader test completed successfully!");
+            info!("✓ All 5 records were found and retrieved correctly");
+        }
+        Err(e) => {
+            error!("✗ Cross-machine 5-record reader test failed: {}", e);
+        }
+    }
+
+    result
+}
+
 /// Cross-machine reader test
 /// Connects to a writer node and retrieves records
 #[ignore]
@@ -532,7 +688,12 @@ async fn cross_machine_local_test() -> Result<()> {
     let mut stored_count = 0;
 
     for (i, value) in config.test_values.iter().enumerate() {
-        let record = libp2p::kad::Record::new(key.clone(), value.as_bytes().to_vec());
+        let unique_key = libp2p::kad::RecordKey::new(&format!(
+            "{}__{}",
+            std::str::from_utf8(key.as_ref()).unwrap_or("test_key"),
+            i
+        ));
+        let record = libp2p::kad::Record::new(unique_key.clone(), value.as_bytes().to_vec());
         match writer_store.put(record) {
             Ok(_) => {
                 stored_count += 1;
@@ -540,19 +701,21 @@ async fn cross_machine_local_test() -> Result<()> {
             }
             Err(e) => warn!("Writer failed to store record {}: {:?}", i + 1, e),
         }
-    }
 
-    // Verify we can retrieve from writer's local store
-    if let Some(retrieved_record) = writer_store.get(&key) {
-        let retrieved_value = String::from_utf8_lossy(&retrieved_record.value);
-        info!(
-            "Writer successfully retrieved record: '{}'",
-            retrieved_value
-        );
-    } else {
-        return Err(anyhow::anyhow!(
-            "Failed to retrieve record from writer's local store"
-        ));
+        // Verify we can retrieve this record from writer's local store
+        if let Some(retrieved_record) = writer_store.get(&unique_key) {
+            let retrieved_value = String::from_utf8_lossy(&retrieved_record.value);
+            info!(
+                "Writer successfully retrieved record {}: '{}'",
+                i + 1,
+                retrieved_value
+            );
+        } else {
+            warn!(
+                "Failed to retrieve record {} from writer's local store",
+                i + 1
+            );
+        }
     }
 
     // Test 2: Create reader node and verify it works independently

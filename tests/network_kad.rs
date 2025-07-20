@@ -102,6 +102,7 @@ async fn record_writer(
             std::str::from_utf8(base_key.as_ref()).unwrap_or("test_key"),
             i
         ));
+
         let record = libp2p::kad::Record::new(unique_key, value.as_bytes().to_vec());
         let query_id = swarm
             .behaviour_mut()
@@ -193,6 +194,7 @@ async fn record_reader(
             std::str::from_utf8(base_key.as_ref()).unwrap_or("test_key"),
             i
         ));
+
         records_to_find.push(unique_key);
     }
 
