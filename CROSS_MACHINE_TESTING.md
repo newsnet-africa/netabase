@@ -19,7 +19,7 @@ export NETABASE_TEST_KEY="my_test_key"
 export NETABASE_TEST_VALUES="Hello,World,Distributed,Hash,Table"
 
 # Run the writer test (it will run indefinitely until stopped)
-cargo test cross_machine_writer --ignored -- --nocapture
+cargo test cross_machine_writer  -- --nocapture --ignored
 ```
 
 ### Machine 2 (Reader)
@@ -31,7 +31,7 @@ export NETABASE_TEST_VALUES="Hello,World,Distributed,Hash,Table"
 export NETABASE_TEST_TIMEOUT="60"
 
 # Run the reader test
-cargo test cross_machine_reader --ignored -- --nocapture
+cargo test cross_machine_reader -- --nocapture --ignored
 ```
 
 ## Environment Variables
@@ -187,11 +187,11 @@ cargo test cross_machine_reader -- --nocapture --ignored
 ```bash
 # Writer on custom port
 export NETABASE_WRITER_ADDR="0.0.0.0:8888"
-cargo test cross_machine_writer --ignored -- --nocapture
+cargo test cross_machine_writer -- --nocapture --ignored
 
 # Reader connecting to custom port
 export NETABASE_READER_CONNECT_ADDR="192.168.1.100:8888"
-cargo test cross_machine_reader --ignored -- --nocapture
+cargo test cross_machine_reader -- --nocapture --ignored
 ```
 
 ### Large Data Test
