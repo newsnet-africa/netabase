@@ -1,6 +1,5 @@
 //! Simple test to verify sled database creation and persistence
 
-use sled::Db;
 use std::path::Path;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

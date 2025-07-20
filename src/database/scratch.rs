@@ -199,7 +199,7 @@ mod tests {
     use crate::{SHA_256_MH, init_logging};
 
     fn random_multihash() -> Multihash<64> {
-        Multihash::wrap(SHA_256_MH, &rand::thread_rng().gen::<[u8; 32]>()).unwrap()
+        Multihash::wrap(SHA_256_MH, &rand::rng().gen::<[u8; 32]>()).unwrap()
     }
     #[test]
     fn put_get_remove_record() {

@@ -1,21 +1,14 @@
 use std::{borrow::Cow, collections::HashSet, iter, path::Path};
 
-use bincode::encode_to_vec;
 use libp2p::{
     PeerId,
     kad::{K_VALUE, ProviderRecord, Record, store::RecordStore},
 };
-use log::info;
+
 use sled::{Db, IVec, Tree};
 use smallvec::SmallVec;
 
-#[cfg(test)]
-use crate::{get_test_temp_dir, init_logging};
-
-use crate::database::wrappers::{
-    ProviderRecordWrapper, RecordWrapper, try_ivec_to_provider_record,
-    try_ivec_to_providers_smallvec, try_ivec_to_record, try_record_to_ivec,
-};
+use crate::database::wrappers::{try_ivec_to_record, try_record_to_ivec};
 
 pub mod wrappers;
 
@@ -27,6 +20,7 @@ pub struct SledStore {
     records: Tree,
     providers: Tree,
     provided: HashSet<ProviderRecord>,
+    #[allow(dead_code)]
     path: std::path::PathBuf,
 }
 
@@ -269,13 +263,12 @@ impl RecordStore for SledStore {
 
 pub mod tests {
     use log::info;
-    use std::{path::PathBuf, str::FromStr, time::Instant};
+    use std::time::Instant;
 
     use libp2p::{
         kad::{RecordKey, store::Error},
         multihash::Multihash,
     };
-    use rand::Rng;
 
     use super::*;
     use crate::{get_test_temp_dir, init_logging};

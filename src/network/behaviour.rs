@@ -1,7 +1,6 @@
 use std::path::Path;
 
-use libp2p::{gossipsub::IdentityTransform, identity::Keypair, swarm::NetworkBehaviour, *};
-use sled::Error;
+use libp2p::{identity::Keypair, swarm::NetworkBehaviour, *};
 
 use crate::database::SledStore;
 

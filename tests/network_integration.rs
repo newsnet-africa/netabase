@@ -7,10 +7,7 @@ use std::time::Duration;
 use tokio::time::timeout;
 
 use libp2p::{PeerId, futures::StreamExt};
-use netabase::network::{
-    behaviour::{NetabaseBehaviour, NetabaseBehaviourEvent},
-    swarm::{generate_swarm, handle_event},
-};
+use netabase::network::{behaviour::NetabaseBehaviourEvent, swarm::generate_swarm};
 
 fn init_logging() {
     static INIT: std::sync::Once = std::sync::Once::new();
@@ -94,7 +91,7 @@ async fn test_swarm_event_handling() {
 
     let temp_dir = get_test_temp_dir(test_name);
     let mut swarm = generate_swarm(&temp_dir).expect("Failed to generate swarm");
-    let (tx, mut rx) = tokio::sync::broadcast::channel::<NetabaseBehaviourEvent>(10);
+    let (_tx, mut rx) = tokio::sync::broadcast::channel::<NetabaseBehaviourEvent>(10);
 
     // Start listening
     swarm

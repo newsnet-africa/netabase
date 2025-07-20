@@ -5,15 +5,15 @@ use libp2p::{
     futures::StreamExt,
     identity::Keypair,
     kad::{Record, RecordKey},
-    swarm::SwarmEvent,
 };
 use log::info;
 
 use crate::{init_logging, network::behaviour::NetabaseBehaviour};
 
+#[allow(dead_code)]
 const BOOTNODES: [&str; 4] = [
     "QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
-    "QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa",
+    "QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJyrVwtbZg5gBMjTezGAJN",
     "QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
     "QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt",
 ];
@@ -253,7 +253,10 @@ pub async fn handle_event(
                         SwarmAction::KadAction(kad_action) => match kad_action {
                             KadAction::Put { key, value } => {
                                 let rec = Record::new(key, value);
-                                swarm.behaviour_mut().kad.put_record(rec, libp2p::kad::Quorum::One);
+                                match swarm.behaviour_mut().kad.put_record(rec, libp2p::kad::Quorum::One) {
+                                    Ok(query_id) => info!("Put record query started with ID: {:?}", query_id),
+                                    Err(e) => info!("Failed to start put record query: {:?}", e),
+                                }
                             },
                             KadAction::Get(key) => {swarm.behaviour_mut().kad.get_record(key);},
                         },
