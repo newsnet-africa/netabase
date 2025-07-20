@@ -10,7 +10,7 @@ use sled::{Db, IVec, Tree};
 use smallvec::SmallVec;
 
 #[cfg(test)]
-use crate::init_logging;
+use crate::{get_test_temp_dir, init_logging};
 
 use crate::database::wrappers::{
     ProviderRecordWrapper, RecordWrapper, try_ivec_to_provider_record,
@@ -59,16 +59,31 @@ impl SledStore {
         path: P,
         config: SledStoreConfig,
     ) -> anyhow::Result<Self> {
-        let sled_db = sled::open(&path)?;
+        log::info!("Creating SledStore at path: {:?}", path.as_ref());
+        let sled_db = sled::open(&path).map_err(|e| {
+            log::error!("Failed to open sled database at {:?}: {}", path.as_ref(), e);
+            e
+        })?;
+        log::info!("Sled database opened successfully");
+
         let records = sled_db.open_tree("Records")?;
+        log::info!("Records tree opened");
+
         let providers = sled_db.open_tree("Providers")?;
+        log::info!("Providers tree opened");
 
         // Initialize an empty provided set
         let mut provided = HashSet::new();
 
         // Scan through all provider records to find local ones
+        log::info!("Scanning providers tree for local provider records...");
+        let mut provider_count = 0;
+        let mut local_provider_count = 0;
+
         for res in providers.iter() {
             if let Ok((key, value)) = res {
+                provider_count += 1;
+
                 if key.as_ref() == b"Provided" {
                     continue; // Skip the "Provided" special key
                 }
@@ -79,13 +94,23 @@ impl SledStore {
                     for record in provider_records {
                         if record.provider == local_id {
                             provided.insert(record);
+                            local_provider_count += 1;
                         }
                     }
+                } else {
+                    log::warn!("Failed to deserialize provider records for key: {:?}", key);
                 }
             }
         }
 
-        Ok(Self {
+        log::info!(
+            "Found {} total provider entries, {} local provider records for peer {:?}",
+            provider_count,
+            local_provider_count,
+            local_id
+        );
+
+        let store = Self {
             local_key: local_id,
             config,
             records,
@@ -93,7 +118,13 @@ impl SledStore {
             providers,
             provided,
             path: path.as_ref().to_path_buf(),
-        })
+        };
+
+        log::info!(
+            "SledStore created successfully with {} provided records",
+            store.provided.len()
+        );
+        Ok(store)
     }
 }
 
@@ -102,13 +133,7 @@ impl Drop for SledStore {
         // Ensure all data is flushed before cleanup
         let _ = self.providers.flush();
         let _ = self.records.flush();
-        if let Ok(_) = self.sled_db.flush() {
-            // Only drop files if flush was successful
-            drop(&self.providers);
-            drop(&self.records);
-            drop(&self.sled_db);
-            let _ = std::fs::remove_dir_all(&self.path);
-        }
+        let _ = self.sled_db.flush();
     }
 }
 impl RecordStore for SledStore {
@@ -242,8 +267,7 @@ impl RecordStore for SledStore {
     }
 }
 
-#[cfg(test)]
-mod tests {
+pub mod tests {
     use log::info;
     use std::{path::PathBuf, str::FromStr, time::Instant};
 
@@ -254,6 +278,7 @@ mod tests {
     use rand::Rng;
 
     use super::*;
+    use crate::{get_test_temp_dir, init_logging};
 
     fn random_multihash() -> Multihash<32> {
         let digest_bytes = [
@@ -266,9 +291,290 @@ mod tests {
 
     #[test]
     fn put_get_remove_record() {
+        put_get_remove_record_with_number(Some(1));
+    }
+
+    pub fn put_get_remove_record_with_number(test_number: Option<u32>) {
         init_logging();
         let r = Record::new(random_multihash(), "Hello".into());
-        let temp_dir = format!("./tmp/pgrr_{}", rand::random::<u64>());
+        let temp_dir = get_test_temp_dir(test_number);
+        let mut store = SledStore::new(PeerId::random(), &temp_dir).expect("Creation Erruh");
+        info!("Record: {r:?}\nStore: {store:?}");
+        assert!(store.put(r.clone()).is_ok());
+        assert_eq!(Some(Cow::Borrowed(&r)), store.get(&r.key));
+        store.remove(&r.key);
+        assert!(store.get(&r.key).is_none());
+
+        // Cleanup test directory
+        drop(store);
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn add_get_remove_provider() {
+        add_get_remove_provider_with_number(Some(2));
+    }
+
+    pub fn add_get_remove_provider_with_number(test_number: Option<u32>) {
+        init_logging();
+        let local_id = PeerId::random();
+        let temp_dir = get_test_temp_dir(test_number);
+        let mut store = SledStore::new(local_id, &temp_dir).expect("Creation Erruh");
+
+        // Add provider
+        let r = ProviderRecord::new(random_multihash(), local_id, vec![]);
+        assert!(store.add_provider(r.clone()).is_ok());
+
+        // Verify provider is stored
+        let providers = store.providers(&r.key);
+        assert_eq!(1, providers.len());
+        assert!(providers.contains(&r));
+
+        // Verify it's in the provided set
+        assert_eq!(1, store.provided().count());
+        assert_eq!(Cow::Borrowed(&r), store.provided().next().unwrap());
+
+        // Remove provider
+        store.remove_provider(&r.key, &r.provider);
+        assert!(store.providers(&r.key).is_empty());
+        assert_eq!(0, store.provided().count());
+
+        // Cleanup test directory
+        drop(store);
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn provided() {
+        provided_with_number(Some(3));
+    }
+
+    pub fn provided_with_number(test_number: Option<u32>) {
+        init_logging();
+        let local_id = PeerId::random();
+        let temp_dir = get_test_temp_dir(test_number);
+        let key = random_multihash();
+        let rec = ProviderRecord::new(key.clone(), local_id, Vec::new());
+
+        // Test sled trees persistence specifically
+        info!("Testing sled trees persistence at: {}", temp_dir);
+        {
+            let db = sled::open(&temp_dir).expect("Failed to open sled db");
+            let providers_tree = db
+                .open_tree("Providers")
+                .expect("Failed to open providers tree");
+
+            // Insert test data in the providers tree
+            providers_tree
+                .insert("test_provider_key", "test_provider_value")
+                .expect("Failed to insert provider test data");
+
+            // Flush both tree and database
+            providers_tree
+                .flush()
+                .expect("Failed to flush providers tree");
+            db.flush().expect("Failed to flush test db");
+            info!("Providers tree test data inserted and flushed");
+        }
+
+        // Verify sled trees persistence
+        {
+            let db = sled::open(&temp_dir).expect("Failed to reopen sled db");
+            let providers_tree = db
+                .open_tree("Providers")
+                .expect("Failed to reopen providers tree");
+
+            if let Ok(Some(value)) = providers_tree.get("test_provider_key") {
+                info!(
+                    "Sled trees persistence works: {}",
+                    String::from_utf8_lossy(&value)
+                );
+            } else {
+                info!("Sled trees persistence FAILED - no test data found");
+            }
+        }
+
+        {
+            let mut store = SledStore::new(local_id, &temp_dir).expect("Creation Erruh");
+            info!("Initial store created");
+            assert!(store.add_provider(rec.clone()).is_ok());
+            info!("Added provider record");
+
+            // Verify the record is in the provided set
+            let provided: Vec<_> = store.provided().collect();
+            info!("Initial provided count: {}", provided.len());
+            assert_eq!(1, provided.len());
+            assert_eq!(Cow::Borrowed(&rec), provided[0]);
+
+            // Check providers tree directly
+            if let Ok(Some(ivec)) = store.providers.get(&rec.key) {
+                if let Ok(providers) = wrappers::try_ivec_to_providers_smallvec(ivec) {
+                    info!("Providers in tree: {:?}", providers);
+                }
+            }
+
+            // Ensure data is flushed to disk
+            store.providers.flush().expect("Failed to flush providers");
+            store.sled_db.flush().expect("Failed to flush database");
+            info!("Flushed database to disk");
+        }
+
+        // Give the OS a moment to release the lock
+        std::thread::sleep(std::time::Duration::from_millis(100));
+
+        info!("Creating new store instance");
+        // Verify persistence by creating a new store instance
+        let mut new_store = SledStore::new(local_id, &temp_dir).expect("Creation Erruh");
+
+        // Check providers tree in new store
+        if let Ok(Some(ivec)) = new_store.providers.get(&rec.key) {
+            if let Ok(providers) = wrappers::try_ivec_to_providers_smallvec(ivec) {
+                info!("Providers after reload: {:?}", providers);
+            }
+        } else {
+            info!("No providers found after reload");
+        }
+
+        let provided_after_reload: Vec<_> = new_store.provided().collect();
+        info!(
+            "Provided count after reload: {}",
+            provided_after_reload.len()
+        );
+        assert_eq!(1, provided_after_reload.len());
+        assert_eq!(Cow::Borrowed(&rec), provided_after_reload[0]);
+
+        // Test removal
+        new_store.remove_provider(&RecordKey::from(key), &local_id);
+        assert_eq!(new_store.provided().count(), 0);
+
+        // Cleanup test directory
+        drop(new_store);
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn update_provider() {
+        update_provider_with_number(Some(4));
+    }
+
+    pub fn update_provider_with_number(test_number: Option<u32>) {
+        init_logging();
+        let local_id = PeerId::random();
+        let temp_dir = get_test_temp_dir(test_number);
+        let mut store = SledStore::new(local_id, &temp_dir).expect("Creation Erruh");
+        let key = random_multihash();
+        let rec = ProviderRecord::new(key, local_id, Vec::new());
+
+        info!("Store: {store:?}");
+        assert!(store.add_provider(rec.clone()).is_ok());
+        assert_eq!(vec![rec.clone()], store.providers(&rec.key));
+
+        let mut updated_rec = rec.clone();
+        updated_rec.expires = Some(Instant::now());
+        assert!(store.add_provider(updated_rec.clone()).is_ok());
+        assert_eq!(vec![updated_rec], store.providers(&rec.key));
+
+        // Cleanup test directory
+        drop(store);
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn update_provided() {
+        update_provided_with_number(Some(5));
+    }
+
+    pub fn update_provided_with_number(test_number: Option<u32>) {
+        init_logging();
+        let local_id = PeerId::random();
+        let temp_dir = get_test_temp_dir(test_number);
+        let mut store = SledStore::new(local_id, &temp_dir).expect("Creation Erruh");
+        let key = random_multihash();
+        let rec = ProviderRecord::new(key, local_id, Vec::new());
+
+        info!("Record: {rec:?}, Store: {store:?}");
+        assert!(store.add_provider(rec.clone()).is_ok());
+        assert_eq!(
+            vec![Cow::Borrowed(&rec)],
+            store.provided().collect::<Vec<_>>()
+        );
+
+        let mut updated_rec = rec.clone();
+        updated_rec.expires = Some(Instant::now());
+        assert!(store.add_provider(updated_rec.clone()).is_ok());
+        assert_eq!(
+            vec![Cow::Borrowed(&updated_rec)],
+            store.provided().collect::<Vec<_>>()
+        );
+
+        // Cleanup test directory
+        drop(store);
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn max_providers_per_key() {
+        max_providers_per_key_with_number(Some(6));
+    }
+
+    pub fn max_providers_per_key_with_number(test_number: Option<u32>) {
+        init_logging();
+        let config = SledStoreConfig::default();
+        let key = random_multihash();
+
+        let temp_dir = get_test_temp_dir(test_number);
+        let mut store = SledStore::new(PeerId::random(), &temp_dir).expect("Creation Erruh");
+        let peers = (0..config.max_providers_per_key)
+            .map(|_| PeerId::random())
+            .collect::<Vec<_>>();
+        for peer in peers {
+            let rec = ProviderRecord::new(key.clone(), peer, Vec::new());
+            assert!(store.add_provider(rec).is_ok());
+        }
+
+        // The new provider cannot be added because the key is already saturated.
+        let peer = PeerId::random();
+        let rec = ProviderRecord::new(key.clone(), peer, Vec::new());
+        assert!(store.add_provider(rec.clone()).is_ok());
+        assert!(!store.providers(&rec.key).contains(&rec));
+
+        // Cleanup test directory
+        drop(store);
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn max_provided_keys() {
+        max_provided_keys_with_number(Some(7));
+    }
+
+    pub fn max_provided_keys_with_number(test_number: Option<u32>) {
+        init_logging();
+        let temp_dir = get_test_temp_dir(test_number);
+        let local_id = PeerId::random();
+        let mut store = SledStore::new(local_id, &temp_dir).expect("Creation Erruh");
+        for i in 0..store.config.max_provided_keys {
+            let key = format!("{:?}, {}", random_multihash(), i);
+            let rec = ProviderRecord::new(RecordKey::new(&key), local_id, Vec::new());
+            assert!(store.add_provider(rec).is_ok());
+        }
+        let key = random_multihash();
+        let rec = ProviderRecord::new(key, local_id, Vec::new());
+        match store.add_provider(rec) {
+            Err(Error::MaxProvidedKeys) => {}
+            _ => panic!("Unexpected result"),
+        }
+
+        // Cleanup test directory
+        drop(store);
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    // Functions that use tmp0 as default for predictable testing
+    pub fn put_get_remove_record_with_tmp0() {
+        init_logging();
+        let r = Record::new(random_multihash(), "Hello".into());
+        let temp_dir = get_test_temp_dir(None);
         let mut store = SledStore::new(PeerId::random(), &temp_dir).expect("Creation Erruh");
         info!("Record: {r:?}\nStore: {store:?}");
         assert!(store.put(r.clone()).is_ok());
@@ -277,11 +583,10 @@ mod tests {
         assert!(store.get(&r.key).is_none());
     }
 
-    #[test]
-    fn add_get_remove_provider() {
+    pub fn add_get_remove_provider_with_tmp0() {
         init_logging();
         let local_id = PeerId::random();
-        let temp_dir = format!("./tmp/agrp_{}", rand::random::<u64>());
+        let temp_dir = get_test_temp_dir(None);
         let mut store = SledStore::new(local_id, &temp_dir).expect("Creation Erruh");
 
         // Add provider
@@ -303,11 +608,10 @@ mod tests {
         assert_eq!(0, store.provided().count());
     }
 
-    #[test]
-    fn provided() {
+    pub fn provided_with_tmp0() {
         init_logging();
         let local_id = PeerId::random();
-        let temp_dir = format!("./tmp/p_{}", rand::random::<u64>());
+        let temp_dir = get_test_temp_dir(None);
         let key = random_multihash();
         let rec = ProviderRecord::new(key.clone(), local_id, Vec::new());
         {
@@ -364,12 +668,11 @@ mod tests {
         assert_eq!(new_store.provided().count(), 0);
     }
 
-    #[test]
-    fn update_provider() {
+    pub fn update_provider_with_tmp0() {
         init_logging();
         let local_id = PeerId::random();
-        let mut store =
-            SledStore::new(local_id, "./tmp/update_provider_test").expect("Creation Erruh");
+        let temp_dir = get_test_temp_dir(None);
+        let mut store = SledStore::new(local_id, &temp_dir).expect("Creation Erruh");
         let key = random_multihash();
         let rec = ProviderRecord::new(key, local_id, Vec::new());
 
@@ -383,12 +686,11 @@ mod tests {
         assert_eq!(vec![updated_rec], store.providers(&rec.key));
     }
 
-    #[test]
-    fn update_provided() {
+    pub fn update_provided_with_tmp0() {
         init_logging();
         let local_id = PeerId::random();
-        let mut store =
-            SledStore::new(local_id, "./tmp/update_provided_test").expect("Creation Erruh");
+        let temp_dir = get_test_temp_dir(None);
+        let mut store = SledStore::new(local_id, &temp_dir).expect("Creation Erruh");
         let key = random_multihash();
         let rec = ProviderRecord::new(key, local_id, Vec::new());
 
@@ -408,13 +710,12 @@ mod tests {
         );
     }
 
-    #[test]
-    fn max_providers_per_key() {
+    pub fn max_providers_per_key_with_tmp0() {
         init_logging();
         let config = SledStoreConfig::default();
         let key = random_multihash();
 
-        let temp_dir = format!("./tmp/mppk_{}", rand::random::<u64>());
+        let temp_dir = get_test_temp_dir(None);
         let mut store = SledStore::new(PeerId::random(), &temp_dir).expect("Creation Erruh");
         let peers = (0..config.max_providers_per_key)
             .map(|_| PeerId::random())
@@ -431,10 +732,9 @@ mod tests {
         assert!(!store.providers(&rec.key).contains(&rec));
     }
 
-    #[test]
-    fn max_provided_keys() {
+    pub fn max_provided_keys_with_tmp0() {
         init_logging();
-        let temp_dir = format!("./tmp/mpk_{}", rand::random::<u64>());
+        let temp_dir = get_test_temp_dir(None);
         let local_id = PeerId::random();
         let mut store = SledStore::new(local_id, &temp_dir).expect("Creation Erruh");
         for i in 0..store.config.max_provided_keys {

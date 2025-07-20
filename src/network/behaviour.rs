@@ -7,9 +7,9 @@ use crate::database::SledStore;
 
 #[derive(NetworkBehaviour)]
 pub struct NetabaseBehaviour {
-    kad: kad::Behaviour<SledStore>,
-    identify: identify::Behaviour,
-    mdns: mdns::tokio::Behaviour,
+    pub kad: kad::Behaviour<SledStore>,
+    pub identify: identify::Behaviour,
+    pub mdns: mdns::tokio::Behaviour,
 }
 
 impl Clone for NetabaseBehaviourEvent {
