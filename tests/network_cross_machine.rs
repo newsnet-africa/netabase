@@ -53,7 +53,8 @@ async fn run_writer_node(
         listen_addr.ip(),
         listen_addr.port()
     )
-    .parse()?;
+    .parse()
+    .or_else(|_| -> anyhow::Result<Multiaddr> { Ok(Multiaddr::empty()) })?;
 
     swarm.listen_on(listen_multiaddr)?;
 
@@ -73,7 +74,9 @@ async fn run_writer_node(
 
     // Store all records first
     for (i, value) in values.iter().enumerate() {
-        let record = libp2p::kad::Record::new(key.clone(), value.as_bytes().to_vec());
+        let mut new_key = key.to_vec();
+        new_key.push(i as u8);
+        let record = libp2p::kad::Record::new(new_key, value.as_bytes().to_vec());
         match swarm
             .behaviour_mut()
             .kad

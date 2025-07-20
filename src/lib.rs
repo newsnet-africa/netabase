@@ -4,6 +4,22 @@ pub mod config;
 pub mod database;
 pub mod network;
 
+//TODO:
+// 1. Read over generated code
+// 2. Implement missing functions
+// 3. Start integrating the database with the network
+// 4. So much clean up:
+//    - Commenting and documentation
+//    - Remove unused imports
+//    - Refactor code for better readability and maintainability
+//    - Add more comprehensive error handling
+//    - Improve test coverage
+// 5. Fix testing and make it cohesive lol
+// 6. NB!!! Make sure that the message passing and monitoring of the swarm is working correctly and completed in implementation:
+//    - Implement message passing between nodes
+//    - Monitor the health and status of the swarm
+// NB!! - This is mostly so that there is an exposeable api to the netabase that can easily be used by the frontend
+
 /// Initialize logging for tests across the library.
 /// This function ensures that logging is initialized only once using `std::sync::Once`
 /// to prevent multiple initialization attempts when running multiple tests.

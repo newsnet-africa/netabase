@@ -89,15 +89,20 @@ async fn setup_connected_swarms() -> Result<(
 
 async fn record_writer(
     mut swarm: libp2p::Swarm<netabase::network::behaviour::NetabaseBehaviour>,
-    key: libp2p::kad::RecordKey,
+    base_key: libp2p::kad::RecordKey,
     values: Vec<String>,
     mut command_receiver: tokio::sync::mpsc::Receiver<SwarmAction>,
 ) -> Result<()> {
     info!("Starting record writer");
 
-    // Put all records first
+    // Put all records first with unique keys
     for (i, value) in values.iter().enumerate() {
-        let record = libp2p::kad::Record::new(key.clone(), value.as_bytes().to_vec());
+        let unique_key = libp2p::kad::RecordKey::new(&format!(
+            "{}__{}",
+            std::str::from_utf8(base_key.as_ref()).unwrap_or("test_key"),
+            i
+        ));
+        let record = libp2p::kad::Record::new(unique_key, value.as_bytes().to_vec());
         let query_id = swarm
             .behaviour_mut()
             .kad
@@ -169,8 +174,8 @@ async fn record_writer(
 
 async fn record_reader(
     mut swarm: libp2p::Swarm<netabase::network::behaviour::NetabaseBehaviour>,
-    key: libp2p::kad::RecordKey,
-    _expected_records: usize,
+    base_key: libp2p::kad::RecordKey,
+    expected_records: usize,
     mut command_receiver: tokio::sync::mpsc::Receiver<SwarmAction>,
 ) -> Result<Vec<String>> {
     info!("Starting record reader");
@@ -179,102 +184,127 @@ async fn record_reader(
     sleep(Duration::from_secs(2)).await;
 
     let mut found_records = Vec::new();
-    let mut query_attempts = 0;
-    let max_attempts = 10;
+    let mut records_to_find = Vec::new();
 
-    loop {
-        // Try to get the record
-        let query_id = swarm.behaviour_mut().kad.get_record(key.clone());
-        query_attempts += 1;
-        info!(
-            "Reader: Attempting to get record (attempt {}/{}): {:?}",
-            query_attempts, max_attempts, query_id
-        );
-
-        let mut got_response = false;
-        let query_timeout = timeout(Duration::from_secs(5), async {
-            loop {
-                tokio::select! {
-                    event = swarm.select_next_some() => {
-                        match event {
-                            libp2p::swarm::SwarmEvent::Behaviour(
-                                netabase::network::behaviour::NetabaseBehaviourEvent::Kad(
-                                    libp2p::kad::Event::OutboundQueryProgressed { result, .. }
-                                )
-                            ) => {
-                                match result {
-                                    QueryResult::GetRecord(Ok(libp2p::kad::GetRecordOk::FoundRecord(peer_record))) => {
-                                        let value = String::from_utf8_lossy(&peer_record.record.value).to_string();
-                                        info!("Reader: Found record: {}", value);
-                                        found_records.push(value);
-                                        got_response = true;
-                                        break;
-                                    }
-                                    QueryResult::GetRecord(Ok(libp2p::kad::GetRecordOk::FinishedWithNoAdditionalRecord { .. })) => {
-                                        info!("Reader: Get finished with no additional record");
-                                        got_response = true;
-                                        break;
-                                    }
-                                    QueryResult::GetRecord(Err(e)) => {
-                                        info!("Reader: Get record failed: {:?}", e);
-                                        got_response = true;
-                                        break;
-                                    }
-                                    _ => {}
-                                }
-                            }
-                            libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-                                info!("Reader: Connected to peer: {}", peer_id);
-                            }
-                            libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } => {
-                                info!("Reader: Listening on {}", address);
-                            }
-                            _ => {}
-                        }
-                    }
-                    command = command_receiver.recv() => {
-                        match command {
-                            Some(SwarmAction::EndLoop) => {
-                                info!("Reader: Received end command");
-                                break;
-                            }
-                            Some(cmd) => {
-                                info!("Reader: Received command: {:?}", cmd);
-                            }
-                            None => {
-                                info!("Reader: Command channel closed");
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        match query_timeout.await {
-            Ok(_) => {
-                if !found_records.is_empty() {
-                    info!("Reader: Successfully found {} records", found_records.len());
-                    return Ok(found_records);
-                }
-            }
-            Err(_) => {
-                info!("Reader: Query timeout on attempt {}", query_attempts);
-            }
-        }
-
-        if query_attempts >= max_attempts {
-            info!(
-                "Reader: Max attempts reached, found {} records",
-                found_records.len()
-            );
-            break;
-        }
-
-        // Wait before next attempt
-        sleep(Duration::from_secs(1)).await;
+    // Generate the same unique keys that the writer used
+    for i in 0..expected_records {
+        let unique_key = libp2p::kad::RecordKey::new(&format!(
+            "{}__{}",
+            std::str::from_utf8(base_key.as_ref()).unwrap_or("test_key"),
+            i
+        ));
+        records_to_find.push(unique_key);
     }
 
+    let max_attempts = 10;
+
+    // Try to find each record
+    for (record_index, key) in records_to_find.iter().enumerate() {
+        let mut record_found = false;
+        let mut record_query_attempts = 0;
+
+        while !record_found && record_query_attempts < max_attempts {
+            // Try to get the record
+            let query_id = swarm.behaviour_mut().kad.get_record(key.clone());
+            record_query_attempts += 1;
+            info!(
+                "Reader: Attempting to get record {} (attempt {}/{}): {:?}",
+                record_index, record_query_attempts, max_attempts, query_id
+            );
+
+            let mut got_response = false;
+            let query_timeout = timeout(Duration::from_secs(5), async {
+                loop {
+                    tokio::select! {
+                        event = swarm.select_next_some() => {
+                            match event {
+                                libp2p::swarm::SwarmEvent::Behaviour(
+                                    netabase::network::behaviour::NetabaseBehaviourEvent::Kad(
+                                        libp2p::kad::Event::OutboundQueryProgressed { result, .. }
+                                    )
+                                ) => {
+                                    match result {
+                                        QueryResult::GetRecord(Ok(libp2p::kad::GetRecordOk::FoundRecord(peer_record))) => {
+                                            let value = String::from_utf8_lossy(&peer_record.record.value).to_string();
+                                            info!("Reader: Found record {}: {}", record_index, value);
+                                            found_records.push(value);
+                                            got_response = true;
+                                            record_found = true;
+                                            break;
+                                        }
+                                        QueryResult::GetRecord(Ok(libp2p::kad::GetRecordOk::FinishedWithNoAdditionalRecord { .. })) => {
+                                            info!("Reader: Get finished with no additional record for record {}", record_index);
+                                            got_response = true;
+                                            break;
+                                        }
+                                        QueryResult::GetRecord(Err(e)) => {
+                                            info!("Reader: Get record {} failed: {:?}", record_index, e);
+                                            got_response = true;
+                                            break;
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                                libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                                    info!("Reader: Connected to peer: {}", peer_id);
+                                }
+                                libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } => {
+                                    info!("Reader: Listening on {}", address);
+                                }
+                                _ => {}
+                            }
+                        }
+                        command = command_receiver.recv() => {
+                            match command {
+                                Some(SwarmAction::EndLoop) => {
+                                    info!("Reader: Received end command");
+                                    break;
+                                }
+                                Some(cmd) => {
+                                    info!("Reader: Received command: {:?}", cmd);
+                                }
+                                None => {
+                                    info!("Reader: Command channel closed");
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            match query_timeout.await {
+                Ok(_) => {
+                    if record_found {
+                        info!("Reader: Successfully found record {}", record_index);
+                        break; // Move to next record
+                    }
+                }
+                Err(_) => {
+                    info!(
+                        "Reader: Query timeout for record {} on attempt {}",
+                        record_index, record_query_attempts
+                    );
+                }
+            }
+
+            // Wait before next attempt for this record
+            sleep(Duration::from_secs(1)).await;
+        }
+
+        if !record_found {
+            info!(
+                "Reader: Failed to find record {} after {} attempts",
+                record_index, max_attempts
+            );
+        }
+    }
+
+    info!(
+        "Reader: Finished searching, found {} out of {} expected records",
+        found_records.len(),
+        expected_records
+    );
     Ok(found_records)
 }
 
@@ -287,6 +317,8 @@ async fn test_connected_writer_reader() {
         "Hello World".to_string(),
         "Test Record".to_string(),
         "Another Value".to_string(),
+        "Fourth Record".to_string(),
+        "Fifth Record".to_string(),
     ];
 
     // Setup connected swarms
@@ -342,7 +374,12 @@ async fn test_connected_writer_reader() {
             for (i, record) in records.iter().enumerate() {
                 info!("Record {}: {}", i, record);
             }
-            assert!(!records.is_empty(), "Should have found at least one record");
+            assert_eq!(
+                records.len(),
+                5,
+                "Should have found exactly 5 records, but found {}",
+                records.len()
+            );
         }
         Ok(Ok(Err(e))) => {
             info!("Reader failed: {:?}", e);
