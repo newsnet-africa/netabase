@@ -382,6 +382,301 @@ export NETABASE_TEST_VALUES="$(date +%s),Test1,Test2"
 sudo tcpdump -i any port 9901
 ```
 
+## Scalability Testing
+
+In addition to cross-machine functionality testing, NetaBase includes comprehensive scalability tests that measure how the P2P platform performs as the number of nodes increases. These tests are designed to identify bottlenecks, measure performance characteristics, and validate the system's ability to handle production-scale deployments.
+
+### Overview of Scalability Tests
+
+The scalability test suite includes:
+
+- **Linear Node Scaling**: Tests performance as nodes are gradually added
+- **Network Topology Performance**: Compares different connection patterns (mesh, ring, star, random)
+- **High Throughput Operations**: Tests maximum DHT operation rates
+- **Network Churn Resilience**: Tests stability as nodes join and leave dynamically
+- **Bootstrap Performance**: Measures how quickly new nodes can join the network
+- **Large Record Scalability**: Tests performance with large data payloads
+- **Concurrent Operations**: Tests parallel DHT operations across multiple nodes
+- **Network Partition Recovery**: Tests resilience to network splits and healing
+- **Stress Testing**: Maximum scale testing with resource monitoring
+
+### Running Scalability Tests
+
+#### Quick Start
+
+```bash
+# Run all scalability tests with default settings (20 nodes, 5 minutes)
+./scripts/run_scalability_tests.sh
+
+# Quick smoke test for development (5 nodes, 1 minute)
+./scripts/run_scalability_tests.sh --test-type smoke --max-nodes 5 --duration 60
+
+# High-scale stress test (50 nodes, 10 minutes)
+./scripts/run_scalability_tests.sh --test-type stress --max-nodes 50 --duration 600 --stress
+
+# Test specific scenarios
+./scripts/run_scalability_tests.sh --test-type topology --max-nodes 15 --verbose
+./scripts/run_scalability_tests.sh --test-type bootstrap --max-nodes 25
+./scripts/run_scalability_tests.sh --test-type large-records --record-size 65536
+```
+
+#### Configuration Options
+
+| Option | Environment Variable | Description | Default |
+|--------|---------------------|-------------|---------|
+| `--max-nodes` | `NETABASE_SCALABILITY_MAX_NODES` | Maximum number of test nodes | 20 |
+| `--duration` | `NETABASE_SCALABILITY_TEST_DURATION` | Test duration in seconds | 300 |
+| `--interval` | `NETABASE_SCALABILITY_SPAWN_INTERVAL` | Node spawn interval in seconds | 2 |
+| `--timeout` | `NETABASE_SCALABILITY_OP_TIMEOUT` | Operation timeout in seconds | 30 |
+| `--records` | `NETABASE_SCALABILITY_RECORDS_PER_NODE` | Records per node | 10 |
+| `--record-size` | `NETABASE_SCALABILITY_RECORD_SIZE` | Record size in bytes | 1024 |
+| `--test-type` | - | Specific test to run | all |
+| `--verbose` | `NETABASE_SCALABILITY_VERBOSE` | Enable detailed metrics | false |
+| `--stress` | - | Enable stress testing mode | false |
+
+#### Test Types
+
+- **all**: Run complete test suite (default)
+- **linear**: Linear node scaling test
+- **topology**: Network topology performance comparison
+- **throughput**: High throughput operations test
+- **churn**: Network churn resilience test
+- **bootstrap**: Bootstrap performance test
+- **large-records**: Large record scalability test
+- **concurrent**: Concurrent operations scaling test
+- **partition**: Network partition recovery test
+- **stress**: Maximum scale stress test
+- **smoke**: Quick smoke test for CI/CD
+
+### Performance Metrics
+
+The scalability tests collect comprehensive performance metrics:
+
+#### Connection Metrics
+- **Connection Establishment Time**: Time to establish P2P connections
+- **Active Connection Count**: Number of simultaneous connections per node
+- **Connection Success Rate**: Percentage of successful connection attempts
+
+#### DHT Operation Metrics
+- **Operation Latency**: Average time for PUT/GET operations
+- **Operations Per Second**: Throughput of DHT operations
+- **Success/Failure Rates**: Reliability of DHT operations
+- **Record Propagation Time**: Time for records to become available across nodes
+
+#### Network Topology Metrics
+- **Routing Table Size**: Number of peers in each node's routing table
+- **Network Diameter**: Maximum hop count between any two nodes
+- **Clustering Coefficient**: Measure of network connectivity density
+
+#### Resource Usage Metrics
+- **Memory Usage**: RAM consumption per node and total
+- **File Descriptor Usage**: Number of open files/sockets
+- **CPU Usage**: Processing overhead for P2P operations
+- **Disk Usage**: Storage requirements for DHT data
+
+#### Resilience Metrics
+- **Churn Recovery Time**: Time to stabilize after nodes join/leave
+- **Partition Recovery Time**: Time to heal network splits
+- **Bootstrap Time**: Time for new nodes to fully join the network
+
+### System Requirements
+
+#### Minimum Requirements
+- **RAM**: 4GB+ (50MB per node)
+- **CPU**: 2+ cores
+- **Disk**: 1GB+ free space
+- **Network**: Unrestricted UDP ports
+
+#### Recommended for High-Scale Testing
+- **RAM**: 16GB+ for 50+ nodes
+- **CPU**: 8+ cores for stress testing
+- **Disk**: 10GB+ for large record tests
+- **File Descriptors**: `ulimit -n 8192` or higher
+
+#### Performance Tuning
+
+```bash
+# Increase file descriptor limit
+ulimit -n 8192
+
+# Monitor resources during testing
+htop  # or top
+netstat -an | grep ESTABLISHED | wc -l
+
+# For high-scale testing
+echo 'net.core.rmem_max = 16777216' | sudo tee -a /etc/sysctl.conf
+echo 'net.core.wmem_max = 16777216' | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+```
+
+### Interpreting Results
+
+#### Key Performance Indicators
+
+1. **Scalability Factor**: How performance degrades as nodes increase
+   - Linear degradation is acceptable
+   - Exponential degradation indicates bottlenecks
+
+2. **Connection Density**: Average connections per node
+   - Full mesh: N-1 connections per node
+   - Efficient topologies: log(N) connections per node
+
+3. **Operation Latency**: DHT operation response time
+   - Local operations: <10ms
+   - Network operations: <100ms typical
+   - High latency may indicate network issues
+
+4. **Throughput Scaling**: Operations per second vs node count
+   - Should scale roughly linearly with nodes
+   - Plateaus indicate saturation points
+
+#### Example Output Analysis
+
+```
+=== Linear Node Scaling Test Report ===
+Configuration:
+  Max nodes: 20
+  Test duration: 300s
+  Records per node: 10
+  Record value size: 1024 bytes
+
+Network Overview:
+  Total nodes: 20
+  Total connections: 190  # Good - close to full mesh (20*19/2 = 190)
+  Average connections per node: 9.5
+
+Aggregate Performance Metrics:
+  Total successful operations: 15420
+  Total failed operations: 23
+  Overall failure rate: 0.15%  # Excellent - very low failure rate
+  Average latency: 45.2ms      # Good - reasonable for network operations
+  Operations per second: 51.4  # Good scaling
+```
+
+### Production Usage Considerations
+
+#### Features Useful for Production
+
+The scalability tests include several features that are valuable for production P2P systems:
+
+1. **Performance Metrics Collection**: 
+   - Real-time metrics gathering
+   - Aggregated performance reporting
+   - Resource usage monitoring
+
+2. **Network Topology Testing**:
+   - Comparison of connection strategies
+   - Bootstrap node optimization
+   - Resilience pattern validation
+
+3. **Load Testing Capabilities**:
+   - Configurable record sizes and counts
+   - Concurrent operation testing
+   - System resource monitoring
+
+4. **Failure Scenario Testing**:
+   - Network partition simulation
+   - Node churn handling
+   - Recovery time measurement
+
+#### Integration with Monitoring Systems
+
+```rust
+// Example: Integrating metrics collection in production
+use netabase::network_scalability::PerformanceMetrics;
+
+let metrics = PerformanceMetrics::new();
+let metrics_receiver = setup_metrics_collection(&nodes, Duration::from_secs(10));
+
+// Send metrics to your monitoring system
+tokio::spawn(async move {
+    while let Some(metrics_data) = metrics_receiver.recv().await {
+        // Send to Prometheus, InfluxDB, etc.
+        send_to_monitoring_system(metrics_data).await;
+    }
+});
+```
+
+### Continuous Integration
+
+#### CI-Friendly Smoke Test
+
+```bash
+# Quick test suitable for CI/CD pipelines
+./scripts/run_scalability_tests.sh --test-type smoke --max-nodes 3 --duration 30
+```
+
+#### GitHub Actions Example
+
+```yaml
+name: Scalability Tests
+on: [push, pull_request]
+jobs:
+  scalability:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Run scalability smoke test
+        run: |
+          ./scripts/run_scalability_tests.sh --test-type smoke --max-nodes 5 --duration 60
+```
+
+### Troubleshooting Scalability Tests
+
+#### Common Issues
+
+1. **Out of Memory Errors**
+   ```bash
+   # Solution: Reduce node count or increase system memory
+   ./scripts/run_scalability_tests.sh --max-nodes 10  # Reduce from default 20
+   ```
+
+2. **File Descriptor Limits**
+   ```bash
+   # Solution: Increase ulimit
+   ulimit -n 8192
+   ./scripts/run_scalability_tests.sh
+   ```
+
+3. **Port Exhaustion**
+   ```bash
+   # Solution: Wait between test runs or use longer intervals
+   ./scripts/run_scalability_tests.sh --interval 5  # Slower node spawning
+   ```
+
+4. **Test Timeouts**
+   ```bash
+   # Solution: Increase duration or reduce complexity
+   ./scripts/run_scalability_tests.sh --duration 600 --timeout 60
+   ```
+
+#### Performance Analysis
+
+If scalability tests show performance issues:
+
+1. **Check System Resources**
+   ```bash
+   # During test execution
+   htop                                    # Monitor CPU/RAM
+   iostat -x 1                            # Monitor disk I/O
+   netstat -an | grep ESTABLISHED | wc -l # Count connections
+   ```
+
+2. **Profile Network Usage**
+   ```bash
+   # Monitor network traffic
+   iftop                    # Real-time network usage
+   tcpdump -i any port 9901 # Capture P2P traffic
+   ```
+
+3. **Analyze Log Output**
+   - Look for connection failures
+   - Check for timeout patterns
+   - Monitor DHT operation success rates
+
 ## What the Tests Validate
 
 - ✅ **Network connectivity**: Machines can establish libp2p connections
