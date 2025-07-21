@@ -395,11 +395,18 @@ wait # Wait for all readers to complete
    - Verify IP address is correct
    - Check firewall settings
    - Ensure port is not blocked
+   - **Timing Issue**: Writer timeout may be too short (see Timing Recommendations below)
 
 2. **"No route to host"**
    - Verify network connectivity: `ping <writer_ip>`
    - Check if machines are on same network/subnet
    - Verify routing tables
+
+3. **"Writer shuts down before reader connects"**
+   - Writer timeout is too short for cross-machine testing
+   - Reader needs time to: connect (2-5s), stabilize (3s), retrieve records with retries
+   - Minimum recommended writer timeout: 300 seconds (5 minutes)
+   - Best practice: Use timeout=0 (indefinite) for cross-machine testing
 
 ### DHT Issues
 
@@ -412,6 +419,37 @@ wait # Wait for all readers to complete
    - This is expected behavior when there's only one node
    - Records may still be available for local retrieval
    - Run multiple writer nodes for true distributed testing
+
+### Timing Recommendations
+
+**Writer Timeout Settings:**
+- **Indefinite (0 seconds)**: Recommended for cross-machine testing
+  ```bash
+  ./scripts/run_writer.sh -t 0  # Runs until Ctrl+C
+  ```
+- **300+ seconds**: Minimum for reliable cross-machine testing
+  ```bash
+  ./scripts/run_writer.sh -t 300  # 5 minutes
+  ```
+- **60-180 seconds**: May work for fast local networks only
+- **<60 seconds**: Too short, will cause connection failures
+
+**Reader Timing Factors:**
+- Connection establishment: 2-5 seconds per attempt (up to 10 attempts)
+- Connection stabilization: 3 seconds
+- Record retrieval: 15 seconds timeout per record query
+- Retry delays: Exponential backoff (2, 4, 8 seconds)
+- Total time needed: ~60-120 seconds minimum for 5 records
+
+**Environment Variables:**
+```bash
+# Writer - run indefinitely (recommended)
+export NETABASE_WRITER_TIMEOUT=0
+
+# Reader - sufficient timeout for cross-machine latency
+export NETABASE_TEST_TIMEOUT=300
+export NETABASE_READER_RETRIES=5
+```
 
 ### Network Configuration
 

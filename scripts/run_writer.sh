@@ -9,7 +9,7 @@ set -e
 # Default configuration
 DEFAULT_WRITER_ADDR="0.0.0.0:9901"
 DEFAULT_TEST_KEY="cross_machine_key"
-DEFAULT_WRITER_TIMEOUT="0"  # 0 means run indefinitely
+DEFAULT_WRITER_TIMEOUT="300"  # 5 minutes default, long enough for readers to connect
 
 # Fixed 5 test records
 readonly TEST_RECORDS=(
@@ -59,8 +59,11 @@ show_usage() {
     echo "  # Custom address and key"
     echo "  $0 --addr 0.0.0.0:8080 --key mykey"
     echo ""
-    echo "  # Run for specific duration"
+    echo "  # Run for specific duration (5 minutes - good for testing)"
     echo "  $0 -a 192.168.1.100:9901 -t 300"
+    echo ""
+    echo "  # Run indefinitely (recommended for multiple readers)"
+    echo "  $0 -t 0"
     echo ""
     echo "  # Verbose mode with dry-run"
     echo "  $0 --verbose --dry-run -a 0.0.0.0:9901"
@@ -82,6 +85,12 @@ show_usage() {
     echo "  1. Writer listens on specified address and stores 5 records"
     echo "  2. Reader machines connect to writer's IP address"
     echo "  3. Ensure firewall allows UDP traffic on the specified port"
+    echo ""
+    echo "Timeout Recommendations:"
+    echo "  - 0 (indefinite): Best for multiple readers or unknown timing"
+    echo "  - 300+ seconds: Good minimum for cross-machine testing"
+    echo "  - 60-180 seconds: May work for fast local networks"
+    echo "  - <60 seconds: Too short for reliable cross-machine testing"
     echo ""
     echo "The writer will run until stopped with Ctrl+C (or timeout if specified)"
 }
@@ -162,8 +171,14 @@ validate_config() {
         log_warning "Make sure this IP is actually bound to a network interface"
     fi
 
-    if [ "$timeout" -gt 0 ] && [ "$timeout" -lt 30 ]; then
-        log_warning "Timeout is very short ($timeout seconds). May not give readers enough time to connect."
+    if [ "$timeout" -gt 0 ] && [ "$timeout" -lt 60 ]; then
+        log_error "Timeout is too short ($timeout seconds). Cross-machine tests need at least 60 seconds."
+        log_error "Readers need time to: connect (2s), stabilize (2s), retrieve 5 records with retries."
+        log_error "Recommended: 300+ seconds for reliable testing, or 0 for indefinite."
+        return 1
+    elif [ "$timeout" -gt 0 ] && [ "$timeout" -lt 180 ]; then
+        log_warning "Timeout is short ($timeout seconds). May not be sufficient for slow networks."
+        log_warning "Consider 300+ seconds for reliable cross-machine testing."
     fi
 
     # Check for port conflicts
@@ -223,9 +238,11 @@ display_configuration() {
     echo "  Local IP(s): ${all_ips:-unknown}"
 
     if [ "$timeout" = "0" ]; then
-        echo "  Runtime: Indefinite (until Ctrl+C)"
+        echo "  Runtime: Indefinite (until Ctrl+C) - Recommended for cross-machine testing"
+    elif [ "$timeout" -lt 180 ]; then
+        echo "  Runtime: ${timeout} seconds - WARNING: May be too short for reliable testing"
     else
-        echo "  Runtime: ${timeout} seconds"
+        echo "  Runtime: ${timeout} seconds - Good for cross-machine testing"
     fi
 
     echo ""
