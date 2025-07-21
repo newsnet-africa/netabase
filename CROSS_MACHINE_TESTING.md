@@ -16,13 +16,11 @@ The cross-machine tests allow you to:
 # Using the writer script with CLI arguments
 ./scripts/run_writer.sh \
   --addr 0.0.0.0:9901 \
-  --key my_test_key \
-  --values "Hello,World,Distributed,Hash,Table"
+  --key my_test_key
 
 # Or using environment variables
 export NETABASE_WRITER_ADDR="0.0.0.0:9901"
 export NETABASE_TEST_KEY="my_test_key"
-export NETABASE_TEST_VALUES="Hello,World,Distributed,Hash,Table"
 ./scripts/run_writer.sh
 
 # Or run directly with cargo (legacy method)
@@ -35,13 +33,11 @@ cargo test cross_machine_writer -- --nocapture --ignored
 ./scripts/run_reader.sh \
   --connect 192.168.24.160:9901 \
   --key my_test_key \
-  --values "Hello,World,Distributed,Hash,Table" \
   --timeout 60
 
 # Or using environment variables
 export NETABASE_READER_CONNECT_ADDR="192.168.1.100:9901"
 export NETABASE_TEST_KEY="my_test_key"
-export NETABASE_TEST_VALUES="Hello,World,Distributed,Hash,Table"
 export NETABASE_TEST_TIMEOUT="60"
 ./scripts/run_reader.sh
 
@@ -433,9 +429,6 @@ wait # Wait for all readers to complete
 ### Performance Testing
 
 ```bash
-# Test with timestamp to measure propagation delay
-export NETABASE_TEST_VALUES="$(date +%s),Test1,Test2"
-
 # Monitor network traffic
 sudo tcpdump -i any port 9901
 ```

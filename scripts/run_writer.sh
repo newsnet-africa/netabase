@@ -251,7 +251,7 @@ display_configuration() {
     echo "  NETABASE_TEST_KEY=\"$test_key\""
     echo ""
     echo "  Run reader with:"
-    echo "    ./scripts/run_reader.sh --connect <writer-ip:port> --key $test_key --5-records"
+    echo "    ./scripts/run_reader.sh --connect <writer-ip:port> --key $test_key"
     echo "  Or:"
     echo "    cargo test cross_machine_reader_5_records --ignored -- --nocapture"
     echo ""
