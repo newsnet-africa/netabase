@@ -133,7 +133,7 @@ test_writer_mdns() {
     log_info "Watch for 'Writer: Discovered peer via mDNS' messages"
 
     # Run writer in background and capture logs
-    cargo test cross_machine_writer_5_records --ignored -- --nocapture &
+    cargo test cross_machine_writer_5_records  -- --nocapture --ignored &
     local writer_pid=$!
 
     log_info "Writer started with PID: $writer_pid"
@@ -169,7 +169,7 @@ test_reader_mdns() {
     log_info "Starting reader node with mDNS discovery..."
     log_info "Watch for 'Reader: Discovered peer via mDNS' messages"
 
-    if cargo test cross_machine_reader_5_records --ignored -- --nocapture; then
+    if cargo test cross_machine_reader_5_records -- --nocapture  --ignored; then
         log_success "Reader mDNS discovery test completed successfully"
     else
         log_warning "Reader test completed with issues (expected if no writer running)"
@@ -195,7 +195,7 @@ test_full_mdns() {
         export RUST_LOG="info"
     fi
 
-    cargo test cross_machine_writer_5_records --ignored -- --nocapture &
+    cargo test cross_machine_writer_5_records -- --nocapture --ignored&
     local writer_pid=$!
 
     log_info "Writer started with PID: $writer_pid"
@@ -208,7 +208,7 @@ test_full_mdns() {
     export NETABASE_TEST_TIMEOUT="$timeout"
 
     local reader_success=false
-    if cargo test cross_machine_reader_5_records --ignored -- --nocapture; then
+    if cargo test cross_machine_reader_5_records -- --nocapture --ignored; then
         log_success "Reader successfully discovered writer via mDNS and retrieved records!"
         reader_success=true
     else
