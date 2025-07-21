@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# NetaBase Cross-Machine Reader Test Runner (5-Record Version)
+# NetaBase Cross-Machine Reader Test Runner (5-Record Version with mDNS Discovery)
 # This script runs a reader node that retrieves exactly 5 records with unique keys
-# Updated to use the new 5-record approach with unique key generation
+# Updated to use mDNS-based peer discovery for automatic network bootstrapping
 
 set -e
 
@@ -30,9 +30,9 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 show_usage() {
-    echo -e "${CYAN}NetaBase Cross-Machine Reader Test Runner (5-Record Version)${NC}"
+    echo -e "${CYAN}NetaBase Cross-Machine Reader Test Runner (5-Record Version with mDNS)${NC}"
     echo ""
-    echo "This script runs a reader node that retrieves exactly 5 records with unique keys:"
+    echo "This script runs a reader node that automatically discovers and retrieves exactly 5 records:"
     for i in "${!EXPECTED_RECORDS[@]}"; do
         echo "  Record $i: '${EXPECTED_RECORDS[$i]}'"
     done
@@ -81,7 +81,7 @@ show_usage() {
     echo "  - {base_key}__3: Expected 'Fourth Record'"
     echo "  - {base_key}__4: Expected 'Fifth Record'"
     echo ""
-    echo "The reader will attempt to connect to the writer and retrieve all 5 records"
+    echo "The reader will use mDNS to discover writer nodes and retrieve all 5 records"
     echo "with their unique keys and verify they match the expected values."
 }
 
@@ -181,37 +181,21 @@ test_connectivity() {
     local host="${connect_addr%:*}"
     local port="${connect_addr##*:}"
 
-    log_info "Testing connectivity to writer at $connect_addr..."
+    log_info "Testing mDNS-based connectivity (basic network checks)..."
 
-    # Test basic network connectivity
+    # Test basic network connectivity for local network
     if command -v ping &> /dev/null; then
-        log_debug "Testing host reachability with ping..."
+        log_debug "Testing local network connectivity..."
         if timeout 3 ping -c 1 "$host" &> /dev/null; then
-            log_success "Host $host is reachable"
+            log_success "Host $host is reachable on local network"
         else
-            log_warning "Host $host is not responding to ping (may be firewalled)"
+            log_warning "Host $host is not responding to ping (normal for mDNS)"
         fi
     fi
 
-    # Test port connectivity
-    local port_reachable=false
-    if command -v nc &> /dev/null; then
-        log_debug "Testing port connectivity with netcat..."
-        if nc -z -u -w 3 "$host" "$port" &> /dev/null; then
-            log_success "UDP port $port on $host appears reachable"
-            port_reachable=true
-        fi
-    elif command -v telnet &> /dev/null; then
-        log_debug "Testing connectivity with telnet..."
-        if timeout 3 bash -c "echo >/dev/tcp/$host/$port" &> /dev/null; then
-            log_success "Host $host port $port appears reachable"
-            port_reachable=true
-        fi
-    fi
-
-    if [ "$port_reachable" = false ]; then
-        log_warning "Cannot verify port connectivity (writer may not be running yet)"
-    fi
+    # Note about mDNS discovery
+    log_info "Reader will use mDNS to automatically discover writer nodes"
+    log_info "No manual port testing needed - mDNS handles peer discovery"
 }
 
 display_configuration() {
@@ -235,22 +219,23 @@ display_configuration() {
     done
     echo ""
     echo -e "${BLUE}Prerequisites:${NC}"
-    echo "  1. Writer node must be running on $connect_addr"
+    echo "  1. Writer node must be running and advertising via mDNS"
     echo "  2. Writer must have stored 5 records under base key '$test_key'"
-    echo "  3. Network connectivity must exist between machines"
-    echo "  4. Firewall must allow UDP traffic on port ${connect_addr##*:}"
+    echo "  3. Both nodes must be on the same local network for mDNS discovery"
+    echo "  4. Firewall must allow mDNS (port 5353) and libp2p QUIC traffic"
     echo ""
     echo -e "${CYAN}Writer Commands:${NC}"
-    echo "  Start writer with:"
-    echo "    ./scripts/run_writer.sh --addr 0.0.0.0:${connect_addr##*:} --key $test_key"
+    echo "  Start writer with mDNS support:"
+    echo "    ./scripts/run_writer_5_records.sh --addr 0.0.0.0:${connect_addr##*:} --key $test_key"
     echo "  Or:"
     echo "    cargo test cross_machine_writer_5_records --ignored -- --nocapture"
     echo ""
     echo -e "${YELLOW}Troubleshooting Tips:${NC}"
-    echo "  - Connection fails: Check writer is running and firewall allows UDP"
+    echo "  - mDNS discovery fails: Ensure both nodes are on same local network"
     echo "  - Records not found: Verify key matches and writer stored 5 records"
-    echo "  - Timeout issues: Increase timeout or check network latency"
-    echo "  - Partial results: Check if writer has finished storing all 5 records"
+    echo "  - Timeout issues: Check mDNS is enabled and firewall allows port 5353"
+    echo "  - DHT issues: Wait longer for Kademlia bootstrap to complete"
+    echo "  - No peers discovered: Restart both writer and reader, ensure mDNS works"
     echo "========================================================================"
     echo ""
 }
@@ -297,22 +282,22 @@ run_rust_test() {
 
         echo ""
         echo "Common issues and solutions:"
-        echo "1. Writer not running:"
-        echo "   → Start the 5-record writer node first using run_writer.sh"
-        echo "2. Wrong address:"
-        echo "   → Verify the writer's IP address and port with --connect"
-        echo "3. Firewall blocking:"
-        echo "   → Ensure UDP port is open on writer machine"
+        echo "1. mDNS discovery fails:"
+        echo "   → Ensure both nodes are on the same local network"
+        echo "2. Writer not running:"
+        echo "   → Start the 5-record writer node first using run_writer_5_records.sh"
+        echo "3. Firewall blocking mDNS:"
+        echo "   → Ensure port 5353 (mDNS) and QUIC ports are open"
         echo "4. Network connectivity:"
-        echo "   → Test with: ping <writer-ip>"
+        echo "   → Test local network: ping <writer-ip>"
         echo "5. Key mismatch:"
         echo "   → Ensure both writer and reader use the same --key"
-        echo "6. No records stored:"
+        echo "6. DHT bootstrap issues:"
+        echo "   → Wait longer for Kademlia DHT to discover peers"
+        echo "7. No records stored:"
         echo "   → Check if writer successfully stored all 5 records"
-        echo "7. Timeout too short:"
-        echo "   → Increase with --timeout <seconds> (5 records need more time)"
-        echo "8. Partial records found:"
-        echo "   → Wait for writer to complete, then retry"
+        echo "8. Timeout too short:"
+        echo "   → Increase with --timeout <seconds> (mDNS + DHT need time)"
 
         return $exit_code
     fi
@@ -413,7 +398,7 @@ READER_RETRIES="${NETABASE_READER_RETRIES:-$READER_RETRIES}"
 main() {
     echo ""
     echo "====================================================================="
-    echo "             NetaBase Cross-Machine Reader (5-Record Version)"
+    echo "        NetaBase Cross-Machine Reader (5-Record + mDNS Discovery)"
     echo "====================================================================="
 
     # Handle special modes first

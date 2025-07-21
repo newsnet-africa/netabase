@@ -47,7 +47,7 @@ async fn run_writer_node(
     let temp_dir = get_test_temp_dir_str(Some("cross_writer"));
     let mut swarm = generate_swarm(&temp_dir)?;
 
-    // Convert SocketAddr to Multiaddr
+    // Convert SocketAddr to Multiaddr for specific address listening
     let listen_multiaddr: Multiaddr = format!(
         "/ip4/{}/udp/{}/quic-v1",
         listen_addr.ip(),
@@ -57,6 +57,10 @@ async fn run_writer_node(
     .or_else(|_| -> anyhow::Result<Multiaddr> { Ok(Multiaddr::empty()) })?;
 
     swarm.listen_on(listen_multiaddr)?;
+
+    // Also listen on a general address for mDNS discovery
+    let mdns_listen_multiaddr: Multiaddr = "/ip4/0.0.0.0/udp/0/quic-v1".parse()?;
+    swarm.listen_on(mdns_listen_multiaddr)?;
 
     // Set to server mode to accept and store records
     swarm
@@ -131,6 +135,44 @@ async fn run_writer_node(
             }
             libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, .. } => {
                 info!("Writer: Connected to peer: {}", peer_id);
+            }
+            libp2p::swarm::SwarmEvent::Behaviour(
+                netabase::network::behaviour::NetabaseBehaviourEvent::Mdns(
+                    libp2p::mdns::Event::Discovered(peers),
+                ),
+            ) => {
+                for (peer_id, multiaddr) in peers {
+                    info!(
+                        "Writer: Discovered peer via mDNS: {} at {}",
+                        peer_id, multiaddr
+                    );
+                    // mDNS behavior automatically adds peers to Kademlia
+                    // but let's also try to connect to them for better DHT connectivity
+                    if let Err(e) = swarm.dial(peer_id) {
+                        if verbose {
+                            warn!(
+                                "Writer: Failed to dial discovered peer {}: {:?}",
+                                peer_id, e
+                            );
+                        }
+                    } else {
+                        info!(
+                            "Writer: Attempting to connect to discovered peer: {}",
+                            peer_id
+                        );
+                    }
+                }
+            }
+            libp2p::swarm::SwarmEvent::Behaviour(
+                netabase::network::behaviour::NetabaseBehaviourEvent::Mdns(
+                    libp2p::mdns::Event::Expired(peers),
+                ),
+            ) => {
+                for (peer_id, multiaddr) in peers {
+                    if verbose {
+                        info!("Writer: mDNS peer expired: {} at {}", peer_id, multiaddr);
+                    }
+                }
             }
             libp2p::swarm::SwarmEvent::Behaviour(
                 netabase::network::behaviour::NetabaseBehaviourEvent::Kad(
@@ -304,24 +346,13 @@ async fn run_reader_node(
     let reader_peer_id = *swarm.local_peer_id();
     info!("Reader node peer ID: {}", reader_peer_id);
 
-    // Convert SocketAddr to Multiaddr for dialing
-    let dial_multiaddr: Multiaddr = format!(
-        "/ip4/{}/udp/{}/quic-v1",
-        connect_addr.ip(),
-        connect_addr.port()
-    )
-    .parse()?;
+    // Start listening for mDNS discovery instead of manual dialing
+    let listen_multiaddr: Multiaddr = "/ip4/0.0.0.0/udp/0/quic-v1".parse()?;
 
-    info!("Reader: Attempting to dial writer at: {}", dial_multiaddr);
+    info!("Reader: Starting listener for mDNS discovery...");
+    swarm.listen_on(listen_multiaddr)?;
 
-    // Dial the writer
-    match swarm.dial(dial_multiaddr) {
-        Ok(_) => info!("Reader: Dial initiated successfully"),
-        Err(e) => {
-            error!("Reader: Failed to initiate dial: {:?}", e);
-            return Err(e.into());
-        }
-    }
+    info!("Reader: Waiting for mDNS to discover writer peers...");
 
     // Generate the same unique keys that the writer used
     let mut records_to_find = Vec::new();
@@ -342,26 +373,112 @@ async fn run_reader_node(
 
     let start_time = std::time::Instant::now();
 
-    // Wait for connection first
+    // Wait for mDNS discovery and connection establishment
+    let mut discovered_peers = Vec::new();
+    let mut connected_peer_id = None;
+
+    info!("Reader: Waiting for mDNS discovery and peer connections...");
+
     while !connected && start_time.elapsed() < timeout_duration {
         let event_future = swarm.select_next_some();
         let event_result = timeout(Duration::from_secs(1), event_future).await;
 
         if let Ok(event) = event_result {
-            if let libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, .. } = event {
-                info!("Reader: Connected to peer: {}", peer_id);
-                connected = true;
+            match event {
+                libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } => {
+                    info!("Reader: Listening on {}", address);
+                }
+                libp2p::swarm::SwarmEvent::Behaviour(
+                    netabase::network::behaviour::NetabaseBehaviourEvent::Mdns(
+                        libp2p::mdns::Event::Discovered(peers),
+                    ),
+                ) => {
+                    for (peer_id, multiaddr) in peers {
+                        info!(
+                            "Reader: Discovered peer via mDNS: {} at {}",
+                            peer_id, multiaddr
+                        );
+                        discovered_peers.push((peer_id, multiaddr.clone()));
+
+                        // mDNS behavior already adds peers to Kademlia automatically
+                        // but let's also try to connect to them
+                        if let Err(e) = swarm.dial(peer_id) {
+                            warn!(
+                                "Reader: Failed to dial discovered peer {}: {:?}",
+                                peer_id, e
+                            );
+                        } else {
+                            info!(
+                                "Reader: Attempting to connect to discovered peer: {}",
+                                peer_id
+                            );
+                        }
+                    }
+                }
+                libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                    info!("Reader: Connected to peer: {}", peer_id);
+                    connected = true;
+                    connected_peer_id = Some(peer_id);
+                }
+                _ => {}
             }
         }
         tokio::task::yield_now().await;
     }
 
     if !connected {
-        return Err(anyhow::anyhow!("Failed to connect to writer node"));
+        return Err(anyhow::anyhow!(
+            "Failed to discover and connect to any peers via mDNS"
+        ));
     }
 
-    // Wait a bit for connection to stabilize
-    sleep(Duration::from_secs(2)).await;
+    // Bootstrap DHT with discovered peers
+    if !discovered_peers.is_empty() {
+        info!(
+            "Reader: Bootstrapping Kademlia DHT with {} discovered peers...",
+            discovered_peers.len()
+        );
+
+        if let Err(e) = swarm.behaviour_mut().kad.bootstrap() {
+            warn!("Reader: Bootstrap failed: {:?}", e);
+        }
+
+        // Wait for DHT bootstrap to complete
+        info!("Reader: Waiting for DHT bootstrap to complete...");
+        sleep(Duration::from_secs(5)).await;
+
+        // Process bootstrap events
+        let bootstrap_timeout = std::time::Instant::now();
+        while bootstrap_timeout.elapsed() < Duration::from_secs(10) {
+            let event_future = swarm.select_next_some();
+            let event_result = timeout(Duration::from_millis(100), event_future).await;
+
+            if let Ok(event) = event_result {
+                match event {
+                    libp2p::swarm::SwarmEvent::Behaviour(
+                        netabase::network::behaviour::NetabaseBehaviourEvent::Kad(
+                            libp2p::kad::Event::OutboundQueryProgressed { result, .. },
+                        ),
+                    ) => match result {
+                        QueryResult::Bootstrap(Ok(_)) => {
+                            info!("Reader: DHT bootstrap completed successfully");
+                            break;
+                        }
+                        QueryResult::Bootstrap(Err(e)) => {
+                            warn!("Reader: DHT bootstrap failed: {:?}", e);
+                            break;
+                        }
+                        _ => {}
+                    },
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    // Additional stabilization time
+    info!("Reader: DHT stabilization period...");
+    sleep(Duration::from_secs(3)).await;
 
     // Try to find each record
     while current_record_index < records_to_find.len() && start_time.elapsed() < timeout_duration {
