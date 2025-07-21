@@ -194,7 +194,7 @@ manual_record_check() {
 
     log_info "Manual record existence check..."
 
-    cat > /tmp/debug_record_check.rs << 'EOF'
+    cat > ./test_tmp/tmp/debug_record_check.rs << 'EOF'
 use netabase::network::swarm::generate_swarm;
 use libp2p::{kad::RecordKey, Multiaddr};
 use std::time::Duration;
@@ -209,7 +209,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Checking for records under key: {}", test_key);
 
-    let temp_dir = "./tmp_debug_reader";
+    let temp_dir = "./test_tmp/tmp_debug_reader";
     let mut swarm = generate_swarm(temp_dir)?;
 
     let dial_addr: Multiaddr = format!("/ip4/{}/udp/{}/quic-v1",

@@ -51,15 +51,12 @@ async fn setup_connected_swarms() -> Result<(
     let peer1_id = *swarm1.local_peer_id();
 
     // Poll until we get a listen address
-    for _ in 0..10 {
+    for _ in 0..100 {
         let event = swarm1.select_next_some().await;
-        match event {
-            libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } => {
-                listen_addr = Some(address.clone());
-                info!("Writer listening on: {}", address);
-                break;
-            }
-            _ => {}
+        if let libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } = event {
+            listen_addr = Some(address.clone());
+            info!("Writer listening on: {}", address);
+            break;
         }
         sleep(Duration::from_millis(100)).await;
     }

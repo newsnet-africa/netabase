@@ -53,6 +53,167 @@ export NETABASE_READER_RETRIES="5"
 ./scripts/run_multi_reader.sh
 ```
 
+---
+
+## Configurable Tests Using Clap
+
+You can also create and run highly configurable tests using the [Clap](https://docs.rs/clap/latest/clap/) command-line argument parser in Rust. This allows you to parameterize your tests directly from the command line or scripts.
+
+### Example: Integration Test with Clap
+
+You can add a test like this to `netabase/tests/configurable_test.rs`:
+
+```netabase/tests/configurable_test.rs#L1-80
+use clap::Parser;
+use std::process;
+use tokio;
+
+/// A configurable test that can accept command-line arguments
+#[derive(Parser, Debug)]
+#[command(name = "configurable_test")]
+#[command(about = "A test that accepts various configuration parameters")]
+struct Args {
+    /// Number of iterations to run
+    #[arg(short, long, default_value = "10")]
+    iterations: u32,
+
+    /// Timeout in seconds
+    #[arg(short, long, default_value = "30")]
+    timeout: u64,
+
+    /// Test mode to run
+    #[arg(short, long, default_value = "basic")]
+    mode: String,
+
+    /// Enable verbose output
+    #[arg(short, long, default_value = "false")]
+    verbose: bool,
+
+    /// Custom message to use in test
+    #[arg(short = 'M', long)]
+    message: Option<String>,
+
+    /// Port number to use
+    #[arg(short, long, default_value = "8080")]
+    port: u16,
+}
+
+#[tokio::test]
+async fn test_with_arguments() {
+    // Parse command line arguments
+    let args = Args::parse();
+
+    if args.verbose {
+        println!("Running configurable test with parameters:");
+        println!("  Iterations: {}", args.iterations);
+        println!("  Timeout: {}s", args.timeout);
+        println!("  Mode: {}", args.mode);
+        println!("  Port: {}", args.port);
+        if let Some(ref msg) = args.message {
+            println!("  Message: {}", msg);
+        }
+    }
+
+    // Run test based on mode
+    match args.mode.as_str() {
+        "basic" => run_basic_test(&args).await,
+        "network" => run_network_test(&args).await,
+        "performance" => run_performance_test(&args).await,
+        _ => {
+            eprintln!("Unknown test mode: {}", args.mode);
+            process::exit(1);
+        }
+    }
+}
+```
+
+#### Running the Integration Test
+
+You can run this test and pass arguments using `cargo test`:
+
+```bash
+cargo test test_with_arguments -- --iterations 5 --verbose
+cargo test test_with_arguments -- --mode network --port 9090 --timeout 20
+cargo test test_with_arguments -- --mode performance --iterations 100
+```
+
+---
+
+### Example: Standalone Test Runner Binary
+
+You can also create a binary in `src/bin/test_runner.rs` for even more flexible CLI testing:
+
+```netabase/src/bin/test_runner.rs#L1-80
+use clap::Parser;
+use std::process;
+use tokio;
+
+/// A configurable test runner that can accept command-line arguments
+#[derive(Parser, Debug)]
+#[command(name = "test_runner")]
+#[command(about = "A standalone test runner with configurable parameters")]
+#[command(version = "1.0")]
+struct Args {
+    /// Number of test iterations to run
+    #[arg(short, long, default_value = "5")]
+    iterations: u32,
+
+    /// Timeout in seconds for each test
+    #[arg(short, long, default_value = "10")]
+    timeout: u64,
+
+    /// Test suite to run
+    #[arg(short = 's', long, default_value = "all")]
+    suite: String,
+
+    /// Enable verbose output
+    #[arg(short, long)]
+    verbose: bool,
+
+    /// Custom configuration file path
+    #[arg(short, long)]
+    config: Option<String>,
+
+    /// Test data directory
+    #[arg(short, long, default_value = "./test_data")]
+    data_dir: String,
+
+    /// Number of concurrent workers
+    #[arg(short, long, default_value = "1")]
+    workers: u32,
+
+    /// Skip cleanup after tests
+    #[arg(long)]
+    no_cleanup: bool,
+
+    /// Run only specific test by name
+    #[arg(long)]
+    test_name: Option<String>,
+}
+```
+
+#### Running the Test Runner
+
+```bash
+cargo build --bin test_runner
+./target/debug/test_runner --verbose --suite all --iterations 3
+./target/debug/test_runner --suite network --timeout 30 --workers 4
+./target/debug/test_runner --suite performance --data-dir ./custom_test_data --no-cleanup
+./target/debug/test_runner --test-name "integration_test_2" --verbose
+./target/debug/test_runner --config ./test_config.toml --suite integration
+```
+
+---
+
+**Key Features:**
+- Command-line arguments for test configuration
+- Default values and type safety
+- Support for different test modes and suites
+- Timeout and concurrency control
+- Verbose output and error handling
+
+This approach gives you flexible, configurable tests that can be easily parameterized for different testing scenarios!
+
 ## Persistence Testing with Deterministic Paths
 
 The multi-record testing framework supports deterministic path generation, which is crucial for testing persistence across sessions and machines. When a seed value is provided, temporary directories are created with consistent names, allowing the database to persist between test runs.

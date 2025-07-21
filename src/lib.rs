@@ -60,7 +60,7 @@ pub fn get_deterministic_or_random_suffix(seed: Option<u64>) -> u32 {
 
 pub fn get_test_temp_dir(test_number: Option<u64>, seed: Option<u64>) -> String {
     format!(
-        "./tmp{}_{}",
+        "./test_tmp/tmp{}_{}",
         test_number.unwrap_or(0),
         get_deterministic_or_random_suffix(seed)
     )
@@ -68,7 +68,7 @@ pub fn get_test_temp_dir(test_number: Option<u64>, seed: Option<u64>) -> String 
 
 pub fn get_test_temp_dir_str(suffix: Option<&str>, seed: Option<u64>) -> String {
     format!(
-        "./tmp{}_{}",
+        "./test_tmp/tmp{}_{}",
         suffix.unwrap_or("0"),
         get_deterministic_or_random_suffix(seed)
     )

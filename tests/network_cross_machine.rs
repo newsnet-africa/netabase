@@ -9,7 +9,7 @@ use anyhow::Result;
 use libp2p::futures::StreamExt;
 use libp2p::kad::{QueryResult, RecordKey, store::RecordStore};
 use libp2p::{Multiaddr, PeerId};
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use netabase::{
     config::{local_config_from_env, reader_config_from_env, writer_config_from_env},
     get_test_temp_dir_str,
@@ -147,6 +147,8 @@ async fn run_writer_node(
                         "Writer: Discovered peer via mDNS: {} at {}",
                         peer_id, multiaddr
                     );
+
+                    swarm.behaviour_mut().kad.add_address(&peer_id, multiaddr);
                     // mDNS behavior automatically adds peers to Kademlia
                     // but let's also try to connect to them for better DHT connectivity
                     if let Err(e) = swarm.dial(peer_id) {
@@ -254,27 +256,27 @@ async fn run_writer_node_with_ready_signal(
     let total_values = values.len();
 
     // Store all records
-    for (i, value) in values.iter().enumerate() {
-        let record = libp2p::kad::Record::new(key.clone(), value.as_bytes().to_vec());
-        match swarm
-            .behaviour_mut()
-            .kad
-            .put_record(record, libp2p::kad::Quorum::One)
-        {
-            Ok(query_id) => {
-                info!(
-                    "Writer: Queued record {}/{}: '{}' (QueryId: {:?})",
-                    i + 1,
-                    total_values,
-                    value,
-                    query_id
-                );
-            }
-            Err(e) => {
-                warn!("Writer: Failed to queue record {}: {:?}", i, e);
-            }
-        }
-    }
+    // for (i, value) in values.iter().enumerate() {
+    //     let record = libp2p::kad::Record::new(key.clone(), value.as_bytes().to_vec());
+    //     match swarm
+    //         .behaviour_mut()
+    //         .kad
+    //         .put_record(record, libp2p::kad::Quorum::One)
+    //     {
+    //         Ok(query_id) => {
+    //             info!(
+    //                 "Writer: Queued record {}/{}: '{}' (QueryId: {:?})",
+    //                 i + 1,
+    //                 total_values,
+    //                 value,
+    //                 query_id
+    //             );
+    //         }
+    //         Err(e) => {
+    //             warn!("Writer: Failed to queue record {}: {:?}", i, e);
+    //         }
+    //     }
+    // }
 
     // Main event loop
     loop {
@@ -321,7 +323,8 @@ async fn run_writer_node_with_ready_signal(
                     info!("Writer: Received inbound request: {:?}", request);
                 }
             }
-            _ => {}
+
+            e => info!("Other Event: {e:?}"),
         }
 
         tokio::task::yield_now().await;
@@ -403,6 +406,7 @@ async fn run_reader_node(
                         );
                         discovered_peers.push((peer_id, multiaddr.clone()));
 
+                        swarm.behaviour_mut().kad.add_address(&peer_id, multiaddr);
                         // mDNS behavior already adds peers to Kademlia automatically
                         // but let's also try to connect to them
                         if let Err(e) = swarm.dial(peer_id) {
@@ -755,6 +759,8 @@ async fn cross_machine_reader_5_records() -> Result<()> {
 #[tokio::test]
 async fn cross_machine_reader() -> Result<()> {
     init_logging();
+
+    let args = netabase::config::Config::parse();
 
     let config = reader_config_from_env().map_err(|e| {
         error!("Failed to parse reader configuration: {}", e);
