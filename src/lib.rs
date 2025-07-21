@@ -38,27 +38,46 @@ pub fn init_logging() {
     });
 }
 
+/// Get a deterministic or random suffix for temp directories.
+/// If NETABASE_TEST_SEED environment variable is set, it will use that seed
+/// to generate a deterministic suffix. Otherwise, it generates a random suffix.
+///
+/// This enables consistent paths across machines and test sessions when needed.
+pub fn get_deterministic_or_random_suffix() -> u32 {
+    use rand::{Rng, SeedableRng};
+    use rand::rngs::StdRng;
+
+    // Check for seed environment variable
+    if let Ok(seed_str) = std::env::var("NETABASE_TEST_SEED") {
+        if let Ok(seed) = seed_str.parse::<u64>() {
+            // Create a deterministic RNG with the seed
+            let mut seeded_rng = StdRng::seed_from_u64(seed);
+            return seeded_rng.gen::<u32>();
+        }
+    }
+
+    // Fallback to random if no seed is provided
+    rand::rng().gen::<u32>()
+}
+
 pub fn get_test_temp_dir(test_number: Option<u32>) -> String {
-    use rand::Rng;
     match test_number {
-        Some(num) => format!("./tmp{}_{}", num, rand::rng().random::<u32>()),
-        None => format!("./tmp0_{}", rand::rng().random::<u32>()),
+        Some(num) => format!("./tmp{}_{}", num, get_deterministic_or_random_suffix()),
+        None => format!("./tmp0_{}", get_deterministic_or_random_suffix()),
     }
 }
 
 pub fn get_test_temp_dir_str(suffix: Option<&str>) -> String {
-    use rand::Rng;
     match suffix {
-        Some(s) => format!("./tmp{}_{}", s, rand::rng().random::<u32>()),
-        None => format!("./tmp0_{}", rand::rng().random::<u32>()),
+        Some(s) => format!("./tmp{}_{}", s, get_deterministic_or_random_suffix()),
+        None => format!("./tmp0_{}", get_deterministic_or_random_suffix()),
     }
 }
 
 pub fn get_test_temp_dir_with_default(test_number: Option<u32>) -> String {
-    use rand::Rng;
     match test_number {
-        Some(num) => format!("./tmp{}_{}", num, rand::rng().random::<u32>()),
-        None => format!("./tmp0_{}", rand::rng().random::<u32>()),
+        Some(num) => format!("./tmp{}_{}", num, get_deterministic_or_random_suffix()),
+        None => format!("./tmp0_{}", get_deterministic_or_random_suffix()),
     }
 }
 

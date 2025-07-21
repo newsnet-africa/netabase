@@ -3,17 +3,21 @@ name = "netabase"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 anyhow = "1.0.98"
 bincode = { version = "2.0.1", features = ["serde"] }
 clap = { version = "4.4", features = ["derive", "env"] }
 env_logger = "0.11.8"
 envy = "0.4"
-libp2p = { version = "0.56.0", features = [
+libp2p = { version = "*", features = [
     "full",
     "identify",
     "kad",
     "metrics",
+    "quic",
 ] }
 log = "0.4.27"
 rand = "0.9.1"
