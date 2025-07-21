@@ -8,6 +8,8 @@ set -e
 
 # Default configuration
 DEFAULT_READER_CONNECT_ADDR="127.0.0.1:9901"
+DEFAULT_READER_HOST="127.0.0.1"
+DEFAULT_READER_PORT="9901"
 DEFAULT_TEST_KEY="cross_machine_key"
 DEFAULT_TEST_TIMEOUT="120"
 DEFAULT_READER_RETRIES="3"
@@ -41,6 +43,8 @@ show_usage() {
     echo ""
     echo "Options:"
     echo "  -c, --connect ADDR   Writer address to connect to (default: $DEFAULT_READER_CONNECT_ADDR)"
+    echo "  -H, --host HOST      Writer host/IP address (default: $DEFAULT_READER_HOST)"
+    echo "  -p, --port PORT      Writer port number (default: $DEFAULT_READER_PORT)"
     echo "  -k, --key KEY        Base test key for records (default: $DEFAULT_TEST_KEY)"
     echo "  -t, --timeout SECS   Timeout in seconds (default: $DEFAULT_TEST_TIMEOUT)"
     echo "  -r, --retries NUM    Number of retry attempts per record (default: $DEFAULT_READER_RETRIES)"
@@ -51,6 +55,8 @@ show_usage() {
     echo ""
     echo "Environment Variables:"
     echo "  NETABASE_READER_CONNECT_ADDR  Override writer address"
+    echo "  NETABASE_READER_HOST          Override writer host"
+    echo "  NETABASE_READER_PORT          Override writer port"
     echo "  NETABASE_TEST_KEY             Override base test key"
     echo "  NETABASE_TEST_TIMEOUT         Override timeout"
     echo "  NETABASE_READER_RETRIES       Override retry attempts"
@@ -62,6 +68,9 @@ show_usage() {
     echo "  # Connect to specific writer with custom key"
     echo "  $0 --connect 192.168.1.100:9901 --key mykey"
     echo ""
+    echo "  # Use separate host and port specification"
+    echo "  $0 --host 192.168.1.100 --port 9901 --key mykey"
+    echo ""
     echo "  # Short timeout for quick testing"
     echo "  $0 -c 10.0.0.5:8080 -t 30 -r 5"
     echo ""
@@ -70,6 +79,12 @@ show_usage() {
     echo ""
     echo "  # Using environment variables"
     echo "  NETABASE_READER_CONNECT_ADDR=192.168.1.100:9901 \\"
+    echo "  NETABASE_TEST_KEY=distributed_test \\"
+    echo "  $0"
+    echo ""
+    echo "  # Using separate host and port environment variables"
+    echo "  NETABASE_READER_HOST=192.168.1.100 \\"
+    echo "  NETABASE_READER_PORT=9901 \\"
     echo "  NETABASE_TEST_KEY=distributed_test \\"
     echo "  $0"
     echo ""
@@ -208,6 +223,8 @@ display_configuration() {
     echo "========================== READER CONFIGURATION =========================="
     echo -e "${GREEN}Connection Settings:${NC}"
     echo "  Writer Address: $connect_addr"
+    echo "  Writer Host: ${connect_addr%:*}"
+    echo "  Writer Port: ${connect_addr##*:}"
     echo "  Connection Timeout: ${timeout}s"
     echo "  Retry Attempts per Record: $retries"
     echo ""
@@ -227,6 +244,8 @@ display_configuration() {
     echo -e "${CYAN}Writer Commands:${NC}"
     echo "  Start writer with mDNS support:"
     echo "    ./scripts/run_writer_5_records.sh --addr 0.0.0.0:${connect_addr##*:} --key $test_key"
+    echo "  Or with separate host and port:"
+    echo "    ./scripts/run_writer_5_records.sh --host 0.0.0.0 --port ${connect_addr##*:} --key $test_key"
     echo "  Or:"
     echo "    cargo test cross_machine_writer_5_records --ignored -- --nocapture"
     echo ""
@@ -247,6 +266,8 @@ run_rust_test() {
         log_info "Dry run mode - configuration would be:"
         echo "  NETABASE_READER_CONNECT_ADDR=$READER_CONNECT_ADDR"
         echo "  NETABASE_TEST_KEY=$TEST_KEY"
+        echo "  Reader Host: ${READER_CONNECT_ADDR%:*}"
+        echo "  Reader Port: ${READER_CONNECT_ADDR##*:}"
         echo "  Test: cross_machine_reader_5_records"
         log_info "Would run: cargo test cross_machine_reader_5_records -- --nocapture --ignored"
         return 0
@@ -338,17 +359,30 @@ validate_only_mode() {
 
 # Parse command line arguments
 READER_CONNECT_ADDR="$DEFAULT_READER_CONNECT_ADDR"
+READER_HOST="$DEFAULT_READER_HOST"
+READER_PORT="$DEFAULT_READER_PORT"
 TEST_KEY="$DEFAULT_TEST_KEY"
 TEST_TIMEOUT="$DEFAULT_TEST_TIMEOUT"
 READER_RETRIES="$DEFAULT_READER_RETRIES"
 VERBOSE=false
 DRY_RUN=false
 VALIDATE_ONLY=false
+CUSTOM_HOST_PORT=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         -c|--connect)
             READER_CONNECT_ADDR="$2"
+            shift 2
+            ;;
+        -H|--host)
+            READER_HOST="$2"
+            CUSTOM_HOST_PORT=true
+            shift 2
+            ;;
+        -p|--port)
+            READER_PORT="$2"
+            CUSTOM_HOST_PORT=true
             shift 2
             ;;
         -k|--key)
@@ -390,9 +424,17 @@ done
 
 # Override with environment variables if set (env vars have lower priority than CLI args)
 READER_CONNECT_ADDR="${NETABASE_READER_CONNECT_ADDR:-$READER_CONNECT_ADDR}"
+READER_HOST="${NETABASE_READER_HOST:-$READER_HOST}"
+READER_PORT="${NETABASE_READER_PORT:-$READER_PORT}"
 TEST_KEY="${NETABASE_TEST_KEY:-$TEST_KEY}"
 TEST_TIMEOUT="${NETABASE_TEST_TIMEOUT:-$TEST_TIMEOUT}"
 READER_RETRIES="${NETABASE_READER_RETRIES:-$READER_RETRIES}"
+
+# If custom host/port specified, build the connect address
+if [ "$CUSTOM_HOST_PORT" = "true" ]; then
+    READER_CONNECT_ADDR="${READER_HOST}:${READER_PORT}"
+    log_debug "Using custom host/port: $READER_CONNECT_ADDR"
+fi
 
 # Main execution
 main() {

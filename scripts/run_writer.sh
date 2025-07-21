@@ -8,6 +8,8 @@ set -e
 
 # Default configuration
 DEFAULT_WRITER_ADDR="0.0.0.0:9901"
+DEFAULT_WRITER_HOST="0.0.0.0"
+DEFAULT_WRITER_PORT="9901"
 DEFAULT_TEST_KEY="cross_machine_key"
 DEFAULT_WRITER_TIMEOUT="300"  # 5 minutes default, long enough for readers to connect
 
@@ -40,6 +42,8 @@ show_usage() {
     echo ""
     echo "Options:"
     echo "  -a, --addr ADDR      Listen address (default: $DEFAULT_WRITER_ADDR)"
+    echo "  -H, --host HOST      Listen host/IP address (default: $DEFAULT_WRITER_HOST)"
+    echo "  -p, --port PORT      Listen port number (default: $DEFAULT_WRITER_PORT)"
     echo "  -k, --key KEY        Base test key for records (default: $DEFAULT_TEST_KEY)"
     echo "  -t, --timeout SECS   Timeout in seconds, 0 for indefinite (default: $DEFAULT_WRITER_TIMEOUT)"
     echo "  --verbose            Enable verbose logging"
@@ -48,43 +52,56 @@ show_usage() {
     echo "  -h, --help           Show this help message"
     echo ""
     echo "Environment Variables:"
-    echo "  NETABASE_WRITER_ADDR      Override listen address"
-    echo "  NETABASE_TEST_KEY         Override base test key"
-    echo "  NETABASE_WRITER_TIMEOUT   Override timeout (0 = indefinite)"
+    echo "  NETABASE_WRITER_ADDR             Override listen address"
+    echo "  NETABASE_WRITER_HOST             Override listen host"
+    echo "  NETABASE_WRITER_PORT             Override listen port"
+    echo "  NETABASE_TEST_KEY                Override base test key"
+    echo "  NETABASE_WRITER_TIMEOUT          Override timeout"
     echo ""
     echo "Examples:"
-    echo "  # Basic usage with defaults (runs indefinitely)"
+    echo "  # Basic usage with defaults"
     echo "  $0"
     echo ""
-    echo "  # Custom address and key"
-    echo "  $0 --addr 0.0.0.0:8080 --key mykey"
+    echo "  # Listen on specific address with custom key"
+    echo "  $0 --addr 0.0.0.0:9902 --key mykey"
     echo ""
-    echo "  # Run for specific duration (5 minutes - good for testing)"
-    echo "  $0 -a 192.168.1.100:9901 -t 300"
+    echo "  # Use separate host and port specification"
+    echo "  $0 --host 0.0.0.0 --port 9902 --key mykey"
     echo ""
-    echo "  # Run indefinitely (recommended for multiple readers)"
-    echo "  $0 -t 0"
-    echo ""
-    echo "  # Verbose mode with dry-run"
-    echo "  $0 --verbose --dry-run -a 0.0.0.0:9901"
+    echo "  # Run indefinitely with verbose output"
+    echo "  $0 -a 192.168.1.100:8080 -t 0 --verbose"
     echo ""
     echo "  # Using environment variables"
-    echo "  NETABASE_WRITER_ADDR=0.0.0.0:9901 \\"
+    echo "  NETABASE_WRITER_ADDR=0.0.0.0:9902 \\"
+    echo "  NETABASE_TEST_KEY=distributed_test \\"
+    echo "  $0"
+    echo ""
+    echo "  # Using separate host and port environment variables"
+    echo "  NETABASE_WRITER_HOST=0.0.0.0 \\"
+    echo "  NETABASE_WRITER_PORT=9902 \\"
     echo "  NETABASE_TEST_KEY=distributed_test \\"
     echo "  $0"
     echo ""
     echo "Key Generation:"
-    echo "  Records are stored with unique keys based on the base key:"
-    echo "  - {base_key}__0: 'Hello World'"
-    echo "  - {base_key}__1: 'Test Record'"
-    echo "  - {base_key}__2: 'Another Value'"
-    echo "  - {base_key}__3: 'Fourth Record'"
-    echo "  - {base_key}__4: 'Fifth Record'"
+    echo "  The writer stores 5 records with unique keys based on the base key:"
+    echo "  - {base_key}__0: Contains 'Hello World'"
+    echo "  - {base_key}__1: Contains 'Test Record'"
+    echo "  - {base_key}__2: Contains 'Another Value'"
+    echo "  - {base_key}__3: Contains 'Fourth Record'"
+    echo "  - {base_key}__4: Contains 'Fifth Record'"
+    echo ""
+    echo "The writer will listen for connections and store all 5 records,"
+    echo "making them available for reader nodes to retrieve via DHT queries."
     echo ""
     echo "Network Setup:"
     echo "  1. Writer listens on specified address and stores 5 records"
     echo "  2. Reader machines connect to writer's IP address"
     echo "  3. Ensure firewall allows UDP traffic on the specified port"
+    echo ""
+    echo "Port Configuration:"
+    echo "  - Use --addr for complete address (host:port)"
+    echo "  - Use --host and --port for separate specification"
+    echo "  - Environment variables: NETABASE_WRITER_HOST, NETABASE_WRITER_PORT"
     echo ""
     echo "Timeout Recommendations:"
     echo "  - 0 (indefinite): Best for multiple readers or unknown timing"
@@ -235,6 +252,8 @@ display_configuration() {
     echo "========================== WRITER CONFIGURATION =========================="
     echo -e "${GREEN}Network Settings:${NC}"
     echo "  Listen Address: $writer_addr"
+    echo "  Listen Host: ${writer_addr%:*}"
+    echo "  Listen Port: ${writer_addr##*:}"
     echo "  Local IP(s): ${all_ips:-unknown}"
 
     if [ "$timeout" = "0" ]; then
@@ -255,20 +274,27 @@ display_configuration() {
     echo ""
 
     echo -e "${BLUE}For Reader Machines:${NC}"
+    local port="${writer_addr##*:}"
     if [[ "$writer_addr" == "0.0.0.0:"* ]]; then
-        local port="${writer_addr#*:}"
         if [ "$local_ip" != "unknown" ]; then
+            echo "  Connect Address: $local_ip:$port"
             echo "  NETABASE_READER_CONNECT_ADDR=\"$local_ip:$port\""
         else
+            echo "  Connect Address: <your-ip>:$port"
             echo "  NETABASE_READER_CONNECT_ADDR=\"<your-ip>:$port\""
         fi
     else
+        echo "  Connect Address: $writer_addr"
         echo "  NETABASE_READER_CONNECT_ADDR=\"$writer_addr\""
     fi
+    echo "  Connect Host: ${writer_addr%:*} (or actual IP if using 0.0.0.0)"
+    echo "  Connect Port: $port"
     echo "  NETABASE_TEST_KEY=\"$test_key\""
     echo ""
     echo "  Run reader with:"
-    echo "    ./scripts/run_reader.sh --connect <writer-ip:port> --key $test_key"
+    echo "    ./scripts/run_reader.sh --connect <writer-ip>:$port --key $test_key"
+    echo "  Or with separate host/port:"
+    echo "    ./scripts/run_reader.sh --host <writer-ip> --port $port --key $test_key"
     echo "  Or:"
     echo "    cargo test cross_machine_reader_5_records --ignored -- --nocapture"
     echo ""
@@ -301,6 +327,8 @@ run_rust_test() {
         log_info "Dry run mode - configuration would be:"
         echo "  NETABASE_WRITER_ADDR=$WRITER_ADDR"
         echo "  NETABASE_TEST_KEY=$TEST_KEY"
+        echo "  Writer Host: ${WRITER_ADDR%:*}"
+        echo "  Writer Port: ${WRITER_ADDR##*:}"
         echo "  Test: cross_machine_writer_5_records"
         log_info "Would run: cargo test cross_machine_writer_5_records -- --nocapture --ignored"
         return 0
@@ -398,16 +426,29 @@ validate_only_mode() {
 
 # Parse command line arguments
 WRITER_ADDR="$DEFAULT_WRITER_ADDR"
+WRITER_HOST="$DEFAULT_WRITER_HOST"
+WRITER_PORT="$DEFAULT_WRITER_PORT"
 TEST_KEY="$DEFAULT_TEST_KEY"
 WRITER_TIMEOUT="$DEFAULT_WRITER_TIMEOUT"
 VERBOSE=false
 DRY_RUN=false
 VALIDATE_ONLY=false
+CUSTOM_HOST_PORT=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         -a|--addr)
             WRITER_ADDR="$2"
+            shift 2
+            ;;
+        -H|--host)
+            WRITER_HOST="$2"
+            CUSTOM_HOST_PORT=true
+            shift 2
+            ;;
+        -p|--port)
+            WRITER_PORT="$2"
+            CUSTOM_HOST_PORT=true
             shift 2
             ;;
         -k|--key)
@@ -445,8 +486,16 @@ done
 
 # Override with environment variables if set (env vars have lower priority than CLI args)
 WRITER_ADDR="${NETABASE_WRITER_ADDR:-$WRITER_ADDR}"
+WRITER_HOST="${NETABASE_WRITER_HOST:-$WRITER_HOST}"
+WRITER_PORT="${NETABASE_WRITER_PORT:-$WRITER_PORT}"
 TEST_KEY="${NETABASE_TEST_KEY:-$TEST_KEY}"
 WRITER_TIMEOUT="${NETABASE_WRITER_TIMEOUT:-$WRITER_TIMEOUT}"
+
+# If custom host/port specified, build the listen address
+if [ "$CUSTOM_HOST_PORT" = "true" ]; then
+    WRITER_ADDR="${WRITER_HOST}:${WRITER_PORT}"
+    log_debug "Using custom host/port: $WRITER_ADDR"
+fi
 
 # Main execution
 main() {

@@ -15,6 +15,8 @@ NC='\033[0m' # No Color
 
 # Default configuration
 DEFAULT_CONNECT_ADDR="192.168.24.160:9900"
+DEFAULT_CONNECT_HOST="192.168.24.160"
+DEFAULT_CONNECT_PORT="9900"
 DEFAULT_TEST_KEY="multi_record_test"
 DEFAULT_TIMEOUT="60"
 
@@ -43,6 +45,8 @@ show_usage() {
     echo ""
     echo "Options:"
     echo "  -c, --connect ADDR   Writer address to connect to (default: $DEFAULT_CONNECT_ADDR)"
+    echo "  -H, --host HOST      Writer host/IP address (default: $DEFAULT_CONNECT_HOST)"
+    echo "  -p, --port PORT      Writer port number (default: $DEFAULT_CONNECT_PORT)"
     echo "  -k, --key KEY        Base test key for records (default: $DEFAULT_TEST_KEY)"
     echo "  -t, --timeout SECS   Timeout in seconds (default: $DEFAULT_TIMEOUT)"
     echo "  --test-single        Test single record retrieval"
@@ -57,6 +61,9 @@ show_usage() {
     echo ""
     echo "  # Test single record retrieval"
     echo "  $0 --test-single -c 192.168.24.160:9900 -k multi_record_test"
+    echo ""
+    echo "  # Use separate host and port specification"
+    echo "  $0 --test-single --host 192.168.24.160 --port 9900 -k multi_record_test"
     echo ""
     echo "  # Test all 5 records with verbose output"
     echo "  $0 --test-multi --verbose"
@@ -255,17 +262,30 @@ EOF
 
 # Parse command line arguments
 CONNECT_ADDR="$DEFAULT_CONNECT_ADDR"
+CONNECT_HOST="$DEFAULT_CONNECT_HOST"
+CONNECT_PORT="$DEFAULT_CONNECT_PORT"
 TEST_KEY="$DEFAULT_TEST_KEY"
 TIMEOUT="$DEFAULT_TIMEOUT"
 VERBOSE=false
 TEST_CONNECTION=false
 TEST_SINGLE=false
 TEST_MULTI=false
+CUSTOM_HOST_PORT=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         -c|--connect)
             CONNECT_ADDR="$2"
+            shift 2
+            ;;
+        -H|--host)
+            CONNECT_HOST="$2"
+            CUSTOM_HOST_PORT=true
+            shift 2
+            ;;
+        -p|--port)
+            CONNECT_PORT="$2"
+            CUSTOM_HOST_PORT=true
             shift 2
             ;;
         -k|--key)
@@ -317,8 +337,15 @@ main() {
         exit 1
     fi
 
+    # If custom host/port specified, build the connect address
+    if [ "$CUSTOM_HOST_PORT" = "true" ]; then
+        CONNECT_ADDR="${CONNECT_HOST}:${CONNECT_PORT}"
+    fi
+
     log_info "Configuration:"
     echo "  Connect Address: $CONNECT_ADDR"
+    echo "  Connect Host: ${CONNECT_ADDR%:*}"
+    echo "  Connect Port: ${CONNECT_ADDR##*:}"
     echo "  Test Key: $TEST_KEY"
     echo "  Timeout: ${TIMEOUT}s"
     echo "  Verbose: $VERBOSE"
