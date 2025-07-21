@@ -219,14 +219,14 @@ run_minimal_test() {
     log_info "Testing basic node creation (this may take a moment)..."
 
     # Create a simple validation test
-    cat > /tmp/netabase_validation_test.rs << 'EOF'
+    cat > ./test_temp/tmp/netabase_validation_test.rs << 'EOF'
 use std::time::Duration;
 use tokio::time::timeout;
 use netabase::network::swarm::generate_swarm;
 
 #[tokio::test]
 async fn validate_node_creation() {
-    let temp_dir = "./tmp_validation_test";
+    let temp_dir = "./test_tmp/tmp_validation_test";
 
     // Clean up any existing test directory
     if std::path::Path::new(temp_dir).exists() {
@@ -257,7 +257,7 @@ async fn validate_node_creation() {
 EOF
 
     # Copy the validation test to the tests directory
-    cp /tmp/netabase_validation_test.rs tests/validation_test.rs
+    cp ./test_tmp/tmp/netabase_validation_test.rs tests/validation_test.rs
 
     if timeout 30s cargo test validate_node_creation --test validation_test -- --nocapture --quiet; then
         log_success "Basic node creation test passed"
@@ -270,7 +270,7 @@ EOF
 
     # Cleanup
     rm -f tests/validation_test.rs
-    rm -f /tmp/netabase_validation_test.rs
+    rm -f ./test_temp/tmp/netabase_validation_test.rs
 
     return 0
 }
@@ -363,9 +363,9 @@ generate_recommendations() {
 
 cleanup() {
     log_info "Cleaning up validation artifacts..."
-    rm -f tests/validation_test.rs 2>/dev/null || true
-    rm -rf tmp_validation_test 2>/dev/null || true
-    rm -f /tmp/netabase_validation_test.rs 2>/dev/null || true
+    rm -f ./test_tmp/tests/validation_test.rs 2>/dev/null || true
+    rm -rf ./test_tmp/tmp_validation_test 2>/dev/null || true
+    rm -f ./test_tmp/tmp/netabase_validation_test.rs 2>/dev/null || true
 }
 
 main() {
