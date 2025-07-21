@@ -1,5 +1,8 @@
 #![feature(duration_constructors_lite)]
 #![feature(mpmc_channel)]
+
+use rand::Rng;
+
 pub mod config;
 pub mod database;
 pub mod network;
@@ -43,7 +46,7 @@ pub fn init_logging() {
 /// to generate a deterministic suffix. Otherwise, it generates a random suffix.
 ///
 /// This enables consistent paths across machines and test sessions when needed.
-pub fn get_deterministic_or_random_suffix() -> u32 {
+pub fn get_deterministic_or_random_suffix(seed: u64) -> u32 {
     use rand::{Rng, SeedableRng};
     use rand::rngs::StdRng;
 
@@ -52,12 +55,13 @@ pub fn get_deterministic_or_random_suffix() -> u32 {
         if let Ok(seed) = seed_str.parse::<u64>() {
             // Create a deterministic RNG with the seed
             let mut seeded_rng = StdRng::seed_from_u64(seed);
-            return seeded_rng.gen::<u32>();
+            return seeded_rng.random::<u32>();
         }
     }
 
     // Fallback to random if no seed is provided
-    rand::rng().gen::<u32>()
+    let mut rng = rand::thread_rng(); // Create a random number generator
+    rng.random::<u32>() // Generate a random u32
 }
 
 pub fn get_test_temp_dir(test_number: Option<u32>) -> String {

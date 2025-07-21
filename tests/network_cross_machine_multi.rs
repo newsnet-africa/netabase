@@ -7,19 +7,20 @@
 //! - Deterministic path randomization via NETABASE_TEST_SEED environment variable
 //! - Support for creating and testing large numbers of records
 //! - Comprehensive success/failure reporting
-//! - Configuration through environment variables or command-line arguments
+//! - Configuration through environment variables 516or command-line arguments
 
 use anyhow::{Context, Result, bail};
 use clap::Parser;
 use libp2p::Multiaddr;
 use libp2p::kad::{QueryResult, RecordKey};
 use log::{debug, error, info, warn};
-use netabase::{get_test_temp_dir_str, init_logging, network::swarm::generate_swarm};
+use netabase::{get_test_temp_dir_str, network::swarm::generate_swarm};
 use serde::Deserialize;
 use std::future::Future;
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::time::{Duration, Instant};
+use libp2p::futures::StreamExt;
 use tokio::time::timeout;
 
 // Default configuration values
@@ -513,7 +514,7 @@ async fn run_reader_node(
                         },
                     ),
                 ) => {
-                    if let Some(record) = result.records.into_iter().next() {
+                    if let Ok(record) = result {
                         let value_str = String::from_utf8_lossy(&record.record.value);
                         let expected = &expected_values[current_record_index];
 
