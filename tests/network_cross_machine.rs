@@ -34,6 +34,7 @@ async fn run_writer_node(
     values: Vec<String>,
     timeout: Option<Duration>,
     verbose: bool,
+    persistence: Option<u64>,
 ) -> Result<()> {
     if verbose {
         info!("Starting writer node on address: {}", listen_addr);
@@ -44,7 +45,7 @@ async fn run_writer_node(
         );
     }
 
-    let temp_dir = get_test_temp_dir_str(Some("cross_writer"));
+    let temp_dir = get_test_temp_dir_str(Some("cross_writer"), persistence);
     let mut swarm = generate_swarm(&temp_dir)?;
 
     // Convert SocketAddr to Multiaddr for specific address listening
@@ -218,6 +219,7 @@ async fn run_writer_node_with_ready_signal(
     values: Vec<String>,
     ready_tx: tokio::sync::oneshot::Sender<PeerId>,
     verbose: bool,
+    persistence: Option<u64>,
 ) -> Result<()> {
     if verbose {
         info!(
@@ -226,7 +228,7 @@ async fn run_writer_node_with_ready_signal(
         );
     }
 
-    let temp_dir = get_test_temp_dir_str(Some("cross_writer_coordinated"));
+    let temp_dir = get_test_temp_dir_str(Some("cross_writer_coordinated"), persistence);
     let mut swarm = generate_swarm(&temp_dir)?;
 
     // Convert SocketAddr to Multiaddr
@@ -334,13 +336,14 @@ async fn run_reader_node(
     timeout_duration: Duration,
     retries: u32,
     _verbose: bool,
+    persistence: Option<u64>,
 ) -> Result<()> {
     info!(
         "Starting reader node, connecting to writer at: {}",
         connect_addr
     );
 
-    let temp_dir = get_test_temp_dir_str(Some("cross_reader"));
+    let temp_dir = get_test_temp_dir_str(Some("cross_reader"), persistence);
     let mut swarm = generate_swarm(&temp_dir)?;
 
     let reader_peer_id = *swarm.local_peer_id();
@@ -639,6 +642,7 @@ async fn cross_machine_writer() -> Result<()> {
         config.test_values,
         config.timeout,
         config.verbose,
+        config.persistence,
     )
     .await
 }
@@ -684,6 +688,7 @@ async fn cross_machine_writer_5_records() -> Result<()> {
         test_values,
         config.timeout,
         config.verbose,
+        config.persistence,
     )
     .await
 }
@@ -727,6 +732,7 @@ async fn cross_machine_reader_5_records() -> Result<()> {
         config.timeout,
         config.retries,
         config.verbose,
+        config.persistence,
     )
     .await;
 
@@ -772,6 +778,7 @@ async fn cross_machine_reader() -> Result<()> {
         config.timeout,
         config.retries,
         config.verbose,
+        config.persistence,
     )
     .await
 }
@@ -796,7 +803,7 @@ async fn cross_machine_local_test() -> Result<()> {
     let key = RecordKey::new(&config.test_key);
 
     // Test 1: Create writer node and verify local storage
-    let temp_dir_1 = get_test_temp_dir_str(Some("cross_writer_local"));
+    let temp_dir_1 = get_test_temp_dir_str(Some("cross_writer_local"), config.persistence);
     let mut writer_swarm = generate_swarm(&temp_dir_1)?;
     info!("Writer node created successfully");
 
@@ -836,7 +843,7 @@ async fn cross_machine_local_test() -> Result<()> {
     }
 
     // Test 2: Create reader node and verify it works independently
-    let temp_dir_2 = get_test_temp_dir_str(Some("cross_reader_local"));
+    let temp_dir_2 = get_test_temp_dir_str(Some("cross_reader_local"), config.persistence);
     let mut reader_swarm = generate_swarm(&temp_dir_2)?;
     info!("Reader node created successfully");
 
@@ -908,6 +915,7 @@ mod tests {
             test_values: None,
             timeout: None,
             verbose: false,
+            persistent: None,
         };
 
         let validated = writer_config.validate();
@@ -925,6 +933,7 @@ mod tests {
             timeout: Some(30),
             retries: Some(5),
             verbose: true,
+            persistent: None,
         };
 
         let validated = reader_config.validate();
@@ -949,6 +958,7 @@ mod tests {
             timeout: Some(0), // Invalid: zero timeout
             retries: Some(1),
             verbose: false,
+            persistent: None,
         };
 
         let result = reader_config.validate();

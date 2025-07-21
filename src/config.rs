@@ -55,6 +55,9 @@ pub struct WriterConfig {
     /// Enable verbose logging
     #[arg(short, long)]
     pub verbose: bool,
+
+    #[arg(short = 'p', long = "persistence", env = "NETABASE_PERSISTENCE")]
+    pub persistent: Option<u64>,
 }
 
 /// Reader node configuration
@@ -83,6 +86,9 @@ pub struct ReaderConfig {
     /// Enable verbose logging
     #[arg(short, long)]
     pub verbose: bool,
+
+    #[arg(short = 'p', long = "persistence", env = "NETABASE_PERSISTENCE")]
+    pub persistent: Option<u64>,
 }
 
 /// Local test configuration (combines writer and reader)
@@ -113,6 +119,7 @@ pub struct ValidatedWriterConfig {
     pub test_values: Vec<String>,
     pub timeout: Option<Duration>,
     pub verbose: bool,
+    pub persistence: Option<u64>,
 }
 
 /// Validated reader configuration with defaults applied
@@ -124,6 +131,7 @@ pub struct ValidatedReaderConfig {
     pub timeout: Duration,
     pub retries: u32,
     pub verbose: bool,
+    pub persistence: Option<u64>,
 }
 
 /// Validated local test configuration
@@ -133,6 +141,7 @@ pub struct ValidatedLocalConfig {
     pub test_values: Vec<String>,
     pub timeout: Duration,
     pub verbose: bool,
+    pub persistence: Option<u64>,
 }
 
 /// Environment-based configuration (fallback when not using CLI)
@@ -145,6 +154,7 @@ pub struct EnvConfig {
     pub netabase_test_timeout: Option<String>,
     pub netabase_writer_timeout: Option<String>,
     pub netabase_reader_retries: Option<String>,
+    pub netabase_persistence: Option<u64>,
 }
 
 impl Config {
@@ -204,6 +214,7 @@ impl WriterConfig {
             test_values,
             timeout,
             verbose: self.verbose,
+            persistence: self.persistent,
         })
     }
 }
@@ -271,6 +282,7 @@ impl ReaderConfig {
             timeout,
             retries,
             verbose: self.verbose,
+            persistence: self.persistent,
         })
     }
 }
@@ -316,6 +328,7 @@ impl LocalConfig {
             test_values,
             timeout,
             verbose: self.verbose,
+            persistence: self.timeout,
         })
     }
 }
@@ -382,6 +395,7 @@ pub fn writer_config_from_env() -> Result<ValidatedWriterConfig> {
         test_values: None,
         timeout: None,
         verbose: false,
+        persistent: None,
     };
     config.validate()
 }
@@ -395,6 +409,7 @@ pub fn reader_config_from_env() -> Result<ValidatedReaderConfig> {
         timeout: None,
         retries: None,
         verbose: false,
+        persistent: None,
     };
     config.validate()
 }
@@ -451,6 +466,7 @@ mod tests {
             test_values: None,
             timeout: None,
             verbose: false,
+            persistent: None,
         };
 
         let validated = writer_config.validate().unwrap();
@@ -466,6 +482,7 @@ mod tests {
             timeout: Some(30),
             retries: Some(5),
             verbose: true,
+            persistent: None,
         };
 
         let validated = reader_config.validate().unwrap();

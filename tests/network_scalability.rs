@@ -173,7 +173,7 @@ struct TestNode {
 impl TestNode {
     /// Create a new test node
     pub async fn new(id: usize) -> Result<Self> {
-        let temp_dir = get_test_temp_dir_str(Some(&format!("scalability_node_{}", id)));
+        let temp_dir = get_test_temp_dir_str(Some(&format!("scalability_node_{}", id)), None);
         let mut swarm = generate_swarm(&temp_dir)?;
         let peer_id = *swarm.local_peer_id();
 

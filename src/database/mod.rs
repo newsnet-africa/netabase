@@ -287,10 +287,10 @@ pub mod tests {
         put_get_remove_record_with_number(Some(1));
     }
 
-    pub fn put_get_remove_record_with_number(test_number: Option<u32>) {
+    pub fn put_get_remove_record_with_number(test_number: Option<u64>) {
         init_logging();
         let r = Record::new(random_multihash(), "Hello".into());
-        let temp_dir = get_test_temp_dir(test_number);
+        let temp_dir = get_test_temp_dir(test_number, None);
         let mut store = SledStore::new(PeerId::random(), &temp_dir).expect("Creation Erruh");
         info!("Record: {r:?}\nStore: {store:?}");
         assert!(store.put(r.clone()).is_ok());
@@ -308,10 +308,10 @@ pub mod tests {
         add_get_remove_provider_with_number(Some(2));
     }
 
-    pub fn add_get_remove_provider_with_number(test_number: Option<u32>) {
+    pub fn add_get_remove_provider_with_number(test_number: Option<u64>) {
         init_logging();
         let local_id = PeerId::random();
-        let temp_dir = get_test_temp_dir(test_number);
+        let temp_dir = get_test_temp_dir(test_number, None);
         let mut store = SledStore::new(local_id, &temp_dir).expect("Creation Erruh");
 
         // Add provider
@@ -342,10 +342,10 @@ pub mod tests {
         provided_with_number(Some(3));
     }
 
-    pub fn provided_with_number(test_number: Option<u32>) {
+    pub fn provided_with_number(test_number: Option<u64>) {
         init_logging();
         let local_id = PeerId::random();
-        let temp_dir = get_test_temp_dir(test_number);
+        let temp_dir = get_test_temp_dir(test_number, None);
         let key = random_multihash();
         let rec = ProviderRecord::new(key.clone(), local_id, Vec::new());
 
@@ -450,10 +450,10 @@ pub mod tests {
         update_provider_with_number(Some(4));
     }
 
-    pub fn update_provider_with_number(test_number: Option<u32>) {
+    pub fn update_provider_with_number(test_number: Option<u64>) {
         init_logging();
         let local_id = PeerId::random();
-        let temp_dir = get_test_temp_dir(test_number);
+        let temp_dir = get_test_temp_dir(test_number, None);
         let mut store = SledStore::new(local_id, &temp_dir).expect("Creation Erruh");
         let key = random_multihash();
         let rec = ProviderRecord::new(key, local_id, Vec::new());
@@ -477,10 +477,10 @@ pub mod tests {
         update_provided_with_number(Some(5));
     }
 
-    pub fn update_provided_with_number(test_number: Option<u32>) {
+    pub fn update_provided_with_number(test_number: Option<u64>) {
         init_logging();
         let local_id = PeerId::random();
-        let temp_dir = get_test_temp_dir(test_number);
+        let temp_dir = get_test_temp_dir(test_number, None);
         let mut store = SledStore::new(local_id, &temp_dir).expect("Creation Erruh");
         let key = random_multihash();
         let rec = ProviderRecord::new(key, local_id, Vec::new());
@@ -510,12 +510,12 @@ pub mod tests {
         max_providers_per_key_with_number(Some(6));
     }
 
-    pub fn max_providers_per_key_with_number(test_number: Option<u32>) {
+    pub fn max_providers_per_key_with_number(test_number: Option<u64>) {
         init_logging();
         let config = SledStoreConfig::default();
         let key = random_multihash();
 
-        let temp_dir = get_test_temp_dir(test_number);
+        let temp_dir = get_test_temp_dir(test_number, None);
         let mut store = SledStore::new(PeerId::random(), &temp_dir).expect("Creation Erruh");
         let peers = (0..config.max_providers_per_key)
             .map(|_| PeerId::random())
@@ -541,9 +541,9 @@ pub mod tests {
         max_provided_keys_with_number(Some(7));
     }
 
-    pub fn max_provided_keys_with_number(test_number: Option<u32>) {
+    pub fn max_provided_keys_with_number(test_number: Option<u64>) {
         init_logging();
-        let temp_dir = get_test_temp_dir(test_number);
+        let temp_dir = get_test_temp_dir(test_number, None);
         let local_id = PeerId::random();
         let mut store = SledStore::new(local_id, &temp_dir).expect("Creation Erruh");
         for i in 0..store.config.max_provided_keys {
@@ -567,7 +567,7 @@ pub mod tests {
     pub fn put_get_remove_record_with_tmp0() {
         init_logging();
         let r = Record::new(random_multihash(), "Hello".into());
-        let temp_dir = get_test_temp_dir(None);
+        let temp_dir = get_test_temp_dir(None, None);
         let mut store = SledStore::new(PeerId::random(), &temp_dir).expect("Creation Erruh");
         info!("Record: {r:?}\nStore: {store:?}");
         assert!(store.put(r.clone()).is_ok());
@@ -579,7 +579,7 @@ pub mod tests {
     pub fn add_get_remove_provider_with_tmp0() {
         init_logging();
         let local_id = PeerId::random();
-        let temp_dir = get_test_temp_dir(None);
+        let temp_dir = get_test_temp_dir(None, None);
         let mut store = SledStore::new(local_id, &temp_dir).expect("Creation Erruh");
 
         // Add provider
@@ -604,7 +604,7 @@ pub mod tests {
     pub fn provided_with_tmp0() {
         init_logging();
         let local_id = PeerId::random();
-        let temp_dir = get_test_temp_dir(None);
+        let temp_dir = get_test_temp_dir(None, None);
         let key = random_multihash();
         let rec = ProviderRecord::new(key.clone(), local_id, Vec::new());
         {
@@ -664,7 +664,7 @@ pub mod tests {
     pub fn update_provider_with_tmp0() {
         init_logging();
         let local_id = PeerId::random();
-        let temp_dir = get_test_temp_dir(None);
+        let temp_dir = get_test_temp_dir(None, None);
         let mut store = SledStore::new(local_id, &temp_dir).expect("Creation Erruh");
         let key = random_multihash();
         let rec = ProviderRecord::new(key, local_id, Vec::new());
@@ -682,7 +682,7 @@ pub mod tests {
     pub fn update_provided_with_tmp0() {
         init_logging();
         let local_id = PeerId::random();
-        let temp_dir = get_test_temp_dir(None);
+        let temp_dir = get_test_temp_dir(None, None);
         let mut store = SledStore::new(local_id, &temp_dir).expect("Creation Erruh");
         let key = random_multihash();
         let rec = ProviderRecord::new(key, local_id, Vec::new());
@@ -708,26 +708,26 @@ pub mod tests {
         let config = SledStoreConfig::default();
         let key = random_multihash();
 
-        let temp_dir = get_test_temp_dir(None);
+        let temp_dir = get_test_temp_dir(None, None);
         let mut store = SledStore::new(PeerId::random(), &temp_dir).expect("Creation Erruh");
         let peers = (0..config.max_providers_per_key)
             .map(|_| PeerId::random())
             .collect::<Vec<_>>();
         for peer in peers {
-            let rec = ProviderRecord::new(key.clone(), peer, Vec::new());
+            let rec = ProviderRecord::new(key, peer, Vec::new());
             assert!(store.add_provider(rec).is_ok());
         }
 
         // The new provider cannot be added because the key is already saturated.
         let peer = PeerId::random();
-        let rec = ProviderRecord::new(key.clone(), peer, Vec::new());
+        let rec = ProviderRecord::new(key, peer, Vec::new());
         assert!(store.add_provider(rec.clone()).is_ok());
         assert!(!store.providers(&rec.key).contains(&rec));
     }
 
     pub fn max_provided_keys_with_tmp0() {
         init_logging();
-        let temp_dir = get_test_temp_dir(None);
+        let temp_dir = get_test_temp_dir(None, None);
         let local_id = PeerId::random();
         let mut store = SledStore::new(local_id, &temp_dir).expect("Creation Erruh");
         for i in 0..store.config.max_provided_keys {

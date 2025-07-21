@@ -13,7 +13,7 @@ use tokio::time::{sleep, timeout};
 
 #[allow(dead_code)]
 fn cleanup_test_dir(_test_name: &str) {
-    let test_dir = get_test_temp_dir(None);
+    let test_dir = get_test_temp_dir(None, None);
     if std::path::Path::new(&test_dir).exists() {
         let _ = std::fs::remove_dir_all(&test_dir);
     }
@@ -36,7 +36,7 @@ async fn setup_connected_swarms() -> Result<(
     PeerId,
 )> {
     // Create first swarm (writer)
-    let temp_dir_1 = get_test_temp_dir_str(Some("writer"));
+    let temp_dir_1 = get_test_temp_dir_str(Some("writer"), None);
     let mut swarm1 = generate_swarm(&temp_dir_1)?;
 
     // Listen on a specific port for the first swarm
@@ -67,7 +67,7 @@ async fn setup_connected_swarms() -> Result<(
     let listen_addr = listen_addr.ok_or_else(|| anyhow!("Failed to get listen address"))?;
 
     // Create second swarm (reader)
-    let temp_dir_2 = get_test_temp_dir_str(Some("reader"));
+    let temp_dir_2 = get_test_temp_dir_str(Some("reader"), None);
     let mut swarm2 = generate_swarm(&temp_dir_2)?;
     swarm2.listen_on("/ip4/127.0.0.1/udp/0/quic-v1".parse()?)?;
     swarm2
@@ -406,7 +406,7 @@ async fn test_simple_put_get() {
     let value = "Simple Value".to_string();
 
     // Create a single swarm for local testing
-    let temp_dir = get_test_temp_dir_str(Some("simple"));
+    let temp_dir = get_test_temp_dir_str(Some("simple"), None);
     let mut swarm = generate_swarm(&temp_dir).expect("Failed to generate swarm");
 
     // Test local storage functionality directly instead of DHT

@@ -26,12 +26,12 @@ use std::{
 use smallvec::SmallVec;
 
 use super::*;
-use crate::kbucket;
+use libp2p::kad::{KBucketKey, Key};
 
 /// In-memory implementation of a `RecordStore`.
 pub struct MemoryStore {
     /// The identity of the peer owning the store.
-    local_key: kbucket::Key<PeerId>,
+    local_key: KBucketKey<PeerId>,
     /// The configuration of the store.
     config: MemoryStoreConfig,
     /// The stored (regular) records.
@@ -80,7 +80,7 @@ impl MemoryStore {
     /// Creates a new `MemoryRecordStore` with the given configuration.
     pub fn with_config(local_id: PeerId, config: MemoryStoreConfig) -> Self {
         MemoryStore {
-            local_key: kbucket::Key::from(local_id),
+            local_key: KBucketKey::from(local_id),
             config,
             records: HashMap::default(),
             provided: HashSet::default(),
@@ -281,7 +281,7 @@ mod tests {
     fn max_providers_per_key() {
         init_logging();
         let config = MemoryStoreConfig::default();
-        let key = kbucket::Key::new(Key::from(random_multihash()));
+        let key = KBucketKey::new(Key::from(random_multihash()));
 
         let mut store = MemoryStore::with_config(PeerId::random(), config.clone());
         let peers = (0..config.max_providers_per_key)

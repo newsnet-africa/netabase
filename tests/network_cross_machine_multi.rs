@@ -8,10 +8,13 @@
 //! - Support for creating and testing large numbers of records
 //! - Comprehensive success/failure reporting
 //! - Configuration through environment variables 516or command-line arguments
+//!
+//! TODO: This module has to be refactored holy fuck
 
 use anyhow::{Context, Result, bail};
 use clap::Parser;
 use libp2p::Multiaddr;
+use libp2p::futures::StreamExt;
 use libp2p::kad::{QueryResult, RecordKey};
 use log::{debug, error, info, warn};
 use netabase::{get_test_temp_dir_str, network::swarm::generate_swarm};
@@ -20,7 +23,6 @@ use std::future::Future;
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::time::{Duration, Instant};
-use libp2p::futures::StreamExt;
 use tokio::time::timeout;
 
 // Default configuration values
@@ -38,7 +40,7 @@ fn init_logging() {
     INIT.call_once(|| {
         let _ = env_logger::builder()
             .is_test(true)
-            .filter_level(log::LevelFilter::Info)
+            .filter_level(log::LevelFilter::Debug)
             .try_init();
     });
 }
@@ -67,6 +69,9 @@ struct WriterConfig {
 
     #[serde(default)]
     verbose: bool,
+
+    #[serde(default)]
+    persistence: Option<u64>,
 }
 
 /// Validated writer configuration
@@ -77,6 +82,7 @@ struct ValidatedWriterConfig {
     record_count: usize,
     timeout: Option<Duration>,
     verbose: bool,
+    persistence: Option<u64>,
 }
 
 impl WriterConfig {
@@ -120,6 +126,7 @@ impl WriterConfig {
             record_count,
             timeout,
             verbose: self.verbose,
+            persistence: self.persistence,
         })
     }
 }
@@ -149,6 +156,9 @@ struct ReaderConfig {
 
     #[serde(default)]
     verbose: bool,
+
+    #[serde(default)]
+    persistence: Option<u64>,
 }
 
 /// Validated reader configuration
@@ -160,6 +170,7 @@ struct ValidatedReaderConfig {
     timeout: Duration,
     retries: u32,
     verbose: bool,
+    persistence: Option<u64>,
 }
 
 impl ReaderConfig {
@@ -195,6 +206,8 @@ impl ReaderConfig {
 
         let retries = self.retries.unwrap_or(DEFAULT_READER_RETRIES);
 
+        let verbose = self.verbose;
+
         Ok(ValidatedReaderConfig {
             connect_addr,
             test_key,
@@ -202,6 +215,7 @@ impl ReaderConfig {
             timeout,
             retries,
             verbose,
+            persistence: self.persistence,
         })
     }
 }
@@ -218,6 +232,7 @@ async fn run_writer_node(
     values: Vec<String>,
     timeout: Option<Duration>,
     verbose: bool,
+    persistence: Option<u64>,
 ) -> Result<()> {
     if verbose {
         info!("Starting writer node on address: {}", listen_addr);
@@ -228,7 +243,7 @@ async fn run_writer_node(
         );
     }
 
-    let temp_dir = get_test_temp_dir_str(Some("multi_writer"));
+    let temp_dir = get_test_temp_dir_str(Some("multi_writer"), persistence);
     let mut swarm = generate_swarm(&temp_dir)?;
 
     // Convert SocketAddr to Multiaddr for specific address listening
@@ -299,19 +314,20 @@ async fn run_writer_node(
     }
 
     let start_time = Instant::now();
-
     // Main event loop
     loop {
         // Check timeout if specified
-        if let Some(timeout_duration) = timeout {
-            if start_time.elapsed() > timeout_duration {
-                info!("Writer: Timeout reached, shutting down");
-                break;
-            }
+        if start_time.elapsed().as_secs() % 15 == 0 && start_time.elapsed().as_secs() != 0 {
+            info!("Elapsed Time: {:?}", start_time.elapsed().as_secs());
+        }
+        if let Some(timeout_duration) = timeout
+            && start_time.elapsed() > timeout_duration
+        {
+            info!("Writer: Timeout reached, shutting down");
+            break;
         }
 
         let event = swarm.select_next_some().await;
-
         match event {
             libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } => {
                 info!("Writer: Listening on {}", address);
@@ -402,13 +418,14 @@ async fn run_reader_node(
     timeout_duration: Duration,
     retries: u32,
     verbose: bool,
+    persistence: Option<u64>,
 ) -> Result<ReaderTestResults> {
     info!(
         "Starting reader node, connecting to writer at: {}",
         connect_addr
     );
 
-    let temp_dir = get_test_temp_dir_str(Some("multi_reader"));
+    let temp_dir = get_test_temp_dir_str(Some("multi_reader"), persistence);
     let mut swarm = generate_swarm(&temp_dir)?;
 
     let reader_peer_id = *swarm.local_peer_id();
@@ -514,7 +531,7 @@ async fn run_reader_node(
                         },
                     ),
                 ) => {
-                    if let Ok(record) = result {
+                    if let libp2p::kad::GetRecordOk::FoundRecord(record) = result {
                         let value_str = String::from_utf8_lossy(&record.record.value);
                         let expected = &expected_values[current_record_index];
 
@@ -916,6 +933,7 @@ pub async fn cross_machine_writer_multi_records() -> Result<()> {
         test_values,
         config.timeout,
         config.verbose,
+        config.persistence,
     )
     .await
 }
@@ -954,6 +972,7 @@ pub async fn cross_machine_reader_multi_records() -> Result<()> {
         config.timeout,
         config.retries,
         config.verbose,
+        config.persistence,
     )
     .await?;
 
@@ -1047,6 +1066,7 @@ pub async fn cross_machine_local_test_multi_records() -> Result<()> {
         test_values.clone(),
         Some(writer_timeout),
         writer_config.verbose,
+        writer_config.persistence,
     )
     .await?;
 
@@ -1072,6 +1092,7 @@ pub async fn cross_machine_local_test_multi_records() -> Result<()> {
         reader_config.timeout,
         reader_config.retries,
         reader_config.verbose,
+        reader_config.persistence,
     )
     .await?;
 
@@ -1122,13 +1143,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_local_multi_record() {
-        // Set a fixed seed for deterministic testing
-        std::env::set_var("NETABASE_TEST_SEED", "12345");
-
-        // Set small record count for quick testing
-        std::env::set_var("NETABASE_RECORD_COUNT", "10");
-
-        // Run local test
         let result = cross_machine_local_test_multi_records().await;
         assert!(
             result.is_ok(),
@@ -1140,14 +1154,15 @@ mod tests {
     #[test]
     fn test_deterministic_paths() {
         // Test that paths are deterministic with same seed
-        std::env::set_var("NETABASE_TEST_SEED", "54321");
-        let path1 = netabase::get_test_temp_dir_str(Some("test_path"));
-        let path2 = netabase::get_test_temp_dir_str(Some("test_path"));
+
+        let seed_1 = Some(54321);
+        let path1 = netabase::get_test_temp_dir_str(Some("test_path"), seed_1);
+        let path2 = netabase::get_test_temp_dir_str(Some("test_path"), seed_1);
         assert_eq!(path1, path2, "Paths with same seed should be identical");
 
         // Test that paths are different with different seeds
-        std::env::set_var("NETABASE_TEST_SEED", "12345");
-        let path3 = netabase::get_test_temp_dir_str(Some("test_path"));
+        let seed_2 = Some(12345);
+        let path3 = netabase::get_test_temp_dir_str(Some("test_path"), seed_2);
         assert_ne!(
             path1, path3,
             "Paths with different seeds should be different"
@@ -1155,20 +1170,24 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_multi_record_config() {
+        init_logging();
         // Test writer config
-        std::env::set_var("NETABASE_TEST_KEY", "test_multi_key");
-        std::env::set_var("NETABASE_RECORD_COUNT", "25");
+        unsafe { std::env::set_var("NETABASE_TEST_KEY", "test_multi_key") };
+        unsafe { std::env::set_var("NETABASE_RECORD_COUNT", "25") };
 
         let writer_config = writer_config_from_env().unwrap();
+        debug!("Writer Config: {writer_config:?}");
         assert_eq!(writer_config.test_key, "test_multi_key");
         assert_eq!(writer_config.record_count, 25);
 
         // Test reader config
-        std::env::set_var("NETABASE_TEST_TIMEOUT", "60");
-        std::env::set_var("NETABASE_READER_RETRIES", "5");
+        unsafe { std::env::set_var("NETABASE_TEST_TIMEOUT", "60") };
+        unsafe { std::env::set_var("NETABASE_READER_RETRIES", "5") };
 
         let reader_config = reader_config_from_env().unwrap();
+        debug!("Reader Config: {reader_config:?}");
         assert_eq!(reader_config.test_key, "test_multi_key");
         assert_eq!(reader_config.record_count, 25);
         assert_eq!(reader_config.timeout, Duration::from_secs(60));

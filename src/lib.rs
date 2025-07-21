@@ -46,74 +46,63 @@ pub fn init_logging() {
 /// to generate a deterministic suffix. Otherwise, it generates a random suffix.
 ///
 /// This enables consistent paths across machines and test sessions when needed.
-pub fn get_deterministic_or_random_suffix(seed: u64) -> u32 {
-    use rand::{Rng, SeedableRng};
+pub fn get_deterministic_or_random_suffix(seed: Option<u64>) -> u32 {
     use rand::rngs::StdRng;
+    use rand::{Rng, SeedableRng};
 
-    // Check for seed environment variable
-    if let Ok(seed_str) = std::env::var("NETABASE_TEST_SEED") {
-        if let Ok(seed) = seed_str.parse::<u64>() {
-            // Create a deterministic RNG with the seed
-            let mut seeded_rng = StdRng::seed_from_u64(seed);
-            return seeded_rng.random::<u32>();
-        }
-    }
-
-    // Fallback to random if no seed is provided
-    let mut rng = rand::thread_rng(); // Create a random number generator
-    rng.random::<u32>() // Generate a random u32
-}
-
-pub fn get_test_temp_dir(test_number: Option<u32>) -> String {
-    match test_number {
-        Some(num) => format!("./tmp{}_{}", num, get_deterministic_or_random_suffix()),
-        None => format!("./tmp0_{}", get_deterministic_or_random_suffix()),
+    if let Some(inner_seed) = seed {
+        StdRng::seed_from_u64(inner_seed).random::<u32>()
+    } else {
+        let mut rng = rand::rng(); // Create a random number generator
+        rng.random::<u32>() // Generate a random u32
     }
 }
 
-pub fn get_test_temp_dir_str(suffix: Option<&str>) -> String {
-    match suffix {
-        Some(s) => format!("./tmp{}_{}", s, get_deterministic_or_random_suffix()),
-        None => format!("./tmp0_{}", get_deterministic_or_random_suffix()),
-    }
+pub fn get_test_temp_dir(test_number: Option<u64>, seed: Option<u64>) -> String {
+    format!(
+        "./tmp{}_{}",
+        test_number.unwrap_or(0),
+        get_deterministic_or_random_suffix(seed)
+    )
 }
 
-pub fn get_test_temp_dir_with_default(test_number: Option<u32>) -> String {
-    match test_number {
-        Some(num) => format!("./tmp{}_{}", num, get_deterministic_or_random_suffix()),
-        None => format!("./tmp0_{}", get_deterministic_or_random_suffix()),
-    }
+pub fn get_test_temp_dir_str(suffix: Option<&str>, seed: Option<u64>) -> String {
+    format!(
+        "./tmp{}_{}",
+        suffix.unwrap_or("0"),
+        get_deterministic_or_random_suffix(seed)
+    )
 }
 
 /// Test helper functions for numbered database tests
 pub mod test_database {
     use crate::database::tests::*;
 
-    pub fn test_put_get_remove_record_numbered(test_number: u32) {
+    pub fn test_put_get_remove_record_numbered(test_number: u64) {
         put_get_remove_record_with_number(Some(test_number));
     }
 
-    pub fn test_add_get_remove_provider_numbered(test_number: u32) {
+    pub fn test_add_get_remove_provider_numbered(test_number: u64) {
         add_get_remove_provider_with_number(Some(test_number));
     }
 
-    pub fn test_provided_numbered(test_number: u32) {
+    pub fn test_provided_numbered(test_number: u64) {
         provided_with_number(Some(test_number));
     }
 
-    pub fn test_update_provider_numbered(test_number: u32) {
+    pub fn test_update_provider_numbered(test_number: u64) {
         update_provider_with_number(Some(test_number));
     }
 
-    pub fn test_update_provided_numbered(test_number: u32) {
+    pub fn test_update_provided_numbered(test_number: u64) {
         update_provided_with_number(Some(test_number));
     }
 
-    pub fn test_max_providers_per_key_numbered(test_number: u32) {
+    pub fn test_max_providers_per_key_numbered(test_number: u64) {
         max_providers_per_key_with_number(Some(test_number));
     }
 
-    pub fn test_max_provided_keys_numbered(test_number: u32) {
+    pub fn test_max_provided_keys_numbered(test_number: u64) {
         max_provided_keys_with_number(Some(test_number));
     }
 }
@@ -127,15 +116,10 @@ pub mod test_network {
         test_swarm_with_number(Some(8)).await;
     }
 
-    pub async fn test_swarm_numbered(test_number: u32) {
-        test_swarm_with_number(Some(test_number)).await;
-    }
-
-    async fn test_swarm_with_number(test_number: Option<u32>) {
+    async fn test_swarm_with_number(test_number: Option<u64>) {
         crate::init_logging();
-        let temp_dir = crate::get_test_temp_dir(test_number);
+        let temp_dir = crate::get_test_temp_dir(test_number, None);
         let mut swarm = generate_swarm(&temp_dir).expect("Swarm Generation error");
-        let (_tx, mut _rx) = tokio::sync::broadcast::channel::<NetabaseBehaviourEvent>(1);
 
         swarm
             .listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse().expect("Parse error"))
