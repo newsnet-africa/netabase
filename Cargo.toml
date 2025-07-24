@@ -3,6 +3,9 @@ name = "netabase"
 version = "0.1.0"
 edition = "2024"
 
+[workspace]
+members = ["netabase_macros", "test_macros"]
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 
