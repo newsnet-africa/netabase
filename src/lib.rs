@@ -6,6 +6,7 @@ use crate::config::NetabaseConfig;
 
 pub mod config;
 pub mod database;
+pub mod netabase_trait;
 pub mod network;
 
 pub enum NetabaseCommand {

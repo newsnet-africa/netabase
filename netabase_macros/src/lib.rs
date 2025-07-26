@@ -1,83 +1,119 @@
-use proc_macro::TokenStream;
+#![feature(extend_one)]
+
+use proc_macro::{Span, TokenStream};
+use proc_macro2::{Group, TokenStream as TokenStream2};
 // use proc_macro::quote;
-use quote::quote;
-use syn::{AttrStyle, Item, ItemMod, Meta, MetaList};
+use quote::{ToTokens, quote};
+use syn::{
+    AttrStyle, GenericParam, Generics, Ident, Item, ItemMod, Meta, MetaList, Path, Token,
+    TraitBound, TypeParamBound, WhereClause, WherePredicate,
+    punctuated::Punctuated,
+    token::{Comma, Gt, Lt},
+    visit::Visit,
+};
 
-fn validate_schema(item: &Item) -> bool {
-    let trait_name = "Clone";
-    let mut item_ident = None;
-    let attributes = {
-        match item {
-            Item::Enum(item_enum) => {
-                item_ident = Some(item_enum.ident.clone());
-                item_enum.attrs.clone()
-            }
-            Item::Struct(item_struct) => {
-                item_ident = Some(item_struct.ident.clone());
-                item_struct.attrs.clone()
-            }
-            _ => {
-                vec![]
-            }
-        }
-    };
-    attributes.iter().any(|att| match (&att.style, &att.meta) {
-        (AttrStyle::Outer, Meta::List(meta_list)) => {
-            let mut correct_trait = false;
-            if meta_list.path.is_ident("derive") {
-                att.parse_nested_meta(|meta| {
-                    if meta.path.is_ident(trait_name) {
-                        correct_trait = true;
-                        Ok(())
-                    } else {
-                        panic!(
-                            "Schema: {} should derive {trait_name}",
-                            item_ident.clone().unwrap()
-                        );
-                        Ok(())
-                    }
-                })
-                .is_ok()
-            } else {
-                false
-            }
-        }
-        _ => false,
-    })
-}
+use crate::visitors::ValidSchemaFinder;
 
-fn valid_items_in_module(item_mod: ItemMod) -> Vec<Item> {
-    if let Some(l) = item_mod.content.map(|(_, items)| {
-        items
-            .iter()
-            .filter(|val| validate_schema(val))
-            .cloned()
-            .collect::<Vec<Item>>()
-    }) {
-        l
-    } else {
-        vec![]
-    }
-}
+mod visitors;
 
 #[proc_macro_attribute]
 pub fn schemas(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let module_tokes = proc_macro2::TokenStream::from(item.clone());
     let schema_module = syn::parse_macro_input!(item as ItemMod);
-    let valid_items = valid_items_in_module(schema_module)
-        .iter()
-        .map(|i| match i {
-            Item::Enum(item_enum) => {
-                (item_enum.ident, item_enum.generics.params) // TODO: Generics
-            }
-            Item::Struct(item_struct) => {}
-            _ => {
-                vec![]
-            }
-        });
-    quote! {
-        pub enum NetabaseSchema {
-            #()
+    let schemas: Vec<((Ident, Path), Generics)> = {
+        let mut visitor = ValidSchemaFinder::default();
+        visitor.visit_item_mod(&schema_module);
+        visitor
+            .valid_schemas
+            .iter()
+            .filter_map(|(i, p)| match i {
+                Item::Enum(item_enum) => {
+                    Some((
+                        (item_enum.ident.clone(), p.clone()),
+                        item_enum.generics.clone(),
+                    )) // TODO: Generics
+                }
+                Item::Struct(item_struct) => {
+                    Some((
+                        (item_struct.ident.clone(), p.clone()),
+                        item_struct.generics.clone(),
+                    )) // TODO: Generics
+                }
+                _ => None,
+            })
+            .collect()
+    };
+    let schema_variants = schemas.iter().map(|((i, p), generics)| {
+        let full_struct = {
+            let names = { generics.type_params().map(|tp| tp.ident.clone()) };
+            quote! {#p<#(#names), *>}
+        };
+
+        syn::Variant {
+            attrs: vec![],
+            ident: i.clone(),
+            fields: syn::Fields::Unnamed(syn::FieldsUnnamed {
+                paren_token: syn::token::Paren {
+                    span: Group::new(proc_macro2::Delimiter::Parenthesis, TokenStream2::new())
+                        .delim_span(),
+                },
+                unnamed: {
+                    let mut path_field = Punctuated::new();
+                    path_field.push(syn::Field {
+                        attrs: vec![],
+                        vis: syn::Visibility::Inherited,
+                        mutability: syn::FieldMutability::None,
+                        ident: None,
+                        colon_token: None,
+                        ty: syn::Type::Verbatim(full_struct),
+                    });
+                    path_field
+                },
+            }),
+            discriminant: None,
         }
+    });
+
+    let full_generics = {
+        Generics {
+            lt_token: Some(Lt {
+                spans: [Span::call_site().into()],
+            }),
+            params: Punctuated::from_iter(schemas.iter().map(|(_, g)| g.params.clone()).flatten()),
+            gt_token: Some(Gt {
+                spans: [Span::call_site().into()],
+            }),
+            where_clause: Some(WhereClause {
+                where_token: syn::token::Where {
+                    span: Span::call_site().into(),
+                },
+                predicates: Punctuated::from_iter(
+                    schemas
+                        .iter()
+                        .filter_map(|(_, g)| {
+                            g.where_clause
+                                .as_ref()
+                                .map(|where_clause| where_clause.predicates.clone())
+                        })
+                        .flatten(),
+                ),
+            }),
+        }
+    };
+    let wh = full_generics.where_clause.clone().unwrap();
+
+    quote! {
+        #module_tokes
+        pub enum NetabaseSchema #full_generics #wh{
+            #(#schema_variants),*
+        }
+
     }
     .into()
+}
+
+#[proc_macro_derive(NetabaseSchema, attributes(key))]
+pub fn netabase_schema(input: TokenStream) -> TokenStream {
+    let schema = syn::parse_macro_input!(input as Item);
+    quote! {}.into()
 }
