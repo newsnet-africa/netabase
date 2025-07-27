@@ -350,7 +350,7 @@ pub mod tests {
         let rec = ProviderRecord::new(key.clone(), local_id, Vec::new());
 
         // Test sled trees persistence specifically
-        info!("Testing sled trees persistence at: {}", temp_dir);
+        info!("Testing sled trees persistence at: {}", temp_dir.display());
         {
             let db = sled::open(&temp_dir).expect("Failed to open sled db");
             let providers_tree = db

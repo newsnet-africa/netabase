@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use anyhow::Error;
 use bincode::{Decode, Encode, config::Configuration};
 use libp2p::{
     Multiaddr, PeerId,
@@ -43,7 +44,7 @@ impl From<RecordWrapper> for Record {
 impl TryFrom<&IVec> for RecordWrapper {
     type Error = anyhow::Error;
 
-    fn try_from(value: &IVec) -> Result<Self, Self::Error> {
+    fn try_from(value: &IVec) -> Result<Self, Error> {
         Ok(bincode::decode_from_slice(&value.to_vec(), bincode::config::standard())?.0)
     }
 }
@@ -51,7 +52,7 @@ impl TryFrom<&IVec> for RecordWrapper {
 impl TryFrom<RecordWrapper> for IVec {
     type Error = anyhow::Error;
 
-    fn try_from(value: RecordWrapper) -> Result<Self, Self::Error> {
+    fn try_from(value: RecordWrapper) -> Result<Self, Error> {
         Ok(bincode::encode_to_vec(value, bincode::config::standard())?.into())
     }
 }

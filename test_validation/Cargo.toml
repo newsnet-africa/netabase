@@ -1,0 +1,15 @@
+[package]
+name = "test_validation"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bincode = { version = "2.0.1", features = ["serde"] }
+netabase = { version = "0.1.0", path = ".." }
+libp2p = { version = "*", features = [
+    "full",
+    "identify",
+    "kad",
+    "metrics",
+    "quic",
+] }

@@ -1,7 +1,0 @@
-[package]
-name = "test_macros"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-netabase_macros = {path = "../netabase_macros"}

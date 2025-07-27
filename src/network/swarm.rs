@@ -18,17 +18,6 @@ const BOOTNODES: [&str; 4] = [
     "QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt",
 ];
 
-pub fn generate_swarm<P: AsRef<Path>>(storage_path: P) -> anyhow::Result<Swarm<NetabaseBehaviour>> {
-    let local_key = Keypair::generate_ed25519();
-    Ok(SwarmBuilder::with_existing_identity(local_key)
-        .with_tokio()
-        .with_quic()
-        .with_dns()?
-        .with_behaviour(|k| NetabaseBehaviour::new(storage_path, k).expect("Fix later"))?
-        .with_swarm_config(|cfg| cfg.with_idle_connection_timeout(Duration::from_mins(5)))
-        .build())
-}
-
 #[derive(Debug, PartialEq, Eq)]
 pub enum SwarmAction {
     EndLoop,
