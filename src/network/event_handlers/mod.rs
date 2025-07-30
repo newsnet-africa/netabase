@@ -7,15 +7,15 @@ use libp2p::{
 };
 use tokio::sync::Mutex;
 
-use crate::network::behaviour::{NetabaseBehaviour, NetabaseBehaviourEvent, NetabaseEvent};
+use crate::network::behaviour::{NetabaseBehaviour, NetabaseEvent};
 
 mod behaviour_events;
 mod command_events;
 mod connection_events;
 
-async fn handle_events(
+pub async fn handle_events(
     swarm: Arc<Mutex<Swarm<NetabaseBehaviour>>>,
-    mut event_sender: std::sync::mpsc::Sender<NetabaseEvent>,
+    event_sender: tokio::sync::broadcast::Sender<NetabaseEvent>,
 ) {
     loop {
         {
@@ -23,8 +23,8 @@ async fn handle_events(
             tokio::select! {
                 event = locked_swarm.select_next_some() => {
                     let wrapped_event = NetabaseEvent(event);
-                    event_sender.send(wrapped_event.clone());
-                    let k = match wrapped_event.0 {
+                    let _send_event_result = event_sender.send(wrapped_event.clone());
+                    match wrapped_event.0 {
                         SwarmEvent::Behaviour(_) => {},
                         SwarmEvent::ConnectionEstablished { peer_id, connection_id, endpoint, num_established, concurrent_dial_errors, established_in } => {},
                         SwarmEvent::ConnectionClosed { peer_id, connection_id, endpoint, num_established, cause } => {},

@@ -4,33 +4,30 @@ version = "0.1.0"
 edition = "2024"
 
 [workspace]
-members = ["netabase_macros", "test_validation"]
+members = ["netabase_macros", "test_macros"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-anyhow = "1.0.98"
+anyhow = "*"
 netabase_macros = { path = "netabase_macros" }
-bincode = { version = "2.0.1", features = ["serde"] }
+bincode = { version = "*", features = ["serde"] }
 clap = { version = "4.4", features = ["derive", "env"] }
-env_logger = "0.11.8"
-envy = "0.4"
+env_logger = "*"
+envy = "*"
 libp2p = { version = "*", features = [
-    "full",
     "identify",
     "kad",
     "metrics",
     "quic",
+    "macros",
+    "tokio"
 ] }
-log = "0.4.27"
-rand = "0.9.1"
-serde = { version = "1.0.219", features = ["derive"] }
-sled = "0.34.7"
-smallvec = { version = "1.15.1", features = ["bincode", "impl_bincode"] }
-tokio = { version = "1.45.1", features = ["full"] }
-derive_builder = "0.20.2"
-
-[[bin]]
-name = "test_minimal"
-path = "test_minimal.rs"
+log = "*"
+rand = "*"
+serde = { version = "*", features = ["derive"] }
+sled = "*"
+smallvec = { version = "*", features = ["bincode", "impl_bincode"] }
+tokio = { version = "*", features = ["full"] }
+derive_builder = "*"
