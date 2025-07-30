@@ -6,9 +6,10 @@ use crate::visitors::utils::{
     schema_finder::SchemaType,
 };
 
+#[derive(Default)]
 pub(crate) struct SchemaValidator<'ast> {
-    info: SchemaInfo<'ast>,
-    valid_schema: bool,
+    pub info: SchemaInfo<'ast>,
+    pub valid_schema: bool,
 }
 
 impl<'ast> SchemaValidator<'ast> {
@@ -47,15 +48,6 @@ impl<'ast> SchemaValidator<'ast> {
             }
         } else {
             None
-        }
-    }
-}
-
-impl<'ast> Default for SchemaValidator<'ast> {
-    fn default() -> Self {
-        Self {
-            info: SchemaInfo::default(),
-            valid_schema: false,
         }
     }
 }

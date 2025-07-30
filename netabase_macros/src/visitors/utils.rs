@@ -4,20 +4,11 @@ use syn::{ExprClosure, Field, Fields, PathSegment, Token, Variant, punctuated::P
 
 use crate::visitors::utils::schema_finder::SchemaType;
 
+#[derive(Clone, Default)]
 pub(crate) struct SchemaInfo<'ast> {
     pub schema_type: Option<SchemaType<'ast>>,
     pub path: Punctuated<PathSegment, Token![::]>,
     pub schema_key: Option<KeyType<'ast>>,
-}
-
-impl<'a> Default for SchemaInfo<'a> {
-    fn default() -> Self {
-        Self {
-            schema_type: None,
-            path: Punctuated::new(),
-            schema_key: None,
-        }
-    }
 }
 
 #[derive(Clone)]
@@ -116,7 +107,7 @@ pub(crate) mod schema_validator {
         schema_type
             .attributes()
             .iter()
-            .any(|att| att.path().is_ident("NetabaseSchema"))
+            .any(|att| att.path().is_ident("Clone"))
     }
 }
 pub(crate) mod key_finder {
