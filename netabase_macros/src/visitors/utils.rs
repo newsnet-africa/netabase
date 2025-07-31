@@ -1,22 +1,29 @@
+use quote::quote;
 use std::collections::HashMap;
 
+use quote::ToTokens;
 use syn::{ExprClosure, Field, Fields, PathSegment, Token, Variant, punctuated::Punctuated};
 
-use crate::visitors::utils::schema_finder::SchemaType;
+use crate::visitors::schema_finder::SchemaType;
 
 #[derive(Clone, Default)]
 pub(crate) struct SchemaInfo<'ast> {
     pub schema_type: Option<SchemaType<'ast>>,
     pub path: Punctuated<PathSegment, Token![::]>,
+<<<<<<< HEAD
     pub schema_key: Option<KeyType<'ast>>,
+=======
+    pub schema_key: Option<KeyInfo<'ast>>,
+>>>>>>> 9ebb163c7b1984ab70d5bbe2ab7aa48824850724
 }
 
 #[derive(Clone)]
-pub(crate) enum KeyType<'ast> {
-    FieldKeys(HashMap<Option<&'ast Variant>, &'ast Fields>),
-    SchemaKey(&'ast ExprClosure),
+pub(crate) enum KeyType<'schema> {
+    FieldKeys(HashMap<Option<&'schema Variant>, &'schema Fields>),
+    SchemaKey(&'schema ExprClosure),
 }
 
+<<<<<<< HEAD
 pub(crate) mod schema_finder {
     use std::collections::HashMap;
 
@@ -131,129 +138,29 @@ pub(crate) mod key_finder {
                         (Some(_), None) => {
                             panic!("Every Variant needs a key");
                             None
+=======
+impl ToTokens for KeyType<'_> {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        match self {
+            KeyType::FieldKeys(hash_map) => {
+                let stream = hash_map.iter().filter_map(|(o, f)| {
+                    o.as_ref().map(|op| {
+                        quote! {
+                            #op: #f,
+>>>>>>> 9ebb163c7b1984ab70d5bbe2ab7aa48824850724
                         }
-                    },
-                )
-                .collect(),
-        )
-    }
-
-    pub fn get_schema_key_item<'ast: 'b, 'b>(item: &'b SchemaType<'ast>) -> Option<KeyType<'ast>> {
-        //TODO: use result instead cause the none case is technicaly an erruh innit
-
-        match (get_schema_field_keys(item), get_schema_outer_key(item)) {
-            (KeyType::FieldKeys(hash_map), Some(outer)) => {
-                if hash_map.is_empty() {
-                    Some(outer)
-                } else {
-                    panic!("Schema key closures and field keys are mutually exclusive");
-                    None
-                }
-            }
-            (KeyType::FieldKeys(hash_map), None) => {
-                if hash_map.is_empty() {
-                    panic!("At least one key is needed");
-                    None
-                } else {
-                    Some(KeyType::FieldKeys(hash_map))
-                }
-            }
-            _ => {
-                panic!("Field keys can only be paths (Not closures)");
-                None
-            }
-        }
-    }
-    pub(crate) fn get_schema_outer_key<'ast: 'b, 'b>(
-        item: &'b SchemaType<'ast>,
-    ) -> Option<KeyType<'ast>> {
-        item.attributes().iter().find_map(|att| {
-            if let Meta::NameValue(nv) = &att.meta
-                && let Expr::Closure(c) = &nv.value
-                && nv.path.is_ident("key")
-            {
-                Some(KeyType::SchemaKey(c))
-            } else {
-                None
-            }
-        })
-    }
-    pub(crate) fn check_fields_for_key(fields: &Fields) -> Option<&Field> {
-        fn check_field(field: &Field) -> bool {
-            field
-                .attrs
-                .iter()
-                .any(|att| att.meta.path().is_ident("key"))
-        }
-        let mut key_count: usize = 0;
-        match fields {
-            Fields::Named(fields_named) => {
-                fields_named
-                    .named
-                    .iter()
-                    .find(|f| match (check_field(f), key_count) {
-                        (true, 0) => {
-                            key_count += 1;
-                            true
-                        }
-                        (true, _) => {
-                            panic!("Only one key field is valid");
-                            false
-                        }
-                        (false, _) => false,
                     })
+                });
+                tokens.extend_one(quote! {
+                    #(#stream)*;
+                });
             }
-            Fields::Unnamed(fields_unnamed) => {
-                fields_unnamed
-                    .unnamed
-                    .iter()
-                    .find(|f| match (check_field(f), key_count) {
-                        (true, 0) => {
-                            key_count += 1;
-                            true
-                        }
-                        (true, _) => {
-                            panic!("Only one key field is valid");
-                            false
-                        }
-                        (false, _) => false,
-                    })
-            }
-            Fields::Unit => {
-                panic!("Only Fielded items can be Schemas");
-                None
-            }
+            KeyType::SchemaKey(expr_closure) => expr_closure.to_tokens(tokens),
         }
     }
 }
 
-pub mod key_validator {
-    use syn::ExprClosure;
-
-    use crate::visitors::utils::{
-        KeyType, key_finder::get_schema_outer_key, schema_finder::SchemaType,
-    };
-
-    fn check_outer_key<'a>(schema: &SchemaType<'a>) -> bool {
-        fn check_expr_input_type<'a>(expr: &ExprClosure, schema: &SchemaType<'a>) -> bool {
-            expr.inputs.iter().any(|inp| {
-                if let syn::Pat::Type(pat_type) = inp
-                    && let syn::Type::Path(type_path) = pat_type.ty.as_ref()
-                {
-                    type_path.path.is_ident(schema.identity())
-                } else {
-                    false
-                }
-            })
-        }
-
-        if let Some(KeyType::SchemaKey(e)) = get_schema_outer_key(&schema)
-            && check_expr_input_type(e, &schema)
-        {
-            true
-        } else {
-            panic!("Closure must accept ");
-            false
-        }
-    }
+#[derive(Clone, Default)]
+pub(crate) struct KeyInfo<'schema> {
+    pub generation_type: Option<KeyType<'schema>>,
 }
