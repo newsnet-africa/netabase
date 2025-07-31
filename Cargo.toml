@@ -22,7 +22,13 @@ libp2p = { version = "*", features = [
     "metrics",
     "quic",
     "macros",
-    "tokio"
+    "tokio",
+    "mdns",
+    "tls",
+    "noise",
+    "yamux",
+    "tcp",
+    "dns"
 ] }
 log = "*"
 rand = "*"

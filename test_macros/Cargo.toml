@@ -5,3 +5,5 @@ edition = "2024"
 
 [dependencies]
 netabase_macros = { version = "0.1.0", path = "../netabase_macros" }
+bincode = "2.0.0-rc.3"
+libp2p = { version = "0.53", features = ["kad"] }
