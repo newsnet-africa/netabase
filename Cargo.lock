@@ -2066,7 +2066,11 @@ dependencies = [
  "thiserror 2.0.12",
  "tracing",
  "yamux 0.12.1",
+<<<<<<< HEAD
  "yamux 0.13.5",
+=======
+ "yamux 0.13.6",
+>>>>>>> 4740b930844447b717a06adb472169f5fb202c37
 ]
 
 [[package]]
@@ -3317,6 +3321,8 @@ checksum = "7b2093cf4c8eb1e67749a6762251bc9cd836b6fc171623bd0a9d324d37af2417"
 name = "test_macros"
 version = "0.1.0"
 dependencies = [
+ "bincode",
+ "libp2p 0.53.2",
  "netabase_macros",
 ]
 
@@ -4237,9 +4243,15 @@ dependencies = [
 
 [[package]]
 name = "yamux"
+<<<<<<< HEAD
 version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3da1acad1c2dc53f0dde419115a38bd8221d8c3e47ae9aeceaf453266d29307e"
+=======
+version = "0.13.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b2dd50a6d6115feb3e5d7d0efd45e8ca364b6c83722c1e9c602f5764e0e9597"
+>>>>>>> 4740b930844447b717a06adb472169f5fb202c37
 dependencies = [
  "futures",
  "log",

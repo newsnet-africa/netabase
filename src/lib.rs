@@ -1,6 +1,7 @@
 #![feature(duration_constructors_lite)]
 
-use crate::netabase_trait::{NetabaseSchema, NetabaseSchemaKey};
+// Re-export the traits for easier access
+pub use netabase_trait::{NetabaseSchema, NetabaseSchemaKey};
 use std::{path::Path, sync::Arc, time::Duration};
 
 use anyhow::anyhow;
