@@ -1,11 +1,14 @@
+use netabase_macros::schema;
+
+#[schema]
 mod t {
 
-    use netabase_macros::schema;
-
-    #[schema]
+    #[derive(Clone)]
     struct User {
+        #[key]
         id: u128,
         name: String,
+        another: String
     }
 }
 

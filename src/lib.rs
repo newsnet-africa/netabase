@@ -5,9 +5,9 @@ use std::{path::Path, sync::Arc, time::Duration};
 
 use anyhow::anyhow;
 use libp2p::{
-    Swarm, SwarmBuilder,
+    PeerId, Swarm, SwarmBuilder,
     identity::ed25519::Keypair,
-    kad::{PutRecordOk, Quorum},
+    kad::{GetRecordOk, PutRecordOk, Quorum, RecordKey},
     swarm::SwarmEvent,
 };
 
@@ -113,21 +113,31 @@ impl Netabase {
 
         Ok(())
     }
-    async fn inner_put<V: NetabaseSchema>(
+    async fn inner_put<V: NetabaseSchema, I: ExactSizeIterator<Item = PeerId>>(
         &mut self,
         swarm: Arc<Mutex<Swarm<NetabaseBehaviour>>>,
         quorum: libp2p::kad::Quorum,
         mut result_listener: tokio::sync::broadcast::Receiver<NetabaseEvent>,
         value: V,
+        put_to: Option<I>,
     ) -> anyhow::Result<PutRecordOk> {
-        let query_id = swarm
-            .lock()
-            .await
-            .behaviour_mut()
-            .kad
-            .put_record(value.into(), quorum)?; //TODO: allow users to config timeout
+        let query_id =
+            match put_to {
+                None => swarm
+                    .lock()
+                    .await
+                    .behaviour_mut()
+                    .kad
+                    .put_record(value.into(), quorum)?, //TODO: allow users to config timeout}
+                Some(peers) => swarm.lock().await.behaviour_mut().kad.put_record_to(
+                    value.into(),
+                    peers,
+                    quorum,
+                ),
+            };
 
         loop {
+            //TODO: Consider adding a timeout here, but I'm like 50% sure that Kad does this for us anyways
             if let Ok(NetabaseEvent(SwarmEvent::Behaviour(NetabaseBehaviourEvent::Kad(
                 libp2p::kad::Event::OutboundQueryProgressed {
                     id,
@@ -147,18 +157,68 @@ impl Netabase {
             }
         }
     }
-    // fn inner_get<K: NetabaseSchemaKey>
+    async fn inner_get<V: NetabaseSchemaKey>(
+        //TODO: make a mcaro for put and get
+        &mut self,
+        swarm: Arc<Mutex<Swarm<NetabaseBehaviour>>>,
+        mut result_listener: tokio::sync::broadcast::Receiver<NetabaseEvent>,
+        value: V,
+    ) -> anyhow::Result<GetRecordOk> {
+        let query_id = swarm
+            .lock()
+            .await
+            .behaviour_mut()
+            .kad
+            .get_record(value.into()); //TODO: allow users to config timeout
+
+        loop {
+            //TODO: Consider adding a timeout here, but I'm like 50% sure that Kad does this for us anyways
+            if let Ok(NetabaseEvent(SwarmEvent::Behaviour(NetabaseBehaviourEvent::Kad(
+                libp2p::kad::Event::OutboundQueryProgressed {
+                    id,
+                    result,
+                    stats,
+                    step,
+                },
+            )))) = result_listener.recv().await
+                && id.eq(&query_id)
+                && step.last
+                && let libp2p::kad::QueryResult::GetRecord(res) = result
+            {
+                match res {
+                    Ok(put_ok) => return Ok(put_ok),
+                    Err(put_err) => return Err(put_err.into()),
+                }
+            }
+        }
+    }
 }
 
 impl Database for Netabase {
-    async fn put<V: netabase_trait::NetabaseSchema>(
+    async fn put<V: netabase_trait::NetabaseSchema, I: ExactSizeIterator<Item = PeerId>>(
         &mut self,
         value: V,
+        put_to: Option<I>,
         quorum: Quorum,
     ) -> anyhow::Result<PutRecordOk> {
         match &self.swarm_event_listener {
             Some(listener) => {
-                self.inner_put(self.swarm.clone(), quorum, listener.resubscribe(), value)
+                self.inner_put(
+                    self.swarm.clone(),
+                    quorum,
+                    listener.resubscribe(),
+                    value,
+                    put_to,
+                )
+                .await
+            }
+            None => Err(anyhow!("Netabase swarm has not started yet")),
+        }
+    }
+    async fn get<K: NetabaseSchemaKey>(&mut self, key: K) -> anyhow::Result<GetRecordOk> {
+        match &self.swarm_event_listener {
+            Some(listener) => {
+                self.inner_get(self.swarm.clone(), listener.resubscribe(), key)
                     .await
             }
             None => Err(anyhow!("Netabase swarm has not started yet")),
