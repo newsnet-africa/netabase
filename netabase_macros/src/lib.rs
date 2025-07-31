@@ -2,16 +2,7 @@
 
 use proc_macro::TokenStream;
 use quote::quote;
-<<<<<<< HEAD
-use syn::{ItemMod, ItemStruct, Path, PathSegment, parse_macro_input, visit::Visit};
-
-<<<<<<< HEAD
-use crate::visitors::{schema_finder::SchemaFinder, schema_validator::SchemaValidator};
-=======
-use crate::visitors::{schema_finder::SchemaFinder, utils::KeyType};
->>>>>>> 9ebb163c7b1984ab70d5bbe2ab7aa48824850724
-=======
-use syn::{DeriveInput, ItemMod, parse_macro_input, visit::Visit};
+use syn::{parse_macro_input, visit::Visit, DeriveInput, ItemMod};
 
 use crate::visitors::{
     key_finder::KeyValidator,
@@ -19,7 +10,6 @@ use crate::visitors::{
     schema_validator::SchemaValidator,
     utils::{FieldKeyInfo, KeyType, SchemaInfo},
 };
->>>>>>> 4740b930844447b717a06adb472169f5fb202c37
 
 mod generators;
 use generators::{
@@ -27,38 +17,6 @@ use generators::{
 };
 mod visitors;
 
-<<<<<<< HEAD
-#[proc_macro_attribute]
-<<<<<<< HEAD
-pub fn schema(_: TokenStream, module1: TokenStream) -> TokenStream {
-    let module1 = parse_macro_input!(module1 as ItemMod);
-    let id = module1.ident.clone();
-    let mut finder = SchemaFinder::default();
-    finder.visit_item_mod(&module1);
-    let schemas = finder
-        .schemas
-        .iter()
-        .map(|sc| sc.path.last().unwrap().clone())
-        .collect::<Vec<PathSegment>>();
-    quote! {
-        fn list(){
-            #(#schemas);*;
-=======
-pub fn schema(_: TokenStream, module: TokenStream) -> TokenStream {
-    let module = parse_macro_input!(module as ItemMod);
-    let id = module.ident.clone();
-    let mut finder = SchemaFinder::default();
-    finder.visit_item_mod(&module);
-    let schemas = finder
-        .schemas
-        .iter()
-        .map(|i| i.schema_key.clone().unwrap().generation_type.unwrap())
-        .collect::<Vec<KeyType<'_>>>();
-    quote! {
-        fn foo() {
-            stringify!(#(#schemas)*);
->>>>>>> 9ebb163c7b1984ab70d5bbe2ab7aa48824850724
-=======
 /// Result type for macro operations
 type MacroResult<T> = Result<T, MacroError>;
 
@@ -81,7 +39,6 @@ impl MacroError {
         Self {
             message: message.into(),
             span: Some(span),
->>>>>>> 4740b930844447b717a06adb472169f5fb202c37
         }
     }
 }

@@ -11,15 +11,7 @@ pub struct SchemaInfo<'ast> {
     pub schema_type: Option<SchemaType<'ast>>,
     /// Full path to the schema including module hierarchy
     pub path: Punctuated<PathSegment, Token![::]>,
-<<<<<<< HEAD
-<<<<<<< HEAD
     pub schema_key: Option<KeyType<'ast>>,
-=======
-=======
-    /// Key information for the schema
->>>>>>> 4740b930844447b717a06adb472169f5fb202c37
-    pub schema_key: Option<KeyInfo<'ast>>,
->>>>>>> 9ebb163c7b1984ab70d5bbe2ab7aa48824850724
 }
 
 impl<'ast> SchemaInfo<'ast> {
@@ -117,7 +109,6 @@ impl<'ast> KeyType<'ast> {
     }
 }
 
-<<<<<<< HEAD
 pub(crate) mod schema_finder {
     use std::collections::HashMap;
 
@@ -202,18 +193,19 @@ pub(crate) mod schema_finder {
 }
 
 pub(crate) mod schema_validator {
-    use crate::visitors::utils::SchemaType;
+    use crate::visitors::utils::schema_finder::SchemaType;
 
     pub(crate) fn contains_netabase_derive<'a>(schema_type: &SchemaType<'a>) -> bool {
         schema_type
             .attributes()
             .iter()
-            .any(|att| att.path().is_ident("Clone"))
+            .any(|att| att.path().is_ident("NetabaseSchema"))
     }
 }
-pub(crate) mod key_finder {
 
-    use crate::visitors::utils::KeyType;
+pub(crate) mod key_finder {
+    use crate::visitors::utils::{FieldKeyInfo, KeyType};
+    use std::collections::HashMap;
     use syn::{Expr, Field, Fields, Item, Meta};
 
     use crate::visitors::utils::schema_finder::SchemaType;
@@ -228,187 +220,43 @@ pub(crate) mod key_finder {
                 .filter_map(
                     |(var, fie)| match (var, check_fields_for_key(fie.clone())) {
                         (None, None) => panic!("Fielded structs need a key field"),
-                        (_, Some(_)) => Some((*var, *fie)),
+                        (_, Some(field)) => Some((*var, FieldKeyInfo { field, index: None })),
                         (Some(_), None) => {
                             panic!("Every Variant needs a key");
                             None
-=======
-impl ToTokens for KeyType<'_> {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        match self {
-<<<<<<< HEAD
-            KeyType::FieldKeys(hash_map) => {
-                let stream = hash_map.iter().filter_map(|(o, f)| {
-                    o.as_ref().map(|op| {
-                        quote! {
-                            #op: #f,
->>>>>>> 9ebb163c7b1984ab70d5bbe2ab7aa48824850724
-=======
-            KeyType::FieldKeys(field_map) => {
-                let field_tokens: Vec<proc_macro2::TokenStream> = field_map
-                    .iter()
-                    .filter_map(|(variant_opt, field_info)| {
-                        let field = field_info.field;
-                        if let Some(variant) = variant_opt {
-                            Some(quote::quote! {
-                                stringify!(#variant: #field)
-                            })
-                        } else {
-                            Some(quote::quote! {
-                                stringify!(#field)
-                            })
->>>>>>> 4740b930844447b717a06adb472169f5fb202c37
                         }
-                    })
-                    .collect();
+                    },
+                )
+                .collect(),
+        )
+    }
 
-                tokens.extend(quote::quote! {
-                    #(#field_tokens)*
-                });
+    pub(crate) fn get_schema_outer_key<'ast: 'b, 'b>(
+        schema: &'b SchemaType<'ast>,
+    ) -> Option<KeyType<'ast>> {
+        schema.attributes().iter().find_map(|attr| {
+            if attr.path().is_ident("key") {
+                if let Ok(Meta::NameValue(name_value)) = attr.parse_meta() {
+                    if let Expr::Closure(closure) = &name_value.lit {
+                        return Some(KeyType::SchemaKey(closure));
+                    }
+                }
             }
-            KeyType::SchemaKey(closure) => {
-                closure.to_tokens(tokens);
-            }
-            KeyType::KeyFunction(func_name) => {
-                tokens.extend(quote::quote! {
-                    stringify!(#func_name)
-                });
-            }
+            None
+        })
+    }
+
+    fn check_fields_for_key(fields: &Fields) -> Option<&Field> {
+        match fields {
+            Fields::Named(named_fields) => named_fields
+                .named
+                .iter()
+                .find(|field| field.attrs.iter().any(|attr| attr.path().is_ident("key"))),
+            Fields::Unnamed(unnamed_fields) => unnamed_fields
+                .unnamed
+                .iter()
+                .find(|field| field.attrs.iter().any(|attr| attr.path().is_ident("key"))),
+            Fields::Unit => None,
         }
-    }
-}
-
-/// Information about keys for a schema
-#[derive(Clone, Default)]
-pub struct KeyInfo<'ast> {
-    /// The type of key generation to use
-    pub generation_type: Option<KeyType<'ast>>,
-}
-
-impl<'ast> KeyInfo<'ast> {
-    /// Create a new empty key info
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Create key info with a specific generation type
-    pub fn with_generation_type(generation_type: KeyType<'ast>) -> Self {
-        Self {
-            generation_type: Some(generation_type),
-        }
-    }
-
-    /// Check if this key info is valid (has a generation type)
-    pub fn is_valid(&self) -> bool {
-        self.generation_type.is_some()
-    }
-
-    /// Get the generation type
-    pub fn generation_type(&self) -> Option<&KeyType<'ast>> {
-        self.generation_type.as_ref()
-    }
-
-    /// Check if this uses field keys
-    pub fn uses_field_keys(&self) -> bool {
-        matches!(self.generation_type, Some(KeyType::FieldKeys(_)))
-    }
-
-    /// Check if this uses a schema key
-    pub fn uses_schema_key(&self) -> bool {
-        matches!(self.generation_type, Some(KeyType::SchemaKey(_)))
-    }
-
-    /// Check if this uses a key function
-    pub fn uses_key_function(&self) -> bool {
-        matches!(self.generation_type, Some(KeyType::KeyFunction(_)))
-    }
-}
-
-/// Builder pattern for creating SchemaInfo
-pub struct SchemaInfoBuilder<'ast> {
-    info: SchemaInfo<'ast>,
-}
-
-impl<'ast> SchemaInfoBuilder<'ast> {
-    /// Create a new builder
-    pub fn new() -> Self {
-        Self {
-            info: SchemaInfo::new(),
-        }
-    }
-
-    /// Set the schema type
-    pub fn with_schema_type(mut self, schema_type: SchemaType<'ast>) -> Self {
-        self.info.schema_type = Some(schema_type);
-        self
-    }
-
-    /// Set the path
-    pub fn with_path(mut self, path: Punctuated<PathSegment, Token![::]>) -> Self {
-        self.info.path = path;
-        self
-    }
-
-    /// Set the key info
-    pub fn with_key_info(mut self, key_info: KeyInfo<'ast>) -> Self {
-        self.info.schema_key = Some(key_info);
-        self
-    }
-
-    /// Build the final SchemaInfo
-    pub fn build(self) -> SchemaInfo<'ast> {
-        self.info
-    }
-}
-
-impl<'ast> Default for SchemaInfoBuilder<'ast> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use syn::parse_quote;
-
-    #[test]
-    fn test_schema_info_creation() {
-        let info = SchemaInfo::new();
-        assert!(!info.is_valid());
-        assert!(info.name().is_none());
-    }
-
-    #[test]
-    fn test_key_info_creation() {
-        let key_info = KeyInfo::new();
-        assert!(!key_info.is_valid());
-
-        let field_keys = HashMap::new();
-        let key_info_with_type = KeyInfo::with_generation_type(KeyType::FieldKeys(field_keys));
-        assert!(key_info_with_type.is_valid());
-        assert!(key_info_with_type.uses_field_keys());
-    }
-
-    #[test]
-    fn test_schema_info_builder() {
-        let item: syn::Item = parse_quote! {
-            struct TestSchema {
-                id: u64,
-            }
-        };
-
-        let schema_type = SchemaType::try_from(&item).unwrap();
-        let path: Punctuated<PathSegment, Token![::]> = parse_quote!(test::TestSchema);
-        let key_info = KeyInfo::new();
-
-        let info = SchemaInfoBuilder::new()
-            .with_schema_type(schema_type)
-            .with_path(path)
-            .with_key_info(key_info)
-            .build();
-
-        assert!(info.schema_type.is_some());
-        assert_eq!(info.path.len(), 2);
     }
 }

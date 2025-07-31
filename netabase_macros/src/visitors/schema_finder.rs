@@ -4,105 +4,19 @@ use syn::{
     Visibility, punctuated::Punctuated, spanned::Spanned, token::Comma, visit::Visit,
 };
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 use crate::SchemaValidator;
 use crate::visitors::utils::schema_finder::SchemaType;
 use crate::visitors::utils::{SchemaInfo, schema_validator::contains_netabase_derive};
 use proc_macro::Span;
 use syn::token::Semi;
-=======
-use crate::visitors::key_finder::{self, KeyFinder};
-use crate::visitors::schema_validator::SchemaValidator;
-use crate::visitors::utils::SchemaInfo;
-use syn::Item;
->>>>>>> 9ebb163c7b1984ab70d5bbe2ab7aa48824850724
 use syn::{PathSegment, Token, punctuated::Punctuated, visit::Visit};
-=======
-use crate::visitors::{
-    key_finder::{KeyInfoBuilder, KeyValidator},
-    schema_validator::SchemaValidator,
-    utils::SchemaInfo,
-};
->>>>>>> 4740b930844447b717a06adb472169f5fb202c37
 
 /// Finds and validates schemas within modules
 #[derive(Default)]
 pub struct SchemaFinder<'ast> {
-<<<<<<< HEAD
     pub current_path: Punctuated<PathSegment, Token![::]>,
     pub schemas: Vec<SchemaInfo<'ast>>,
-<<<<<<< HEAD
     pub schema_validator: SchemaValidator<'ast>,
-=======
->>>>>>> 9ebb163c7b1984ab70d5bbe2ab7aa48824850724
-=======
-    current_path: Punctuated<PathSegment, Token![::]>,
-    schemas: Vec<SchemaInfo<'ast>>,
-    schema_validator: SchemaValidator,
-    key_validator: KeyValidator,
-}
-
-impl<'ast> SchemaFinder<'ast> {
-    /// Create a new schema finder
-    pub fn new() -> Self {
-        Self {
-            current_path: Punctuated::new(),
-            schemas: Vec::new(),
-            schema_validator: SchemaValidator::new(),
-            key_validator: KeyValidator::new(),
-        }
-    }
-
-    /// Get all found schemas
-    pub fn schemas(&self) -> &[SchemaInfo<'ast>] {
-        &self.schemas
-    }
-
-    /// Get found schemas by consuming the finder
-    pub fn into_schemas(self) -> Vec<SchemaInfo<'ast>> {
-        self.schemas
-    }
-
-    /// Process an item and add it to schemas if valid
-    fn process_item(&mut self, item: &'ast Item) -> Option<SchemaInfo<'ast>> {
-        // First, validate that the item is a valid schema type
-        let schema_type = match self.schema_validator.validate_schema_item(item) {
-            Ok(schema_type) => schema_type,
-            Err(_) => return None, // Not a valid schema, skip silently
-        };
-
-        // Check if it has the NetabaseSchema derive
-        if !self.schema_validator.has_netabase_derive(&schema_type) {
-            return None; // Not annotated with NetabaseSchema, skip
-        }
-
-        // Validate the NetabaseSchema requirements
-        if let Err(_) = self.schema_validator.validate_netabase_schema(&schema_type) {
-            return None; // Invalid NetabaseSchema, skip
-        }
-
-        // Extract and validate keys
-        let key_info = match self.key_validator.validate_and_extract_keys(&schema_type) {
-            Ok(key_type) => KeyInfoBuilder::new().with_key_type(key_type).build(),
-            Err(_) => return None, // Invalid keys, skip
-        };
-
-        // Create the full path for this schema
-        let mut schema_path = self.current_path.clone();
-        schema_path.push(PathSegment {
-            ident: schema_type.identity().clone(),
-            arguments: syn::PathArguments::None,
-        });
-
-        // Create and return the schema info
-        Some(SchemaInfo {
-            schema_type: Some(schema_type),
-            path: schema_path,
-            schema_key: Some(key_info),
-        })
-    }
->>>>>>> 4740b930844447b717a06adb472169f5fb202c37
 }
 
 impl<'ast> Visit<'ast> for SchemaFinder<'ast> {
@@ -112,17 +26,16 @@ impl<'ast> Visit<'ast> for SchemaFinder<'ast> {
             ident: module.ident.clone(),
             arguments: syn::PathArguments::None,
         });
-<<<<<<< HEAD
-        if let Some((_, items)) = &i.content {
+
+        if let Some((_, items)) = &module.content {
             items.iter().for_each(|item| {
-<<<<<<< HEAD
                 if let Ok(inner_item) = SchemaType::try_from(item) {
                     self.schema_validator.visit_item(item);
                     if self.schema_validator.valid_schema {
                         self.schema_validator.info.path = {
                             let mut local_path = self.current_path.clone();
                             local_path.push(PathSegment {
-                                ident: i.ident.clone(),
+                                ident: module.ident.clone(),
                                 arguments: syn::PathArguments::None,
                             });
                             local_path
@@ -130,45 +43,11 @@ impl<'ast> Visit<'ast> for SchemaFinder<'ast> {
                         self.schemas.push(self.schema_validator.info.clone());
                     }
                 } else if let syn::Item::Mod(item_mod) = item {
-                    self.visit_item_mod(i);
+                    self.visit_item_mod(item_mod);
                 } else {
                     panic!("Schema must be Struct or Enum")
-=======
-                if let Ok(sch) = SchemaType::try_from(item) {
-                    let mut schema_validator = SchemaValidator::default();
-                    let mut key_finder = KeyFinder::default();
-                    schema_validator.visit_item(item);
-
-                    let mut local_path = self.current_path.clone();
-                    local_path.push(PathSegment {
-                        ident: sch.identity().clone(),
-                        arguments: syn::PathArguments::None,
-                    });
-                    schema_validator.info.path = local_path;
-
-                    self.schemas.push(schema_validator.info.clone());
-                } else if let Item::Mod(module) = item {
-                    self.visit_item_mod(module);
->>>>>>> 9ebb163c7b1984ab70d5bbe2ab7aa48824850724
-=======
-
-        // Process module contents
-        if let Some((_, items)) = &module.content {
-            for item in items {
-                match item {
-                    Item::Mod(nested_module) => {
-                        // Recursively visit nested modules
-                        self.visit_item_mod(nested_module);
-                    }
-                    _ => {
-                        // Process potential schema items
-                        if let Some(schema_info) = self.process_item(item) {
-                            self.schemas.push(schema_info);
-                        }
-                    }
->>>>>>> 4740b930844447b717a06adb472169f5fb202c37
                 }
-            }
+            });
         }
 
         // Remove current module from path when done

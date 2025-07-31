@@ -23,19 +23,11 @@ libp2p = { version = "*", features = [
     "quic",
     "macros",
     "tokio",
-<<<<<<< HEAD
     "tcp",
     "mdns",
     "tls",
     "yamux",
     "noise",
-=======
-    "mdns",
-    "tls",
-    "noise",
-    "yamux",
-    "tcp",
->>>>>>> 4740b930844447b717a06adb472169f5fb202c37
     "dns"
 ] }
 log = "*"

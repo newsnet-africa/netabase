@@ -13,19 +13,6 @@ pub trait NetabaseSchema:
     fn key(&self) -> Self::Key;
 }
 
-<<<<<<< HEAD
-    #[derive(Clone)]
-<<<<<<< HEAD
-    struct User {
-        #[key]
-=======
-    #[key = |i: User2| i ]
-    struct User2 {
->>>>>>> 9ebb163c7b1984ab70d5bbe2ab7aa48824850724
-        id: u128,
-        name: String,
-        another: String
-=======
 pub trait NetabaseSchemaKey:
     Clone
     + From<libp2p::kad::RecordKey>
@@ -36,29 +23,12 @@ pub trait NetabaseSchemaKey:
 {
 }
 
-// Simple struct with field key
-#[derive(Clone, Encode, Decode, netabase_macros::NetabaseSchema)]
-pub struct User {
+#[derive(Clone)]
+struct User {
     #[key]
-    pub id: u64,
-    pub name: String,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_user_compilation() {
-        let user = User {
-            id: 1,
-            name: "Test".to_string(),
-        };
-
-        // Test that get_key method exists
-        let _key_bytes = user.key().as_bytes();
->>>>>>> 4740b930844447b717a06adb472169f5fb202c37
-    }
+    id: u128,
+    name: String,
+    another: String,
 }
 
 fn main() {
@@ -67,5 +37,6 @@ fn main() {
     let user = User {
         id: 1,
         name: "Test User".to_string(),
+        another: "Another field".to_string(),
     };
 }

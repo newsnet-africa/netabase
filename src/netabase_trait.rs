@@ -1,4 +1,4 @@
-use bincode::Encode;
+use bincode::{Decode, Encode};
 
 pub trait NetabaseSchema:
     Clone
@@ -12,14 +12,6 @@ pub trait NetabaseSchema:
 }
 
 pub trait NetabaseSchemaKey:
-<<<<<<< HEAD
     Clone + From<libp2p::kad::RecordKey> + Encode + Decode<()> + Into<libp2p::kad::RecordKey>
-=======
-    Clone
-    + From<libp2p::kad::RecordKey>
-    + Encode
-    + for<'de> bincode::BorrowDecode<'de, ()>
-    + Into<libp2p::kad::RecordKey>
->>>>>>> 4740b930844447b717a06adb472169f5fb202c37
 {
 }
