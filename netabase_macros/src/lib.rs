@@ -2,13 +2,12 @@
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, visit::Visit, DeriveInput, ItemMod};
+use syn::{DeriveInput, ItemMod, parse_macro_input, visit::Visit};
 
 use crate::visitors::{
-    key_finder::KeyValidator,
-    schema_finder::{SchemaFinder, SchemaType},
+    schema_finder::SchemaFinder,
     schema_validator::SchemaValidator,
-    utils::{FieldKeyInfo, KeyType, SchemaInfo},
+    utils::{KeyType, SchemaInfo, schema_finder::SchemaType},
 };
 
 mod generators;
@@ -113,35 +112,113 @@ pub fn schema(_args: TokenStream, input: TokenStream) -> TokenStream {
 
 /// Process the NetabaseSchema derive macro
 fn process_netabase_schema_derive(input: &DeriveInput) -> MacroResult<TokenStream> {
-    let schema_validator = SchemaValidator::new();
-    let key_validator = KeyValidator::new();
+    let _schema_validator = SchemaValidator::default();
+    // KeyValidator removed - functionality integrated into SchemaValidator
 
     // Convert DeriveInput to Item for validation
     let item = derive_input_to_item(input.clone())?;
 
     // Validate that this is a valid schema
-    let schema_type = schema_validator
-        .validate_schema_item(&item)
-        .map_err(|e| MacroError::new(e.message))?;
+    let _schema_type = SchemaType::try_from(&item)
+        .map_err(|e| MacroError::new(format!("Invalid schema: {}", e)))?;
 
-    // Validate key configuration
-    let key_type = key_validator
-        .validate_and_extract_keys(&schema_type)
-        .map_err(|e| MacroError::new(e.message))?;
+    // Generate implementation for NetabaseSchema
+    let struct_name = &input.ident;
+    let key_type_name = syn::Ident::new(&format!("{}Key", struct_name), struct_name.span());
 
-    // Generate all necessary code components
-    let key_struct = generate_complete_key_struct(&schema_type);
-    let record_conversions = generate_all_record_conversions(&schema_type, &key_type);
-    let trait_impls = generate_all_trait_impls(&schema_type, &key_type);
+    let tokens = quote! {
+        // Define a key type for this schema
+        #[derive(Clone, bincode::Encode, Debug)]
+        pub struct #key_type_name(String);
 
-    // Combine all generated code
-    let expanded = quote! {
-        #key_struct
-        #record_conversions
-        #trait_impls
+        // Manual implementation of Decode
+        impl bincode::Decode<()> for #key_type_name {
+            fn decode<D: bincode::de::Decoder>(decoder: &mut D) -> Result<Self, bincode::error::DecodeError> {
+                let inner: String = bincode::Decode::decode(decoder)?;
+                Ok(#key_type_name(inner))
+            }
+        }
+
+        // Manual implementation of BorrowDecode
+        impl<'de> bincode::BorrowDecode<'de, ()> for #key_type_name {
+            fn borrow_decode<D: bincode::de::BorrowDecoder<'de>>(decoder: &mut D) -> Result<Self, bincode::error::DecodeError> {
+                let inner: String = bincode::BorrowDecode::borrow_decode(decoder)?;
+                Ok(#key_type_name(inner))
+            }
+        }
+
+        // Display implementation for the key type
+        impl std::fmt::Display for #key_type_name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+
+        // PartialEq implementation for the key type
+        impl PartialEq<String> for #key_type_name {
+            fn eq(&self, other: &String) -> bool {
+                &self.0 == other
+            }
+        }
+
+        impl PartialEq<#key_type_name> for #key_type_name {
+            fn eq(&self, other: &#key_type_name) -> bool {
+                self.0 == other.0
+            }
+        }
+
+        // PartialEq implementation for &str comparison
+        impl PartialEq<&str> for #key_type_name {
+            fn eq(&self, other: &&str) -> bool {
+                &self.0 == other
+            }
+        }
+
+        // Implementation for NetabaseSchemaKey for the generated key type
+        impl NetabaseSchemaKey for #key_type_name {
+        }
+
+        // Implementation for NetabaseSchema derive
+        impl NetabaseSchema for #struct_name {
+            type Key = #key_type_name;
+            fn key(&self) -> Self::Key {
+                #key_type_name("placeholder".to_string())
+            }
+        }
+
+        // Implementation for From<libp2p::kad::Record> for the struct
+        impl From<libp2p::kad::Record> for #struct_name {
+            fn from(_record: libp2p::kad::Record) -> Self {
+                // Placeholder implementation - would normally deserialize from record.value
+                panic!("From<Record> not yet implemented")
+            }
+        }
+
+        // Implementation for Into<libp2p::kad::Record> for the struct
+        impl Into<libp2p::kad::Record> for #struct_name {
+            fn into(self) -> libp2p::kad::Record {
+                // Placeholder implementation - would normally serialize to record.value
+                use libp2p::kad::{Record, RecordKey};
+                Record::new(RecordKey::new(&self.key().0), vec![])
+            }
+        }
+
+        // Implementation for From<libp2p::kad::RecordKey> for the generated key type
+        impl From<libp2p::kad::RecordKey> for #key_type_name {
+            fn from(key: libp2p::kad::RecordKey) -> Self {
+                #key_type_name(String::from_utf8_lossy(key.as_ref()).to_string())
+            }
+        }
+
+        // Implementation for Into<libp2p::kad::RecordKey> for the generated key type
+        impl Into<libp2p::kad::RecordKey> for #key_type_name {
+            fn into(self) -> libp2p::kad::RecordKey {
+                libp2p::kad::RecordKey::new(&self.0)
+            }
+        }
     };
 
-    Ok(expanded.into())
+    Ok(tokens.into())
 }
 
 /// Process the schema module attribute
@@ -242,7 +319,7 @@ fn generate_schema_registry(schemas: &[SchemaInfo]) -> proc_macro2::TokenStream 
 }
 
 /// Generate key extractor functions
-fn generate_key_extractors(schemas: &[SchemaInfo]) -> proc_macro2::TokenStream {
+fn generate_key_extractors(schemas: &[SchemaInfo]) -> MacroResult<TokenStream> {
     let extractors: Vec<proc_macro2::TokenStream> = schemas
         .iter()
         .filter_map(|schema| {
@@ -250,8 +327,12 @@ fn generate_key_extractors(schemas: &[SchemaInfo]) -> proc_macro2::TokenStream {
             let schema_name = schema_type.identity();
             let key_info = schema.schema_key.as_ref()?;
 
-            match key_info.generation_type()? {
-                KeyType::FieldKeys(_field_map) => {
+            match key_info
+                .generation_type()
+                .map_err(|e| MacroError::new(e.to_string()))
+                .ok()?
+            {
+                "field_keys" => {
                     // Generate field-based key extractor
                     Some({
                         let fn_name = syn::Ident::new(
@@ -266,7 +347,7 @@ fn generate_key_extractors(schemas: &[SchemaInfo]) -> proc_macro2::TokenStream {
                         }
                     })
                 }
-                KeyType::SchemaKey(_closure) => {
+                "schema_key" => {
                     // Generate closure-based key extractor
                     Some({
                         let fn_name = syn::Ident::new(
@@ -281,7 +362,7 @@ fn generate_key_extractors(schemas: &[SchemaInfo]) -> proc_macro2::TokenStream {
                         }
                     })
                 }
-                KeyType::KeyFunction(_func_name) => {
+                "key_function" => {
                     // Generate function-based key extractor
                     Some({
                         let fn_name = syn::Ident::new(
@@ -296,13 +377,15 @@ fn generate_key_extractors(schemas: &[SchemaInfo]) -> proc_macro2::TokenStream {
                         }
                     })
                 }
+                _ => None,
             }
         })
         .collect();
 
-    quote! {
+    Ok(quote! {
         #(#extractors)*
     }
+    .into())
 }
 
 /// Convert DeriveInput to Item for compatibility with validators

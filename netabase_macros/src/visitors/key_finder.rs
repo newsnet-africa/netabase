@@ -1,7 +1,7 @@
 use crate::visitors::utils::FieldKeyInfo;
 use crate::visitors::{
-    schema_finder::SchemaType,
     schema_validator::{ValidationError, ValidationResult},
+    utils::schema_finder::SchemaType,
     utils::{KeyInfo, KeyType},
 };
 use std::collections::HashMap;
@@ -380,7 +380,8 @@ impl<'ast> KeyInfoBuilder<'ast> {
 
     pub fn build(self) -> KeyInfo<'ast> {
         KeyInfo {
-            generation_type: self.key_type,
+            key_type: self.key_type.expect("KeyType must be set before building"),
+            validation_errors: Vec::new(),
         }
     }
 }

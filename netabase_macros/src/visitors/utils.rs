@@ -1,8 +1,7 @@
-use quote::ToTokens;
 use std::collections::HashMap;
 use syn::{ExprClosure, Field, PathSegment, Token, Variant, punctuated::Punctuated};
 
-use crate::visitors::schema_finder::SchemaType;
+use schema_finder::SchemaType;
 
 /// Information about a validated schema
 #[derive(Clone)]
@@ -57,6 +56,33 @@ pub struct FieldKeyInfo<'ast> {
     pub index: Option<usize>, // For tuple variants, this is the field index
 }
 
+/// General key information wrapper
+#[derive(Clone)]
+pub struct KeyInfo<'ast> {
+    pub key_type: KeyType<'ast>,
+    pub validation_errors: Vec<String>,
+}
+
+impl<'ast> KeyInfo<'ast> {
+    pub fn new(key_type: KeyType<'ast>) -> Self {
+        Self {
+            key_type,
+            validation_errors: Vec::new(),
+        }
+    }
+
+    pub fn with_errors(key_type: KeyType<'ast>, errors: Vec<String>) -> Self {
+        Self {
+            key_type,
+            validation_errors: errors,
+        }
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.validation_errors.is_empty()
+    }
+}
+
 /// Type of key used by a schema
 #[derive(Clone)]
 pub enum KeyType<'ast> {
@@ -107,6 +133,24 @@ impl<'ast> KeyType<'ast> {
             _ => None,
         }
     }
+
+    /// Get the generation type for this key type
+    pub fn generation_type(&self) -> Result<&str, &'static str> {
+        match self {
+            KeyType::FieldKeys(_) => Ok("field_keys"),
+            KeyType::SchemaKey(_) => Ok("schema_key"),
+            KeyType::KeyFunction(_) => Ok("key_function"),
+        }
+    }
+
+    /// Check if this key type is valid
+    pub fn is_valid(&self) -> bool {
+        match self {
+            KeyType::FieldKeys(fields) => !fields.is_empty(),
+            KeyType::SchemaKey(_) => true,
+            KeyType::KeyFunction(func_name) => !func_name.is_empty(),
+        }
+    }
 }
 
 pub(crate) mod schema_finder {
@@ -118,47 +162,47 @@ pub(crate) mod schema_finder {
     };
 
     #[derive(Clone, Copy)]
-    pub(crate) enum SchemaType<'ast> {
+    pub enum SchemaType<'ast> {
         Struct(&'ast ItemStruct),
         Enum(&'ast ItemEnum),
     }
 
     impl<'ast> SchemaType<'ast> {
-        pub(crate) fn attributes<'b>(&'b self) -> &'ast Vec<Attribute> {
+        pub fn attributes<'b>(&'b self) -> &'ast Vec<Attribute> {
             match self {
                 SchemaType::Struct(item_struct) => &item_struct.attrs,
                 SchemaType::Enum(item_enum) => &item_enum.attrs,
             }
         }
 
-        pub(crate) fn visibility<'b>(&'b self) -> &'ast Visibility {
+        pub fn visibility<'b>(&'b self) -> &'ast Visibility {
             match self {
                 SchemaType::Struct(item_struct) => &item_struct.vis,
                 SchemaType::Enum(item_enum) => &item_enum.vis,
             }
         }
-        pub(crate) fn identity<'b>(&'b self) -> &'ast Ident {
+        pub fn identity<'b>(&'b self) -> &'ast Ident {
             match self {
                 SchemaType::Struct(item_struct) => &item_struct.ident,
                 SchemaType::Enum(item_enum) => &item_enum.ident,
             }
         }
 
-        pub(crate) fn generics<'b>(&'b self) -> &'ast Generics {
+        pub fn generics<'b>(&'b self) -> &'ast Generics {
             match self {
                 SchemaType::Struct(item_struct) => &item_struct.generics,
                 SchemaType::Enum(item_enum) => &item_enum.generics,
             }
         }
 
-        pub(crate) fn variants<'b>(&'b self) -> Option<&'ast Punctuated<Variant, Comma>> {
+        pub fn variants<'b>(&'b self) -> Option<&'ast Punctuated<Variant, Comma>> {
             match self {
                 SchemaType::Struct(_) => None,
                 SchemaType::Enum(item_enum) => Some(&item_enum.variants),
             }
         }
 
-        pub(crate) fn fields<'b>(&'b self) -> HashMap<Option<&'ast Variant>, &'ast Fields> {
+        pub fn fields<'b>(&'b self) -> HashMap<Option<&'ast Variant>, &'ast Fields> {
             match self {
                 SchemaType::Struct(item_struct) => {
                     let mut res: HashMap<Option<&'ast Variant>, &'ast syn::Fields> = HashMap::new();
@@ -195,7 +239,7 @@ pub(crate) mod schema_finder {
 pub(crate) mod schema_validator {
     use crate::visitors::utils::schema_finder::SchemaType;
 
-    pub(crate) fn contains_netabase_derive<'a>(schema_type: &SchemaType<'a>) -> bool {
+    pub fn contains_netabase_derive<'a>(schema_type: &SchemaType<'a>) -> bool {
         schema_type
             .attributes()
             .iter()
@@ -203,41 +247,38 @@ pub(crate) mod schema_validator {
     }
 }
 
-pub(crate) mod key_finder {
+pub mod key_finder {
     use crate::visitors::utils::{FieldKeyInfo, KeyType};
     use std::collections::HashMap;
-    use syn::{Expr, Field, Fields, Item, Meta};
+    use syn::{Expr, Field, Fields, Meta};
 
     use crate::visitors::utils::schema_finder::SchemaType;
 
-    pub(crate) fn get_schema_field_keys<'ast: 'b, 'b>(
-        schema: &'b SchemaType<'ast>,
-    ) -> KeyType<'ast> {
+    pub fn get_schema_field_keys<'ast: 'b, 'b>(schema: &'b SchemaType<'ast>) -> KeyType<'ast> {
         KeyType::FieldKeys(
             schema
                 .fields()
                 .iter()
-                .filter_map(
-                    |(var, fie)| match (var, check_fields_for_key(fie.clone())) {
-                        (None, None) => panic!("Fielded structs need a key field"),
-                        (_, Some(field)) => Some((*var, FieldKeyInfo { field, index: None })),
-                        (Some(_), None) => {
-                            panic!("Every Variant needs a key");
-                            None
-                        }
-                    },
-                )
+                .filter_map(|(var, fie)| match (var, check_fields_for_key(fie)) {
+                    (None, None) => panic!("Fielded structs need a key field"),
+                    (_, Some(field)) => Some((*var, FieldKeyInfo { field, index: None })),
+                    (Some(_), None) => {
+                        panic!("Every Variant needs a key");
+                        None
+                    }
+                })
                 .collect(),
         )
     }
 
-    pub(crate) fn get_schema_outer_key<'ast: 'b, 'b>(
+    pub fn get_schema_outer_key<'ast: 'b, 'b>(
         schema: &'b SchemaType<'ast>,
     ) -> Option<KeyType<'ast>> {
         schema.attributes().iter().find_map(|attr| {
             if attr.path().is_ident("key") {
-                if let Ok(Meta::NameValue(name_value)) = attr.parse_meta() {
-                    if let Expr::Closure(closure) = &name_value.lit {
+                // Use newer syn API for parsing attributes
+                if let Meta::NameValue(name_value) = &attr.meta {
+                    if let Expr::Closure(closure) = &name_value.value {
                         return Some(KeyType::SchemaKey(closure));
                     }
                 }

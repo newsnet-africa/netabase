@@ -15,7 +15,6 @@ pub mod utils;
 
 // Re-export commonly used types for convenience
 // Note: These are used internally by the macro implementation
-pub use key_finder::{KeyInfoBuilder, KeyValidator};
-pub use schema_finder::{SchemaFinder, SchemaType};
+pub use schema_finder::SchemaFinder;
 pub use schema_validator::{SchemaValidator, ValidationError, ValidationResult};
-pub use utils::{KeyInfo, KeyType, SchemaInfo, SchemaInfoBuilder};
+pub use utils::{FieldKeyInfo, KeyInfo, KeyType, SchemaInfo, schema_finder::SchemaType};

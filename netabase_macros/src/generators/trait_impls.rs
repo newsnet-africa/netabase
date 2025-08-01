@@ -8,7 +8,7 @@ use quote::quote;
 
 use crate::generators::key_struct::generate_key_struct_name;
 use crate::visitors::{
-    schema_finder::SchemaType,
+    utils::schema_finder::SchemaType,
     utils::{FieldKeyInfo, KeyType},
 };
 use std::collections::HashMap;

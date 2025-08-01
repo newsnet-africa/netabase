@@ -6,26 +6,23 @@ use libp2p::{
     Multiaddr, PeerId,
     kad::{K_VALUE, ProviderRecord, Record, RecordKey},
 };
-use serde::Deserialize;
-use serde::Serialize;
+
 use sled::IVec;
 use smallvec::SmallVec;
 
 #[derive(Encode, Decode)]
 pub(crate) struct RecordWrapper {
-    #[bincode(with_serde)]
-    pub(crate) key: RecordKey,
+    pub(crate) key: Vec<u8>,
     pub(crate) value: Vec<u8>,
-    #[bincode(with_serde)]
-    pub(crate) publisher: Option<PeerId>,
+    pub(crate) publisher: Option<Vec<u8>>,
 }
 
 impl From<Record> for RecordWrapper {
     fn from(value: Record) -> Self {
         Self {
-            key: value.key,
+            key: value.key.to_vec(),
             value: value.value,
-            publisher: value.publisher,
+            publisher: value.publisher.map(|p| p.to_bytes()),
         }
     }
 }
@@ -33,9 +30,11 @@ impl From<Record> for RecordWrapper {
 impl From<RecordWrapper> for Record {
     fn from(value: RecordWrapper) -> Self {
         Self {
-            key: value.key,
+            key: RecordKey::new(&value.key),
             value: value.value,
-            publisher: value.publisher,
+            publisher: value
+                .publisher
+                .and_then(|bytes| PeerId::from_bytes(&bytes).ok()),
             expires: None,
         }
     }
@@ -69,22 +68,23 @@ pub fn try_ivec_to_record(ivec: IVec) -> Result<Record, bincode::error::DecodeEr
     .map(|(r, _)| Record::from(r))
 }
 
-#[derive(Decode, Encode, Serialize, Deserialize)]
+#[derive(Decode, Encode)]
 pub struct ProviderRecordWrapper {
-    #[bincode(with_serde)]
-    pub(crate) key: RecordKey,
-    #[bincode(with_serde)]
-    pub(crate) provider: PeerId,
-    #[bincode(with_serde)]
-    pub(crate) addresses: Vec<Multiaddr>,
+    pub(crate) key: Vec<u8>,
+    pub(crate) provider: Vec<u8>,
+    pub(crate) addresses: Vec<Vec<u8>>,
 }
 
 impl From<ProviderRecord> for ProviderRecordWrapper {
     fn from(value: ProviderRecord) -> Self {
         Self {
-            key: value.key,
-            provider: value.provider,
-            addresses: value.addresses,
+            key: value.key.to_vec(),
+            provider: value.provider.to_bytes(),
+            addresses: value
+                .addresses
+                .into_iter()
+                .map(|addr| addr.to_vec())
+                .collect(),
         }
     }
 }
@@ -92,10 +92,14 @@ impl From<ProviderRecord> for ProviderRecordWrapper {
 impl From<ProviderRecordWrapper> for ProviderRecord {
     fn from(value: ProviderRecordWrapper) -> Self {
         Self {
-            key: value.key,
-            provider: value.provider,
+            key: RecordKey::new(&value.key),
+            provider: PeerId::from_bytes(&value.provider).unwrap_or_else(|_| PeerId::random()),
             expires: None,
-            addresses: value.addresses,
+            addresses: value
+                .addresses
+                .into_iter()
+                .filter_map(|bytes| Multiaddr::try_from(bytes).ok())
+                .collect(),
         }
     }
 }
@@ -103,10 +107,14 @@ impl From<ProviderRecordWrapper> for ProviderRecord {
 impl From<&ProviderRecordWrapper> for ProviderRecord {
     fn from(value: &ProviderRecordWrapper) -> Self {
         Self {
-            key: value.key.clone(),
-            provider: value.provider,
+            key: RecordKey::new(&value.key),
+            provider: PeerId::from_bytes(&value.provider).unwrap_or_else(|_| PeerId::random()),
             expires: None,
-            addresses: value.addresses.clone(),
+            addresses: value
+                .addresses
+                .iter()
+                .filter_map(|bytes| Multiaddr::try_from(bytes.clone()).ok())
+                .collect(),
         }
     }
 }

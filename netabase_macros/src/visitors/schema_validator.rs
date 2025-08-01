@@ -1,7 +1,7 @@
-use crate::visitors::schema_finder::SchemaType;
 use crate::visitors::utils::key_finder::{get_schema_field_keys, get_schema_outer_key};
+use crate::visitors::utils::schema_finder::SchemaType;
 use crate::visitors::utils::{KeyType, SchemaInfo};
-use syn::{Attribute, Item, ItemEnum, ItemStruct, visit::Visit};
+use syn::{Item, visit::Visit};
 
 /// Result type for schema validation
 pub type ValidationResult<T> = Result<T, ValidationError>;
@@ -29,13 +29,21 @@ impl ValidationError {
     }
 }
 
-#[derive(Default)]
-pub(crate) struct SchemaValidator<'ast> {
+pub struct SchemaValidator<'ast> {
     pub info: SchemaInfo<'ast>,
     pub valid_schema: bool,
 }
 
-pub(crate) fn contains_netabase_derive<'a>(schema_type: &SchemaType<'a>) -> bool {
+impl<'ast> Default for SchemaValidator<'ast> {
+    fn default() -> Self {
+        Self {
+            info: SchemaInfo::default(),
+            valid_schema: false,
+        }
+    }
+}
+
+pub fn contains_netabase_derive<'a>(schema_type: &SchemaType<'a>) -> bool {
     schema_type
         .attributes()
         .iter()
@@ -47,34 +55,30 @@ impl<'ast> SchemaValidator<'ast> {
         &'b self,
         schema: Option<&'b SchemaType<'ast>>,
     ) -> Option<KeyType<'ast>> {
-        //TODO: use result instead cause the none case is technicaly an erruh innit
         if let Some(schema) = schema {
             match (
                 get_schema_field_keys::<'ast, 'b>(schema),
                 get_schema_outer_key::<'ast, 'b>(schema),
             ) {
-                (KeyType::FieldKeys(hash_map), Some(KeyType::SchemaKey(outer))) => {
+                (KeyType::FieldKeys(hash_map), Some(KeyType::SchemaKey(_outer))) => {
                     if hash_map.is_empty() {
-                        Some(KeyType::SchemaKey(outer))
+                        get_schema_outer_key::<'ast, 'b>(schema)
                     } else {
-                        panic!("Schema key closures and field keys are mutually exclusive");
+                        // Schema key closures and field keys are mutually exclusive
                         None
                     }
                 }
                 (KeyType::FieldKeys(hash_map), None) => {
-                    if hash_map.is_empty() {
-                        panic!("At least one key is needed");
-                        None
-                    } else {
+                    if !hash_map.is_empty() {
                         Some(KeyType::FieldKeys(hash_map))
+                    } else {
+                        // At least one key is needed
+                        None
                     }
                 }
-                _ => {
-                    panic!("Field keys can only be paths (Not closures)");
-                    None
-                }
-                (KeyType::SchemaKey(expr_closure), None) => todo!(),
-                (KeyType::SchemaKey(expr_closure), Some(_)) => todo!(),
+                (KeyType::SchemaKey(_), None) => get_schema_outer_key::<'ast, 'b>(schema),
+                (KeyType::SchemaKey(_), Some(_)) => get_schema_outer_key::<'ast, 'b>(schema),
+                _ => None,
             }
         } else {
             None

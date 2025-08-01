@@ -7,7 +7,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::Ident;
 
-use crate::visitors::schema_finder::SchemaType;
+use crate::visitors::utils::schema_finder::SchemaType;
 
 /// Generate a key struct for a given schema
 pub fn generate_key_struct(schema_type: &SchemaType) -> TokenStream {
