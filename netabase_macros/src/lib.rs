@@ -4,10 +4,13 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{DeriveInput, ItemMod, parse_macro_input, visit::Visit};
 
-use crate::visitors::{
-    schema_finder::SchemaFinder,
-    schema_validator::SchemaValidator,
-    utils::{KeyType, SchemaInfo, schema_finder::SchemaType},
+use crate::{
+    generators::{from_traits2, schema::from_schema_for_record},
+    visitors::{
+        schema_finder::SchemaFinder,
+        schema_validator::SchemaValidator,
+        utils::{KeyType, SchemaInfo, schema_finder::SchemaType},
+    },
 };
 
 mod generators;
@@ -119,12 +122,13 @@ fn process_netabase_schema_derive(input: &DeriveInput) -> MacroResult<TokenStrea
     let item = derive_input_to_item(input.clone())?;
 
     // Validate that this is a valid schema
-    let _schema_type = SchemaType::try_from(&item)
+    let schema_type = SchemaType::try_from(&item)
         .map_err(|e| MacroError::new(format!("Invalid schema: {}", e)))?;
 
     // Generate implementation for NetabaseSchema
     let struct_name = &input.ident;
     let key_type_name = syn::Ident::new(&format!("{}Key", struct_name), struct_name.span());
+    let from_traits2_schema = from_schema_for_record(&schema_type);
 
     let tokens = quote! {
         // Define a key type for this schema
@@ -154,29 +158,11 @@ fn process_netabase_schema_derive(input: &DeriveInput) -> MacroResult<TokenStrea
             }
         }
 
-        // PartialEq implementation for the key type
-        impl PartialEq<String> for #key_type_name {
-            fn eq(&self, other: &String) -> bool {
-                &self.0 == other
-            }
-        }
-
-        impl PartialEq<#key_type_name> for #key_type_name {
-            fn eq(&self, other: &#key_type_name) -> bool {
-                self.0 == other.0
-            }
-        }
-
-        // PartialEq implementation for &str comparison
-        impl PartialEq<&str> for #key_type_name {
-            fn eq(&self, other: &&str) -> bool {
-                &self.0 == other
-            }
-        }
-
         // Implementation for NetabaseSchemaKey for the generated key type
         impl NetabaseSchemaKey for #key_type_name {
         }
+
+
 
         // Implementation for NetabaseSchema derive
         impl NetabaseSchema for #struct_name {
@@ -185,6 +171,8 @@ fn process_netabase_schema_derive(input: &DeriveInput) -> MacroResult<TokenStrea
                 #key_type_name("placeholder".to_string())
             }
         }
+
+        #from_traits2_schema
 
         // Implementation for From<libp2p::kad::Record> for the struct
         impl From<libp2p::kad::Record> for #struct_name {

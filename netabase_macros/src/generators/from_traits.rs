@@ -32,19 +32,17 @@ pub fn generate_record_to_schema(schema_type: &SchemaType) -> TokenStream {
     }
 }
 
-/// Generate From<Schema> for libp2p::kad::Record
+/// Generate TryFrom<Schema> for libp2p::kad::Record
 pub fn generate_schema_to_record(schema_type: &SchemaType, key_type: &KeyType) -> TokenStream {
     let schema_name = schema_type.identity();
     let key_extraction = generate_key_extraction_for_record(key_type, schema_type);
 
     quote! {
-        impl From<#schema_name> for libp2p::kad::Record {
-            fn from(schema: #schema_name) -> Self {
+        impl TryFrom<#schema_name> for libp2p::kad::Record {
+            type Error = anyhow::Error;
+            fn try_from(schema: #schema_name) -> Result<Self> {
                 // Serialize the schema to bytes
-                let value = bincode::encode_to_vec(&schema, bincode::config::standard())
-                    .unwrap_or_else(|e| {
-                        panic!("Failed to serialize {} to bytes: {}", stringify!(#schema_name), e)
-                    });
+                let value = bincode::encode_to_vec(&schema, bincode::config::standard())?;
 
                 // Extract the key
                 let key_bytes = {

@@ -11,10 +11,12 @@
 //! to produce the final code that gets inserted into the user's crate.
 
 pub mod from_traits;
+pub mod from_traits2;
 pub mod key_struct;
 pub mod trait_impls;
 
 // Re-export commonly used generator functionality
 pub use from_traits::*;
+pub use from_traits2::*;
 pub use key_struct::*;
 pub use trait_impls::*;
