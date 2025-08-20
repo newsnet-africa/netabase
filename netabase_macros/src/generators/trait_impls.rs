@@ -59,26 +59,53 @@ fn generate_key_method_body(key_type: &KeyType, schema_type: &SchemaType) -> Tok
 
 /// Generate field-based key extraction for the key() method
 fn generate_field_key_extraction_method(
-    field_map: &HashMap<Option<&Variant>, FieldKeyInfo>,
+    field_map: &HashMap<Option<&Variant>, Vec<FieldKeyInfo>>,
     schema_type: &SchemaType,
 ) -> TokenStream {
     match schema_type {
         SchemaType::Struct(_) => {
-            // For structs, we should have exactly one field key
-            if let Some((None, field_info)) = field_map.iter().next() {
-                if let Some(field_name) = field_info.field.ident.as_ref() {
-                    quote! {
-                        bincode::encode_to_vec(&self.#field_name, bincode::config::standard())
-                            .unwrap_or_else(|_| vec![])
+            // For structs, we should have key fields
+            if let Some((None, field_infos)) = field_map.iter().next() {
+                if field_infos.len() == 1 {
+                    // Single key field
+                    let field_info = &field_infos[0];
+                    if let Some(field_name) = field_info.field.ident.as_ref() {
+                        quote! {
+                            bincode::encode_to_vec(&self.#field_name, bincode::config::standard())
+                                .unwrap_or_else(|_| vec![])
+                        }
+                    } else {
+                        quote! {
+                            compile_error!("Field keys require named fields")
+                        }
                     }
                 } else {
-                    quote! {
-                        compile_error!("Field keys require named fields")
+                    // Multiple key fields - composite key
+                    let field_names: Vec<_> = field_infos
+                        .iter()
+                        .filter_map(|field_info| field_info.field.ident.as_ref())
+                        .collect();
+
+                    if field_names.len() != field_infos.len() {
+                        quote! {
+                            compile_error!("All key fields must be named")
+                        }
+                    } else {
+                        quote! {
+                            {
+                                let mut key_parts = Vec::new();
+                                #(
+                                    key_parts.extend(bincode::encode_to_vec(&self.#field_names, bincode::config::standard())
+                                        .unwrap_or_else(|_| vec![]));
+                                )*
+                                key_parts
+                            }
+                        }
                     }
                 }
             } else {
                 quote! {
-                    compile_error!("Struct must have exactly one key field")
+                    compile_error!("Struct must have key fields")
                 }
             }
         }
@@ -86,39 +113,64 @@ fn generate_field_key_extraction_method(
             // For enums, generate a match expression
             let match_arms: Vec<TokenStream> = field_map
                 .iter()
-                .filter_map(|(variant_opt, field_info)| {
+                .filter_map(|(variant_opt, field_infos)| {
                     if let Some(variant) = variant_opt {
                         let variant_name = &variant.ident;
 
-                        // Handle both named and tuple variants
-                        if let Some(field_name) = field_info.field.ident.as_ref() {
-                            // Named variant: Variant { field_name, .. }
-                            Some(quote! {
-                                Self::#variant_name { #field_name, .. } => {
-                                    bincode::encode_to_vec(#field_name, bincode::config::standard())
-                                        .unwrap_or_else(|_| vec![])
-                                }
-                            })
-                        } else if let Some(index) = field_info.index {
-                            // Tuple variant: generate pattern with correct field position
-                            let field_patterns: Vec<TokenStream> = (0..index + 1)
-                                .map(|i| {
-                                    if i == index {
-                                        quote! { key_field }
-                                    } else {
-                                        quote! { _ }
+                        if field_infos.len() == 1 {
+                            // Single key field
+                            let field_info = &field_infos[0];
+                            if let Some(field_name) = field_info.field.ident.as_ref() {
+                                // Named variant: Variant { field_name, .. }
+                                Some(quote! {
+                                    Self::#variant_name { #field_name, .. } => {
+                                        bincode::encode_to_vec(#field_name, bincode::config::standard())
+                                            .unwrap_or_else(|_| vec![])
                                     }
                                 })
+                            } else if let Some(index) = field_info.index {
+                                // Tuple variant: Variant(field)
+                                let field_pattern = (0..=index)
+                                    .map(|i| {
+                                        if i == index {
+                                            quote! { key_field }
+                                        } else {
+                                            quote! { _ }
+                                        }
+                                    })
+                                    .collect::<Vec<_>>();
+
+                                Some(quote! {
+                                    Self::#variant_name(#(#field_pattern),*) => {
+                                        bincode::encode_to_vec(key_field, bincode::config::standard())
+                                            .unwrap_or_else(|_| vec![])
+                                    }
+                                })
+                            } else {
+                                None
+                            }
+                        } else {
+                            // Multiple key fields - composite key
+                            let field_names: Vec<_> = field_infos.iter()
+                                .filter_map(|field_info| field_info.field.ident.as_ref())
                                 .collect();
 
-                            Some(quote! {
-                                Self::#variant_name(#(#field_patterns),*, ..) => {
-                                    bincode::encode_to_vec(key_field, bincode::config::standard())
-                                        .unwrap_or_else(|_| vec![])
-                                }
-                            })
-                        } else {
-                            None
+                            if field_names.len() == field_infos.len() {
+                                // All named fields
+                                Some(quote! {
+                                    Self::#variant_name { #(#field_names),*, .. } => {
+                                        let mut key_parts = Vec::new();
+                                        #(
+                                            key_parts.extend(bincode::encode_to_vec(#field_names, bincode::config::standard())
+                                                .unwrap_or_else(|_| vec![]));
+                                        )*
+                                        key_parts
+                                    }
+                                })
+                            } else {
+                                // Mix of named and tuple fields not supported for composite keys
+                                None
+                            }
                         }
                     } else {
                         None
@@ -203,7 +255,7 @@ mod tests {
             field: &field,
             index: None,
         };
-        field_map.insert(None, field_info);
+        field_map.insert(None, vec![field_info]);
         let key_type = KeyType::FieldKeys(field_map);
 
         let generated = generate_netabase_schema_impl(&schema_type, &key_type);

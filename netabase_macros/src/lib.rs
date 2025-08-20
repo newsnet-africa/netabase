@@ -115,8 +115,9 @@ pub fn schema(_args: TokenStream, input: TokenStream) -> TokenStream {
 
 /// Process the NetabaseSchema derive macro
 fn process_netabase_schema_derive(input: &DeriveInput) -> MacroResult<TokenStream> {
-    let _schema_validator = SchemaValidator::default();
-    // KeyValidator removed - functionality integrated into SchemaValidator
+    use crate::visitors::key_finder::KeyValidator;
+
+    let key_validator = KeyValidator::new();
 
     // Convert DeriveInput to Item for validation
     let item = derive_input_to_item(input.clone())?;
@@ -125,20 +126,92 @@ fn process_netabase_schema_derive(input: &DeriveInput) -> MacroResult<TokenStrea
     let schema_type = SchemaType::try_from(&item)
         .map_err(|e| MacroError::new(format!("Invalid schema: {}", e)))?;
 
+    // Extract key information
+    let key_info = key_validator
+        .validate_and_extract_keys(&schema_type)
+        .map_err(|e| MacroError::new(format!("Key validation failed: {:?}", e)))?;
+
     // Generate implementation for NetabaseSchema
     let struct_name = &input.ident;
     let key_type_name = syn::Ident::new(&format!("{}Key", struct_name), struct_name.span());
-    let from_traits2_schema = from_schema_for_record(&schema_type);
+
+    // Generate the key extraction logic based on the key type
+    let key_extraction = match &key_info {
+        crate::visitors::utils::KeyType::FieldKeys(field_keys) => {
+            // Find the key fields for the main struct (None variant)
+            if let Some(field_key_infos) = field_keys.get(&None) {
+                if field_key_infos.is_empty() {
+                    quote! {
+                        #key_type_name("no_key_found".to_string())
+                    }
+                } else if field_key_infos.len() == 1 {
+                    // Single key field
+                    let field_key_info = &field_key_infos[0];
+                    let field_name = field_key_info
+                        .field
+                        .ident
+                        .as_ref()
+                        .ok_or_else(|| MacroError::new("Key field must have a name"))?;
+                    quote! {
+                        #key_type_name(bincode::encode_to_vec(&self.#field_name, bincode::config::standard())
+                            .unwrap_or_else(|_| vec![]))
+                    }
+                } else {
+                    // Multiple key fields - create composite key
+                    let field_names: Vec<_> = field_key_infos
+                        .iter()
+                        .map(|field_key_info| {
+                            field_key_info
+                                .field
+                                .ident
+                                .as_ref()
+                                .ok_or_else(|| MacroError::new("Key field must have a name"))
+                        })
+                        .collect::<Result<Vec<_>, MacroError>>()?;
+
+                    quote! {
+                        #key_type_name({
+                            let mut key_parts = Vec::new();
+                            #(
+                                key_parts.extend(bincode::encode_to_vec(&self.#field_names, bincode::config::standard())
+                                    .unwrap_or_else(|_| vec![]));
+                            )*
+                            key_parts
+                        })
+                    }
+                }
+            } else {
+                quote! {
+                    #key_type_name(b"no_key_found".to_vec())
+                }
+            }
+        }
+        crate::visitors::utils::KeyType::SchemaKey(_closure) => {
+            // For closure-based keys, we'd need to evaluate the closure
+            // For now, use a placeholder
+            quote! {
+                #key_type_name(b"schema_key".to_vec())
+            }
+        }
+        crate::visitors::utils::KeyType::KeyFunction(func_name) => {
+            // For function-based keys, call the specified function
+            let func_ident = syn::Ident::new(func_name, proc_macro2::Span::call_site());
+            quote! {
+                #key_type_name(bincode::encode_to_vec(&#func_ident(self), bincode::config::standard())
+                    .unwrap_or_else(|_| vec![]))
+            }
+        }
+    };
 
     let tokens = quote! {
         // Define a key type for this schema
-        #[derive(Clone, bincode::Encode, Debug)]
-        pub struct #key_type_name(String);
+        #[derive(Clone, bincode::Encode, Debug, PartialEq, Eq)]
+        pub struct #key_type_name(Vec<u8>);
 
         // Manual implementation of Decode
         impl bincode::Decode<()> for #key_type_name {
             fn decode<D: bincode::de::Decoder>(decoder: &mut D) -> Result<Self, bincode::error::DecodeError> {
-                let inner: String = bincode::Decode::decode(decoder)?;
+                let inner: Vec<u8> = bincode::Decode::decode(decoder)?;
                 Ok(#key_type_name(inner))
             }
         }
@@ -146,7 +219,7 @@ fn process_netabase_schema_derive(input: &DeriveInput) -> MacroResult<TokenStrea
         // Manual implementation of BorrowDecode
         impl<'de> bincode::BorrowDecode<'de, ()> for #key_type_name {
             fn borrow_decode<D: bincode::de::BorrowDecoder<'de>>(decoder: &mut D) -> Result<Self, bincode::error::DecodeError> {
-                let inner: String = bincode::BorrowDecode::borrow_decode(decoder)?;
+                let inner: Vec<u8> = bincode::BorrowDecode::borrow_decode(decoder)?;
                 Ok(#key_type_name(inner))
             }
         }
@@ -154,47 +227,47 @@ fn process_netabase_schema_derive(input: &DeriveInput) -> MacroResult<TokenStrea
         // Display implementation for the key type
         impl std::fmt::Display for #key_type_name {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(f, "{}", self.0)
+                write!(f, "{:?}", self.0)
             }
         }
 
         // Implementation for NetabaseSchemaKey for the generated key type
-        impl NetabaseSchemaKey for #key_type_name {
+        impl netabase::NetabaseSchemaKey for #key_type_name {
         }
 
-
-
         // Implementation for NetabaseSchema derive
-        impl NetabaseSchema for #struct_name {
+        impl netabase::NetabaseSchema for #struct_name {
             type Key = #key_type_name;
             fn key(&self) -> Self::Key {
-                #key_type_name("placeholder".to_string())
+                #key_extraction
             }
         }
 
-        #from_traits2_schema
-
         // Implementation for From<libp2p::kad::Record> for the struct
         impl From<libp2p::kad::Record> for #struct_name {
-            fn from(_record: libp2p::kad::Record) -> Self {
-                // Placeholder implementation - would normally deserialize from record.value
-                panic!("From<Record> not yet implemented")
+            fn from(record: libp2p::kad::Record) -> Self {
+                // Deserialize from record.value using bincode
+                bincode::decode_from_slice(&record.value, bincode::config::standard())
+                    .expect("Failed to deserialize record")
+                    .0
             }
         }
 
         // Implementation for Into<libp2p::kad::Record> for the struct
         impl Into<libp2p::kad::Record> for #struct_name {
             fn into(self) -> libp2p::kad::Record {
-                // Placeholder implementation - would normally serialize to record.value
+                // Serialize to record.value using bincode
                 use libp2p::kad::{Record, RecordKey};
-                Record::new(RecordKey::new(&self.key().0), vec![])
+                let serialized = bincode::encode_to_vec(&self, bincode::config::standard())
+                    .expect("Failed to serialize record");
+                Record::new(RecordKey::new(&self.key().0), serialized)
             }
         }
 
         // Implementation for From<libp2p::kad::RecordKey> for the generated key type
         impl From<libp2p::kad::RecordKey> for #key_type_name {
-            fn from(key: libp2p::kad::RecordKey) -> Self {
-                #key_type_name(String::from_utf8_lossy(key.as_ref()).to_string())
+            fn from(record_key: libp2p::kad::RecordKey) -> Self {
+                #key_type_name(record_key.to_vec())
             }
         }
 

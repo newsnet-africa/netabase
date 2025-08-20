@@ -1,23 +1,25 @@
-#![feature(duration_constructors_lite)]
-
 // Re-export the traits for easier access
 pub use netabase_trait::{NetabaseSchema, NetabaseSchemaKey};
+
+// Re-export the derive macro from netabase_macros
+pub use netabase_macros::{NetabaseSchema, schema};
 use std::{path::Path, sync::Arc, time::Duration};
 
 use anyhow::anyhow;
 use libp2p::{
     PeerId, Swarm, SwarmBuilder,
     identity::ed25519::Keypair,
-    kad::{GetRecordOk, PutRecordOk, Quorum, RecordKey},
+    kad::{GetRecordOk, PutRecordOk, Quorum},
     swarm::SwarmEvent,
 };
+
+// Constants for tests
+pub const SHA_256_MH: u64 = 0x12;
 
 pub mod config;
 pub mod database;
 pub mod netabase_trait;
 pub mod network;
-
-use derive_builder::Builder;
 
 // Re-export the derive macro from netabase_macros
 use tokio::sync::Mutex;
@@ -95,7 +97,8 @@ impl Netabase {
     pub fn start_swarm(&mut self) -> anyhow::Result<()> {
         // Create the event sender channel
         let (event_sender, event_receiver) = tokio::sync::broadcast::channel::<NetabaseEvent>(100);
-        let (command_sender, command_receiver) = tokio::sync::mpsc::channel::<NetabaseCommand>(100);
+        let (_command_sender, _command_receiver) =
+            tokio::sync::mpsc::channel::<NetabaseCommand>(100);
 
         // Store the receiver for external access
         self.swarm_event_listener = Some(event_receiver);
@@ -143,7 +146,7 @@ impl Netabase {
                 libp2p::kad::Event::OutboundQueryProgressed {
                     id,
                     result,
-                    stats,
+                    stats: _,
                     step,
                 },
             )))) = result_listener.recv().await
@@ -178,7 +181,7 @@ impl Netabase {
                 libp2p::kad::Event::OutboundQueryProgressed {
                     id,
                     result,
-                    stats,
+                    stats: _,
                     step,
                 },
             )))) = result_listener.recv().await
@@ -192,6 +195,22 @@ impl Netabase {
                 }
             }
         }
+    }
+}
+
+// Public interface methods for Netabase
+impl Netabase {
+    pub async fn put<V: NetabaseSchema, I: ExactSizeIterator<Item = PeerId>>(
+        &mut self,
+        value: V,
+        put_to: Option<I>,
+        quorum: Quorum,
+    ) -> anyhow::Result<PutRecordOk> {
+        Database::put(self, value, put_to, quorum).await
+    }
+
+    pub async fn get<K: NetabaseSchemaKey>(&mut self, key: K) -> anyhow::Result<GetRecordOk> {
+        Database::get(self, key).await
     }
 }
 
@@ -228,8 +247,14 @@ impl Database for Netabase {
 }
 
 /// Initialize logging for the application
+/// This function can be called multiple times safely - it will only initialize once
 pub fn init_logging() {
-    env_logger::init();
+    use std::sync::Once;
+    static INIT: Once = Once::new();
+
+    INIT.call_once(|| {
+        env_logger::init();
+    });
 }
 
 /// Get a temporary directory for testing purposes

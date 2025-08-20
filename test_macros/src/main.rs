@@ -1,4 +1,4 @@
-use test_macros::{NetabaseSchema, UserRandom};
+use test_macros::{UserRandom, UserRandomKey, netabase_trait::NetabaseSchema};
 
 fn main() {
     println!("=== NetabaseSchema Macro Test ===");
@@ -31,9 +31,11 @@ fn main() {
     println!("User2 key: {}", user2.key());
 
     // Verify that the macro-generated implementation works
-    assert_eq!(user.key(), "placeholder");
-    assert_eq!(user2.key(), "placeholder");
-    assert_eq!(user_clone.key(), "placeholder");
+    let expected_key1 = UserRandomKey("42".to_string());
+    let expected_key2 = UserRandomKey("100".to_string());
+    assert_eq!(user.key(), expected_key1);
+    assert_eq!(user2.key(), expected_key2);
+    assert_eq!(user_clone.key(), expected_key1);
 
     println!("✓ NetabaseSchema derive macro works!");
     println!("✓ Trait implementation generated successfully!");
