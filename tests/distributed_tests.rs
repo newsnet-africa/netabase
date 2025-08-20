@@ -21,28 +21,27 @@
 //! NETABASE_NODE=B NETABASE_IP=0.0.0.0 NETABASE_PORT=4001 NETABASE_BOOTSTRAP=/ip4/<MACHINE_1_IP>/tcp/4001/p2p/<PEER_ID_FROM_MACHINE_1> cargo test distributed_two_nodes_remote -- --nocapture
 //! ```
 
+use libp2p::{Multiaddr, PeerId, identity::ed25519::Keypair, kad::Quorum};
+use netabase::{Netabase, NetabaseSchema, config::NetabaseConfig, get_test_temp_dir, init_logging};
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tokio::time::sleep;
-use libp2p::{
-    Multiaddr, PeerId,
-    identity::ed25519::Keypair,
-    kad::Quorum,
-};
-use serde::{Serialize, Deserialize};
-use netabase::{
-    config::NetabaseConfig,
-    network::commands::database_commands::Database,
-    Netabase, NetabaseSchema,
-    get_test_temp_dir, init_logging,
-    schema,
-};
+
+// Helper function to extract record from GetRecordOk
+fn extract_record(get_result: libp2p::kad::GetRecordOk) -> libp2p::kad::Record {
+    // GetRecordOk is an enum in libp2p, need to match on its variants
+    match get_result {
+        libp2p::kad::GetRecordOk::FoundRecord(peer_record) => peer_record.record,
+        _ => panic!("No record found in GetRecordOk"),
+    }
+}
 
 // Define our test schemas using the proper netabase macros
-#[schema]
 mod test_schemas {
     use super::*;
+    use bincode::{Decode, Encode};
 
-    #[derive(Serialize, Deserialize, NetabaseSchema, Clone, Debug, PartialEq)]
+    #[derive(Serialize, Deserialize, NetabaseSchema, Clone, Debug, PartialEq, Encode, Decode)]
     pub struct TestUser {
         #[key]
         pub id: String,
@@ -51,7 +50,7 @@ mod test_schemas {
         pub email: String,
     }
 
-    #[derive(Serialize, Deserialize, NetabaseSchema, Clone, Debug, PartialEq)]
+    #[derive(Serialize, Deserialize, NetabaseSchema, Clone, Debug, PartialEq, Encode, Decode)]
     pub struct TestMessage {
         #[key]
         pub message_id: u64,
@@ -60,18 +59,13 @@ mod test_schemas {
         pub timestamp: u64,
     }
 
-    #[derive(Serialize, Deserialize, NetabaseSchema, Clone, Debug, PartialEq)]
-    pub enum TestDocument {
-        Text {
-            #[key]
-            id: String,
-            content: String,
-        },
-        Binary {
-            #[key]
-            id: String,
-            data: Vec<u8>,
-        },
+    #[derive(Serialize, Deserialize, NetabaseSchema, Clone, Debug, PartialEq, Encode, Decode)]
+    pub struct TestDocument {
+        #[key]
+        pub id: String,
+        pub content: String,
+        pub data: Option<Vec<u8>>, // Use Option to support both text and binary
+        pub doc_type: String,      // "text" or "binary"
     }
 }
 
@@ -155,13 +149,18 @@ async fn create_test_netabase(config: TestConfig) -> anyhow::Result<(Netabase, P
             .parse()
             .expect("Invalid constructed address")
     } else {
-        format!("/ip4/{}/tcp/{}/p2p/{}", config.listen_ip, config.listen_port, peer_id)
-            .parse()
-            .expect("Invalid constructed address")
+        format!(
+            "/ip4/{}/tcp/{}/p2p/{}",
+            config.listen_ip, config.listen_port, peer_id
+        )
+        .parse()
+        .expect("Invalid constructed address")
     };
 
-    println!("Node {} started with PeerID: {} at address: {}",
-             config.node_id, peer_id, listen_addr);
+    println!(
+        "Node {} started with PeerID: {} at address: {}",
+        config.node_id, peer_id, listen_addr
+    );
 
     Ok((netabase, peer_id, listen_addr))
 }
@@ -199,7 +198,10 @@ async fn distributed_two_nodes_local() -> anyhow::Result<()> {
 
     if config.node_id == "A" {
         println!("Node A: Waiting for Node B to connect...");
-        println!("Start Node B with: NETABASE_NODE=B NETABASE_BOOTSTRAP={} cargo test distributed_two_nodes_local -- --nocapture", listen_addr);
+        println!(
+            "Start Node B with: NETABASE_NODE=B NETABASE_BOOTSTRAP={} cargo test distributed_two_nodes_local -- --nocapture",
+            listen_addr
+        );
 
         // Wait for potential connections
         wait_for_connectivity(&mut netabase, Duration::from_secs(30)).await?;
@@ -215,7 +217,13 @@ async fn distributed_two_nodes_local() -> anyhow::Result<()> {
         println!("Node A: Storing user data...");
 
         // Store data using the NetabaseSchema implementation
-        let put_result = netabase.put(test_user.clone(), None, Quorum::One).await?;
+        let put_result = netabase
+            .put(
+                test_user.clone(),
+                None::<std::iter::Empty<PeerId>>,
+                Quorum::One,
+            )
+            .await?;
         println!("Node A: Put result: {:?}", put_result);
 
         // Wait for replication
@@ -227,7 +235,7 @@ async fn distributed_two_nodes_local() -> anyhow::Result<()> {
         println!("Node A: Get result: {:?}", get_result);
 
         // Verify data
-        let retrieved_user: TestUser = get_result.record.into();
+        let retrieved_user: TestUser = extract_record(get_result).into();
         assert_eq!(retrieved_user, test_user);
 
         // Test message storage as well
@@ -239,11 +247,16 @@ async fn distributed_two_nodes_local() -> anyhow::Result<()> {
         };
 
         println!("Node A: Storing message data...");
-        let put_result = netabase.put(test_message.clone(), None, Quorum::One).await?;
+        let put_result = netabase
+            .put(
+                test_message.clone(),
+                None::<std::iter::Empty<PeerId>>,
+                Quorum::One,
+            )
+            .await?;
         println!("Node A: Message put result: {:?}", put_result);
 
         println!("Node A: Test completed successfully!");
-
     } else if config.node_id == "B" {
         println!("Node B: Connected as bootstrap node");
 
@@ -256,7 +269,8 @@ async fn distributed_two_nodes_local() -> anyhow::Result<()> {
             name: "".to_string(), // We only need the key
             age: 0,
             email: "".to_string(),
-        }.key();
+        }
+        .key();
 
         println!("Node B: Attempting to retrieve user data...");
 
@@ -265,7 +279,7 @@ async fn distributed_two_nodes_local() -> anyhow::Result<()> {
 
         match netabase.get(test_user_key).await {
             Ok(get_result) => {
-                let retrieved_user: TestUser = get_result.record.into();
+                let retrieved_user: TestUser = extract_record(get_result).into();
                 println!("Node B: Successfully retrieved user: {:?}", retrieved_user);
 
                 assert_eq!(retrieved_user.name, "Alice");
@@ -275,21 +289,32 @@ async fn distributed_two_nodes_local() -> anyhow::Result<()> {
                 println!("Node B: Test completed successfully!");
             }
             Err(e) => {
-                println!("Node B: Could not retrieve data (this might be expected if Node A hasn't stored it yet): {:?}", e);
+                println!(
+                    "Node B: Could not retrieve data (this might be expected if Node A hasn't stored it yet): {:?}",
+                    e
+                );
 
-                // Store our own data using enum schema
-                let test_document = TestDocument::Text {
+                // Store our own data using struct schema
+                let test_document = TestDocument {
                     id: "doc456".to_string(),
                     content: "Document from Node B".to_string(),
+                    data: None,
+                    doc_type: "text".to_string(),
                 };
 
                 println!("Node B: Storing document data...");
-                let put_result = netabase.put(test_document.clone(), None, Quorum::One).await?;
+                let put_result = netabase
+                    .put(
+                        test_document.clone(),
+                        None::<std::iter::Empty<PeerId>>,
+                        Quorum::One,
+                    )
+                    .await?;
                 println!("Node B: Put result: {:?}", put_result);
 
                 // Retrieve our own data
                 let get_result = netabase.get(test_document.key()).await?;
-                let retrieved_doc: TestDocument = get_result.record.into();
+                let retrieved_doc: TestDocument = extract_record(get_result).into();
                 assert_eq!(retrieved_doc, test_document);
 
                 println!("Node B: Successfully stored and retrieved own data!");
@@ -298,7 +323,10 @@ async fn distributed_two_nodes_local() -> anyhow::Result<()> {
     }
 
     // Keep the node alive for a while to allow for manual testing
-    println!("Node {}: Keeping alive for 30 seconds for manual testing...", config.node_id);
+    println!(
+        "Node {}: Keeping alive for 30 seconds for manual testing...",
+        config.node_id
+    );
     sleep(Duration::from_secs(30)).await;
 
     Ok(())
@@ -310,15 +338,22 @@ async fn distributed_two_nodes_remote() -> anyhow::Result<()> {
     init_logging();
 
     let config = TestConfig::from_env();
-    println!("Starting remote distributed test for node: {}", config.node_id);
+    println!(
+        "Starting remote distributed test for node: {}",
+        config.node_id
+    );
 
     let (mut netabase, peer_id, listen_addr) = create_test_netabase(config.clone()).await?;
 
     if config.node_id == "A" {
         println!("Node A (Machine 1): Waiting for connections...");
         println!("Start Node B on another machine with:");
-        println!("NETABASE_NODE=B NETABASE_IP=0.0.0.0 NETABASE_PORT=4001 NETABASE_BOOTSTRAP={} cargo test distributed_two_nodes_remote -- --nocapture",
-                 listen_addr.to_string().replace("0.0.0.0", "<THIS_MACHINE_IP>"));
+        println!(
+            "NETABASE_NODE=B NETABASE_IP=0.0.0.0 NETABASE_PORT=4001 NETABASE_BOOTSTRAP={} cargo test distributed_two_nodes_remote -- --nocapture",
+            listen_addr
+                .to_string()
+                .replace("0.0.0.0", "<THIS_MACHINE_IP>")
+        );
 
         // Wait for connections
         wait_for_connectivity(&mut netabase, Duration::from_secs(60)).await?;
@@ -332,17 +367,31 @@ async fn distributed_two_nodes_remote() -> anyhow::Result<()> {
         };
 
         println!("Node A: Storing remote user data...");
-        let put_result = netabase.put(test_user.clone(), None, Quorum::One).await?;
+        let put_result = netabase
+            .put(
+                test_user.clone(),
+                None::<std::iter::Empty<PeerId>>,
+                Quorum::One,
+            )
+            .await?;
         println!("Node A: Put result: {:?}", put_result);
 
         // Also store a binary document
-        let binary_doc = TestDocument::Binary {
+        let binary_doc = TestDocument {
             id: "binary_doc_1".to_string(),
-            data: vec![0xDE, 0xAD, 0xBE, 0xEF],
+            content: "".to_string(),
+            data: Some(vec![0xDE, 0xAD, 0xBE, 0xEF]),
+            doc_type: "binary".to_string(),
         };
 
         println!("Node A: Storing binary document...");
-        let put_result = netabase.put(binary_doc.clone(), None, Quorum::One).await?;
+        let put_result = netabase
+            .put(
+                binary_doc.clone(),
+                None::<std::iter::Empty<PeerId>>,
+                Quorum::One,
+            )
+            .await?;
         println!("Node A: Binary doc put result: {:?}", put_result);
 
         // Wait for replication across network
@@ -350,11 +399,10 @@ async fn distributed_two_nodes_remote() -> anyhow::Result<()> {
 
         // Verify local retrieval
         let get_result = netabase.get(test_user.key()).await?;
-        let retrieved_user: TestUser = get_result.record.into();
+        let retrieved_user: TestUser = extract_record(get_result).into();
         assert_eq!(retrieved_user, test_user);
 
         println!("Node A: Remote test completed successfully!");
-
     } else if config.node_id == "B" {
         println!("Node B (Machine 2): Connected to remote network");
 
@@ -367,34 +415,40 @@ async fn distributed_two_nodes_remote() -> anyhow::Result<()> {
             name: "".to_string(),
             age: 0,
             email: "".to_string(),
-        }.key();
+        }
+        .key();
 
         println!("Node B: Attempting to retrieve remote user data...");
         sleep(Duration::from_secs(5)).await;
 
         match netabase.get(remote_user_key).await {
             Ok(get_result) => {
-                let retrieved_user: TestUser = get_result.record.into();
-                println!("Node B: Successfully retrieved remote user: {:?}", retrieved_user);
+                let retrieved_user: TestUser = extract_record(get_result).into();
+                println!(
+                    "Node B: Successfully retrieved remote user: {:?}",
+                    retrieved_user
+                );
 
                 assert_eq!(retrieved_user.name, "Remote Alice");
                 assert_eq!(retrieved_user.age, 35);
                 assert_eq!(retrieved_user.email, "remote.alice@example.com");
 
                 // Also try to get the binary document
-                let binary_doc_key = TestDocument::Binary {
+                let binary_doc_key = TestDocument {
                     id: "binary_doc_1".to_string(),
-                    data: vec![], // We only need the key
-                }.key();
+                    content: "".to_string(),
+                    data: None, // We only need the key
+                    doc_type: "binary".to_string(),
+                }
+                .key();
 
                 match netabase.get(binary_doc_key).await {
                     Ok(get_result) => {
-                        let retrieved_doc: TestDocument = get_result.record.into();
-                        if let TestDocument::Binary { id, data } = retrieved_doc {
-                            assert_eq!(id, "binary_doc_1");
-                            assert_eq!(data, vec![0xDE, 0xAD, 0xBE, 0xEF]);
-                            println!("Node B: Successfully retrieved binary document!");
-                        }
+                        let retrieved_doc: TestDocument = extract_record(get_result).into();
+                        assert_eq!(retrieved_doc.id, "binary_doc_1");
+                        assert_eq!(retrieved_doc.data, Some(vec![0xDE, 0xAD, 0xBE, 0xEF]));
+                        assert_eq!(retrieved_doc.doc_type, "binary");
+                        println!("Node B: Successfully retrieved binary document!");
                     }
                     Err(e) => {
                         println!("Node B: Could not retrieve binary document: {:?}", e);
@@ -415,11 +469,17 @@ async fn distributed_two_nodes_remote() -> anyhow::Result<()> {
                 };
 
                 println!("Node B: Storing local user data...");
-                let put_result = netabase.put(local_user.clone(), None, Quorum::One).await?;
+                let put_result = netabase
+                    .put(
+                        local_user.clone(),
+                        None::<std::iter::Empty<PeerId>>,
+                        Quorum::One,
+                    )
+                    .await?;
                 println!("Node B: Put result: {:?}", put_result);
 
                 let get_result = netabase.get(local_user.key()).await?;
-                let retrieved_user: TestUser = get_result.record.into();
+                let retrieved_user: TestUser = extract_record(get_result).into();
                 assert_eq!(retrieved_user, local_user);
 
                 println!("Node B: Local operations working correctly!");
@@ -428,7 +488,10 @@ async fn distributed_two_nodes_remote() -> anyhow::Result<()> {
     }
 
     // Keep alive for extended testing
-    println!("Node {}: Keeping alive for 60 seconds for extended testing...", config.node_id);
+    println!(
+        "Node {}: Keeping alive for 60 seconds for extended testing...",
+        config.node_id
+    );
     sleep(Duration::from_secs(60)).await;
 
     Ok(())
@@ -461,7 +524,13 @@ async fn test_local_netabase_operations() -> anyhow::Result<()> {
 
     // Store data locally
     println!("Storing test user locally...");
-    let put_result = netabase.put(test_user.clone(), None, Quorum::One).await?;
+    let put_result = netabase
+        .put(
+            test_user.clone(),
+            None::<std::iter::Empty<PeerId>>,
+            Quorum::One,
+        )
+        .await?;
     println!("Put result: {:?}", put_result);
 
     // Retrieve data locally
@@ -470,7 +539,7 @@ async fn test_local_netabase_operations() -> anyhow::Result<()> {
     println!("Get result: {:?}", get_result);
 
     // Verify data integrity
-    let retrieved_user: TestUser = get_result.record.into();
+    let retrieved_user: TestUser = extract_record(get_result).into();
     assert_eq!(retrieved_user, test_user);
 
     println!("Local test completed successfully!");
@@ -509,49 +578,80 @@ async fn test_multiple_schema_types() -> anyhow::Result<()> {
         timestamp: 1640995200,
     };
 
-    let test_text_doc = TestDocument::Text {
+    let test_text_doc = TestDocument {
         id: "doc1".to_string(),
         content: "This is a text document".to_string(),
+        data: None,
+        doc_type: "text".to_string(),
     };
 
-    let test_binary_doc = TestDocument::Binary {
+    let test_binary_doc = TestDocument {
         id: "doc2".to_string(),
-        data: vec![1, 2, 3, 4, 5],
+        content: "".to_string(),
+        data: Some(vec![1, 2, 3, 4, 5]),
+        doc_type: "binary".to_string(),
     };
 
     // Store all different types
     println!("Storing user...");
-    let user_put = netabase.put(test_user.clone(), None, Quorum::One).await?;
+    let user_put = netabase
+        .put(
+            test_user.clone(),
+            None::<std::iter::Empty<PeerId>>,
+            Quorum::One,
+        )
+        .await?;
     println!("User put result: {:?}", user_put);
 
     println!("Storing message...");
-    let message_put = netabase.put(test_message.clone(), None, Quorum::One).await?;
+    let message_put = netabase
+        .put(
+            test_message.clone(),
+            None::<std::iter::Empty<PeerId>>,
+            Quorum::One,
+        )
+        .await?;
     println!("Message put result: {:?}", message_put);
 
     println!("Storing text document...");
-    let text_doc_put = netabase.put(test_text_doc.clone(), None, Quorum::One).await?;
+    let text_doc_put = netabase
+        .put(
+            test_text_doc.clone(),
+            None::<std::iter::Empty<PeerId>>,
+            Quorum::One,
+        )
+        .await?;
     println!("Text doc put result: {:?}", text_doc_put);
 
     println!("Storing binary document...");
-    let binary_doc_put = netabase.put(test_binary_doc.clone(), None, Quorum::One).await?;
+    let binary_doc_put = netabase
+        .put(
+            test_binary_doc.clone(),
+            None::<std::iter::Empty<PeerId>>,
+            Quorum::One,
+        )
+        .await?;
     println!("Binary doc put result: {:?}", binary_doc_put);
 
     // Retrieve and verify all types
     println!("Retrieving and verifying all stored data...");
 
-    let retrieved_user: TestUser = netabase.get(test_user.key()).await?.record.into();
+    let retrieved_user: TestUser = extract_record(netabase.get(test_user.key()).await?).into();
     assert_eq!(retrieved_user, test_user);
     println!("✓ User verified");
 
-    let retrieved_message: TestMessage = netabase.get(test_message.key()).await?.record.into();
+    let retrieved_message: TestMessage =
+        extract_record(netabase.get(test_message.key()).await?).into();
     assert_eq!(retrieved_message, test_message);
     println!("✓ Message verified");
 
-    let retrieved_text_doc: TestDocument = netabase.get(test_text_doc.key()).await?.record.into();
+    let retrieved_text_doc: TestDocument =
+        extract_record(netabase.get(test_text_doc.key()).await?).into();
     assert_eq!(retrieved_text_doc, test_text_doc);
     println!("✓ Text document verified");
 
-    let retrieved_binary_doc: TestDocument = netabase.get(test_binary_doc.key()).await?.record.into();
+    let retrieved_binary_doc: TestDocument =
+        extract_record(netabase.get(test_binary_doc.key()).await?).into();
     assert_eq!(retrieved_binary_doc, test_binary_doc);
     println!("✓ Binary document verified");
 
@@ -567,12 +667,20 @@ fn print_usage() {
     println!("==========================");
     println!();
     println!("Local Testing (Two Processes):");
-    println!("  Terminal 1: NETABASE_NODE=A cargo test distributed_two_nodes_local -- --nocapture --ignored");
-    println!("  Terminal 2: NETABASE_NODE=B NETABASE_BOOTSTRAP=<addr_from_terminal_1> cargo test distributed_two_nodes_local -- --nocapture --ignored");
+    println!(
+        "  Terminal 1: NETABASE_NODE=A cargo test distributed_two_nodes_local -- --nocapture --ignored"
+    );
+    println!(
+        "  Terminal 2: NETABASE_NODE=B NETABASE_BOOTSTRAP=<addr_from_terminal_1> cargo test distributed_two_nodes_local -- --nocapture --ignored"
+    );
     println!();
     println!("Remote Testing (Two Machines):");
-    println!("  Machine 1: NETABASE_NODE=A NETABASE_IP=0.0.0.0 NETABASE_PORT=4001 cargo test distributed_two_nodes_remote -- --nocapture --ignored");
-    println!("  Machine 2: NETABASE_NODE=B NETABASE_IP=0.0.0.0 NETABASE_PORT=4001 NETABASE_BOOTSTRAP=/ip4/<machine1_ip>/tcp/4001/p2p/<peer_id> cargo test distributed_two_nodes_remote -- --nocapture --ignored");
+    println!(
+        "  Machine 1: NETABASE_NODE=A NETABASE_IP=0.0.0.0 NETABASE_PORT=4001 cargo test distributed_two_nodes_remote -- --nocapture --ignored"
+    );
+    println!(
+        "  Machine 2: NETABASE_NODE=B NETABASE_IP=0.0.0.0 NETABASE_PORT=4001 NETABASE_BOOTSTRAP=/ip4/<machine1_ip>/tcp/4001/p2p/<peer_id> cargo test distributed_two_nodes_remote -- --nocapture --ignored"
+    );
     println!();
     println!("Environment Variables:");
     println!("  NETABASE_NODE: Node identifier (A or B)");

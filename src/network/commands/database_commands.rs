@@ -4,7 +4,7 @@ use libp2p::kad::{GetRecordOk, Quorum};
 use crate::PutRecordOk;
 use crate::netabase_trait::{NetabaseSchema, NetabaseSchemaKey};
 
-pub(crate) trait Database {
+pub trait Database {
     async fn put<V: NetabaseSchema, I: ExactSizeIterator<Item = PeerId>>(
         &mut self,
         value: V,

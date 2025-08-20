@@ -83,15 +83,19 @@ impl KeyValidator {
     fn extract_field_keys<'ast>(
         &self,
         schema: &SchemaType<'ast>,
-    ) -> ValidationResult<HashMap<Option<&'ast Variant>, FieldKeyInfo<'ast>>> {
+    ) -> ValidationResult<HashMap<Option<&'ast Variant>, Vec<FieldKeyInfo<'ast>>>> {
         let mut field_keys = HashMap::new();
         let fields = schema.fields();
 
         for (variant, fields) in fields {
-            if let Some(key_field_info) = self.find_key_field(fields)? {
-                field_keys.insert(variant, key_field_info);
+            let key_field_infos = self.find_key_fields(fields)?;
+            if !key_field_infos.is_empty() {
+                field_keys.insert(variant, key_field_infos);
             }
         }
+
+        // Additional validation: check for unsupported patterns
+        self.validate_key_patterns(schema, &field_keys)?;
 
         Ok(field_keys)
     }
@@ -102,53 +106,40 @@ impl KeyValidator {
         fields.values().any(|fields| self.field_has_key(fields))
     }
 
-    /// Find the key field in a Fields structure
-    fn find_key_field<'ast>(
+    /// Find the key fields in a Fields structure
+    fn find_key_fields<'ast>(
         &self,
         fields: &'ast Fields,
-    ) -> ValidationResult<Option<FieldKeyInfo<'ast>>> {
+    ) -> ValidationResult<Vec<FieldKeyInfo<'ast>>> {
         match fields {
             Fields::Named(named) => {
-                let key_fields: Vec<&Field> = named
+                let key_fields: Vec<FieldKeyInfo<'ast>> = named
                     .named
                     .iter()
                     .filter(|field| self.is_key_field(field))
+                    .map(|field| FieldKeyInfo {
+                        field,
+                        index: None, // Named fields don't need indices
+                    })
                     .collect();
 
-                match key_fields.len() {
-                    0 => Ok(None),
-                    1 => Ok(Some(FieldKeyInfo {
-                        field: key_fields[0],
-                        index: None, // Named fields don't need indices
-                    })),
-                    _ => Err(ValidationError::new(
-                        "Only one field can be marked with #[key] per struct/variant",
-                    )),
-                }
+                Ok(key_fields)
             }
             Fields::Unnamed(unnamed) => {
-                let key_fields: Vec<(usize, &Field)> = unnamed
+                let key_fields: Vec<FieldKeyInfo<'ast>> = unnamed
                     .unnamed
                     .iter()
                     .enumerate()
                     .filter(|(_, field)| self.is_key_field(field))
+                    .map(|(index, field)| FieldKeyInfo {
+                        field,
+                        index: Some(index),
+                    })
                     .collect();
 
-                match key_fields.len() {
-                    0 => Ok(None),
-                    1 => {
-                        let (index, field) = key_fields[0];
-                        Ok(Some(FieldKeyInfo {
-                            field,
-                            index: Some(index),
-                        }))
-                    }
-                    _ => Err(ValidationError::new(
-                        "Only one field can be marked with #[key] per struct/variant",
-                    )),
-                }
+                Ok(key_fields)
             }
-            Fields::Unit => Ok(None),
+            Fields::Unit => Ok(Vec::new()),
         }
     }
 
@@ -370,7 +361,7 @@ pub struct KeyInfoBuilder<'ast> {
 
 impl<'ast> KeyInfoBuilder<'ast> {
     pub fn new() -> Self {
-        Self::default()
+        Self { key_type: None }
     }
 
     pub fn with_key_type(mut self, key_type: KeyType<'ast>) -> Self {
@@ -379,10 +370,110 @@ impl<'ast> KeyInfoBuilder<'ast> {
     }
 
     pub fn build(self) -> KeyInfo<'ast> {
-        KeyInfo {
-            key_type: self.key_type.expect("KeyType must be set before building"),
-            validation_errors: Vec::new(),
+        KeyInfo::new(self.key_type.unwrap_or(KeyType::FieldKeys(HashMap::new())))
+    }
+}
+
+impl KeyValidator {
+    /// Validate key patterns and reject unsupported configurations
+    fn validate_key_patterns<'ast>(
+        &self,
+        schema: &SchemaType<'ast>,
+        field_keys: &HashMap<Option<&'ast Variant>, Vec<FieldKeyInfo<'ast>>>,
+    ) -> ValidationResult<()> {
+        // Check for enum variants with multiple key fields (not supported yet)
+        if matches!(schema, SchemaType::Enum(_)) && field_keys.len() > 1 {
+            return Err(ValidationError::new(
+                "UNSUPPORTED: Multiple enum variants with #[key] fields are not yet supported. \
+                Current implementation only supports single-variant key extraction. \
+                Please use only one variant with a #[key] field, or implement a custom key() method.",
+            ));
         }
+
+        // Check for complex key types that aren't supported
+        for (variant, field_infos) in field_keys {
+            for field_info in field_infos {
+                self.validate_key_field_type(&field_info.field.ty, variant)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Validate that the key field type is supported
+    fn validate_key_field_type<'ast>(
+        &self,
+        field_type: &Type,
+        variant: &Option<&'ast Variant>,
+    ) -> ValidationResult<()> {
+        match field_type {
+            Type::Path(type_path) => {
+                if let Some(segment) = type_path.path.segments.last() {
+                    let type_name = segment.ident.to_string();
+
+                    // Check for unsupported types
+                    match type_name.as_str() {
+                        "Vec" | "HashMap" | "BTreeMap" | "HashSet" | "BTreeSet" => {
+                            return Err(ValidationError::new(format!(
+                                "UNSUPPORTED: Collection type '{}' cannot be used as a key field. \
+                                    Only primitive types (u8, u16, u32, u64, i8, i16, i32, i64, String, bool) \
+                                    are currently supported as key fields. \
+                                    Consider using a String representation or implement a custom key() method.",
+                                type_name
+                            )));
+                        }
+                        "Option" => {
+                            return Err(ValidationError::new(
+                                "UNSUPPORTED: Option<T> cannot be used as a key field. \
+                                Key fields must always have a value. \
+                                Consider using a default value or implement a custom key() method."
+                                    .to_string(),
+                            ));
+                        }
+                        _ => {
+                            // Check if it's a generic type with parameters
+                            if !segment.arguments.is_empty() {
+                                return Err(ValidationError::new(format!(
+                                    "UNSUPPORTED: Generic type '{}' with parameters cannot be used as a key field. \
+                                        Only simple primitive types are currently supported as key fields. \
+                                        Consider using a String representation or implement a custom key() method.",
+                                    type_name
+                                )));
+                            }
+                        }
+                    }
+                }
+            }
+            Type::Array(_) | Type::Slice(_) => {
+                return Err(ValidationError::new(
+                    "UNSUPPORTED: Array and slice types cannot be used as key fields. \
+                    Only primitive types (u8, u16, u32, u64, i8, i16, i32, i64, String, bool) \
+                    are currently supported as key fields. \
+                    Consider using a String representation or implement a custom key() method."
+                        .to_string(),
+                ));
+            }
+            Type::Tuple(_) => {
+                return Err(ValidationError::new(
+                    "UNSUPPORTED: Tuple types cannot be used as key fields. \
+                    Only primitive types (u8, u16, u32, u64, i8, i16, i32, i64, String, bool) \
+                    are currently supported as key fields. \
+                    Consider using a String representation or implement a custom key() method."
+                        .to_string(),
+                ));
+            }
+            _ => {
+                return Err(ValidationError::new(
+                    "UNSUPPORTED: Complex types cannot be used as key fields. \
+                    Only primitive types (u8, u16, u32, u64, i8, i16, i32, i64, String, bool) \
+                    are currently supported as key fields. \
+                    Consider using a String representation or implement a custom key() method."
+                        .to_string(),
+                ));
+            }
+        }
+
+        Ok(())
     }
 }
 
