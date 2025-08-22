@@ -55,41 +55,41 @@ struct User {
 async fn main() -> anyhow::Result<()> {
     // Initialize logging
     netabase::init_logging();
-    
+
     // Create configuration
     let config = NetabaseConfig::default();
-    
+
     // Generate or load keypair
     let keypair = Keypair::generate();
-    
+
     // Create netabase instance
     let mut netabase = Netabase::try_new(config, &keypair, "my-app")?;
-    
+
     // Start the network
     netabase.start_swarm()?;
-    
+
     // Wait a moment for network initialization
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-    
+
     // Create and store data
     let user = User {
         id: 42,
         name: "Alice".to_string(),
         email: "alice@example.com".to_string(),
     };
-    
+
     // Put data into the network
     let put_result = netabase.put(
-        user.clone(), 
-        None, 
+        user.clone(),
+        None,
         libp2p::kad::Quorum::One
     ).await?;
     println!("Data stored: {:?}", put_result);
-    
+
     // Retrieve data by key
     let get_result = netabase.get(user.key()).await?;
     println!("Retrieved: {:?}", get_result);
-    
+
     Ok(())
 }
 ```
@@ -175,14 +175,14 @@ use bincode::{Encode, Decode};
 #[schema]
 mod my_schemas {
     use super::*;
-    
+
     #[derive(Serialize, Deserialize, NetabaseSchema, Clone, Debug, Encode, Decode)]
     struct User {
         #[key]
         id: u64,
         name: String,
     }
-    
+
     #[derive(Serialize, Deserialize, NetabaseSchema, Clone, Debug, Encode, Decode)]
     struct Post {
         #[key]
@@ -268,8 +268,8 @@ The main database instance.
 ```rust
 // Create a new instance
 pub fn try_new(
-    config: NetabaseConfig, 
-    keypair: &Keypair, 
+    config: NetabaseConfig,
+    keypair: &Keypair,
     protocol_name: impl ToString
 ) -> anyhow::Result<Self>
 
@@ -286,7 +286,7 @@ pub async fn put<T: NetabaseSchema>(
 
 // Retrieve data by key
 pub async fn get<K: NetabaseSchemaKey>(
-    &mut self, 
+    &mut self,
     key: K
 ) -> anyhow::Result<libp2p::kad::GetRecordOk>
 ```
@@ -377,7 +377,7 @@ Test with multiple nodes:
 # Terminal 1 (Node A)
 NETABASE_NODE=A NETABASE_PORT=0 cargo test distributed_two_nodes_local -- --nocapture
 
-# Terminal 2 (Node B) 
+# Terminal 2 (Node B)
 NETABASE_NODE=B NETABASE_PORT=0 NETABASE_BOOTSTRAP=/ip4/127.0.0.1/tcp/<PORT>/p2p/<PEER_ID> cargo test distributed_two_nodes_local -- --nocapture
 ```
 
@@ -394,7 +394,7 @@ NETABASE_NODE=B NETABASE_PORT=0 NETABASE_BOOTSTRAP=/ip4/127.0.0.1/tcp/<PORT>/p2p
 ### Supported Key Types
 ✅ **Currently Working:**
 - `u8`, `u16`, `u32`, `u64`
-- `i8`, `i16`, `i32`, `i64` 
+- `i8`, `i16`, `i32`, `i64`
 - `String`
 - `bool`
 
@@ -454,6 +454,7 @@ struct GoodExample {
 - [ ] Custom key generation functions (`#[key_fn]`)
 - [ ] Schema prefixes and versioning
 - [ ] Enum schema support
+- [ ] Functional database functionality
 
 **v0.3.0 - Advanced Features**
 - [ ] Data versioning and conflict resolution
