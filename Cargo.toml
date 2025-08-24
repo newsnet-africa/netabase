@@ -11,6 +11,7 @@ crate-type = ["cdylib", "rlib"]
 anyhow = "*"
 netabase_macros = { path = "netabase_macros" }
 bincode = "2.0.0-rc.3"
+chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.4", features = ["derive", "env"] }
 env_logger = "*"
 envy = "*"

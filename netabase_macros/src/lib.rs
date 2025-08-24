@@ -1,5 +1,3 @@
-#![feature(extend_one)]
-
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{DeriveInput, ItemMod, parse_macro_input, visit::Visit};

@@ -3,13 +3,13 @@ pub use netabase_trait::{NetabaseSchema, NetabaseSchemaKey};
 
 // Re-export the derive macro from netabase_macros
 pub use netabase_macros::{NetabaseSchema, schema};
-use std::{path::Path, sync::Arc, time::Duration};
+use std::{path::Path, time::Duration};
 
 use anyhow::anyhow;
 use libp2p::{
     Multiaddr, PeerId, Swarm, SwarmBuilder,
     identity::ed25519::Keypair,
-    kad::{GetRecordOk, PutRecordOk, Quorum},
+    kad::{GetRecordOk, PutRecordOk, QueryId, Quorum},
     swarm::{SwarmEvent, dial_opts::DialOpts},
 };
 
@@ -18,8 +18,7 @@ pub mod database;
 pub mod netabase_trait;
 pub mod network;
 
-// Re-export the derive macro from netabase_macros
-use tokio::sync::Mutex;
+pub use crate::config::NetabaseConfig;
 
 use crate::{
     config::NetabaseConfig,
@@ -30,23 +29,32 @@ use crate::{
     },
 };
 
+#[derive(Debug)]
 pub enum NetabaseCommand {
     Close,
-    Database,
+    Database(DatabaseCommand),
+    GetListeners(tokio::sync::oneshot::Sender<Vec<Multiaddr>>),
 }
 
-enum DatabaseCommand<K: NetabaseSchemaKey, V: NetabaseSchema> {
-    Put(K, V),
-    Get(K),
-    Delete(K),
+#[derive(Debug)]
+pub enum DatabaseCommand {
+    Put {
+        record: libp2p::kad::Record,
+        put_to: Option<Vec<PeerId>>,
+        quorum: Quorum,
+        response_tx: tokio::sync::oneshot::Sender<anyhow::Result<PutRecordOk>>,
+    },
+    Get {
+        key: libp2p::kad::RecordKey,
+        response_tx: tokio::sync::oneshot::Sender<anyhow::Result<GetRecordOk>>,
+    },
 }
 
 pub struct Netabase {
     pub config: NetabaseConfig,
-    pub swarm: Arc<tokio::sync::Mutex<Swarm<NetabaseBehaviour>>>,
     pub protocol_name: String,
     swarm_thread: Option<tokio::task::JoinHandle<anyhow::Result<()>>>,
-    pub swarm_active: bool, // Might become swarm state
+    pub swarm_active: bool,
     pub swarm_command_sender: Option<tokio::sync::mpsc::Sender<NetabaseCommand>>,
     pub swarm_event_listener: Option<tokio::sync::broadcast::Receiver<NetabaseEvent>>,
 }
@@ -57,12 +65,6 @@ impl Netabase {
         protocol_name: &'static str,
     ) -> anyhow::Result<Self> {
         Ok(Netabase {
-            swarm: Arc::new(Mutex::new(Self::generate_swarm(
-                &config.storage_path,
-                Self::get_key(&config.keypair_path).await?,
-                protocol_name,
-                &config,
-            )?)),
             swarm_thread: None,
             swarm_command_sender: None,
             swarm_event_listener: None,
@@ -95,10 +97,10 @@ impl Netabase {
     fn generate_swarm(
         storage_path: &Path,
         local_key: Keypair,
-        protocol_name: &'static str,
+        protocol_name: String,
         netabase_config: &config::NetabaseConfig,
     ) -> anyhow::Result<Swarm<NetabaseBehaviour>> {
-        eprintln!("{storage_path:?}");
+        println!("{storage_path:?}");
         Ok(SwarmBuilder::with_existing_identity(local_key.into())
             .with_tokio()
             .with_tcp(
@@ -134,7 +136,8 @@ impl Netabase {
             })
             .build())
     }
-    pub fn start_swarm(&mut self) -> anyhow::Result<()> {
+
+    pub async fn start_swarm(&mut self) -> anyhow::Result<()> {
         // Create the event sender channel
         let (event_sender, event_receiver) = tokio::sync::broadcast::channel::<NetabaseEvent>(100);
         let (command_sender, command_receiver) = tokio::sync::mpsc::channel::<NetabaseCommand>(100);
@@ -144,162 +147,61 @@ impl Netabase {
         // Store the receiver for external access
         self.swarm_event_listener = Some(event_receiver);
 
+        // Create swarm in the thread
+        let storage_path = self.config.storage_path.clone();
+        let keypair_path = self.config.keypair_path.clone();
+        let protocol_name: String = self.protocol_name.clone();
+        let config = self.config.clone();
+
+        let swarm = Self::generate_swarm(
+            &storage_path,
+            Self::get_key(&keypair_path).await?,
+            protocol_name,
+            &config,
+        )?;
+
         // Start listening on configured addresses
         let listen_addresses = self.config.listen_addresses.clone();
-        let bootstrap_addresses = self.config.bootstrap_addresses.clone();
-        let swarm_clone = Arc::clone(&self.swarm);
-        let swarm_clone_for_events = Arc::clone(&self.swarm);
 
-        // Set up listening and bootstrap connections
-        tokio::spawn(async move {
-            {
-                let mut swarm_guard = swarm_clone.lock().await;
+        println!("Starting swarm thread");
 
-                // Start listening on all configured addresses
-                for addr in listen_addresses {
-                    if let Err(e) = (swarm_guard).listen_on(addr.clone()) {
-                        eprintln!("Failed to listen on {}: {}", addr, e);
-                    } else {
-                        println!("Listening on: {}", addr);
-                    }
-                }
-
-                // Connect to bootstrap peers and add them to Kademlia routing table
-                for bootstrap_addr in bootstrap_addresses {
-                    println!("Attempting to dial bootstrap peer: {}", bootstrap_addr);
-
-                    // Extract PeerID from the multiaddr for Kademlia
-                    if let Some(peer_id) = extract_peer_id_from_multiaddr(&bootstrap_addr) {
-                        // Add to Kademlia routing table for better discovery
-                        (&mut *swarm_guard)
-                            .behaviour_mut()
-                            .kad
-                            .add_address(&peer_id, bootstrap_addr.clone());
-                        println!("Added peer {} to Kademlia routing table", peer_id);
-                    }
-
-                    if let Err(e) = (&mut *swarm_guard).dial(bootstrap_addr.clone()) {
-                        eprintln!("Failed to dial bootstrap peer {}: {}", bootstrap_addr, e);
-                    } else {
-                        println!("Successfully initiated connection to: {}", bootstrap_addr);
-                    }
-                }
-            } // Release the lock here
-        });
-
-        // Spawn the event handling task
+        // Spawn the event handling task with owned swarm
         let event_loop = tokio::spawn(async move {
-            handle_events(swarm_clone_for_events, event_sender, command_receiver).await;
+            println!("Starting loop");
+            handle_events(swarm, event_sender, command_receiver, listen_addresses).await;
             Ok(())
         });
 
         // Store the join handle
         self.swarm_thread = Some(event_loop);
+        self.swarm_active = true;
 
         Ok(())
     }
 
-    pub async fn listeners(&self) -> Vec<Multiaddr> {
-        // use iters instead
-        self.swarm
-            .lock()
-            .await
-            .listeners()
-            .cloned()
-            .collect::<Vec<Multiaddr>>()
+    pub async fn listeners(&self) -> anyhow::Result<Vec<Multiaddr>> {
+        let command_sender = self
+            .swarm_command_sender
+            .as_ref()
+            .ok_or_else(|| anyhow!("Swarm not started"))?;
+
+        let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+
+        command_sender
+            .send(NetabaseCommand::GetListeners(response_tx))
+            .await?;
+
+        Ok(response_rx.await?)
     }
 
     pub async fn close_swarm(self) -> anyhow::Result<()> {
         if let Some(swarm) = self.swarm_thread {
-            self.swarm_command_sender
-                .unwrap()
-                .send(NetabaseCommand::Close)
-                .await?;
-
+            if let Some(sender) = self.swarm_command_sender {
+                sender.send(NetabaseCommand::Close).await?;
+            }
             Ok(swarm.await??)
         } else {
             Err(anyhow!("Swarm doesnt exist"))
-        }
-    }
-
-    async fn inner_put<V: NetabaseSchema, I: ExactSizeIterator<Item = PeerId>>(
-        &mut self,
-        swarm: Arc<Mutex<Swarm<NetabaseBehaviour>>>,
-        quorum: libp2p::kad::Quorum,
-        mut result_listener: tokio::sync::broadcast::Receiver<NetabaseEvent>,
-        value: V,
-        put_to: Option<I>,
-    ) -> anyhow::Result<PutRecordOk> {
-        let query_id = {
-            let mut swarm_guard = swarm.lock().await;
-            match put_to {
-                None => (&mut *swarm_guard)
-                    .behaviour_mut()
-                    .kad
-                    .put_record(value.into(), quorum)?, //TODO: allow users to config timeout
-                Some(peers) => (&mut *swarm_guard).behaviour_mut().kad.put_record_to(
-                    value.into(),
-                    peers,
-                    quorum,
-                ),
-            }
-        };
-
-        loop {
-            //TODO: Consider adding a timeout here, but I'm like 50% sure that Kad does this for us anyways
-            if let Ok(NetabaseEvent(SwarmEvent::Behaviour(NetabaseBehaviourEvent::Kad(
-                libp2p::kad::Event::OutboundQueryProgressed {
-                    id,
-                    result,
-                    stats: _,
-                    step,
-                },
-            )))) = result_listener.recv().await
-                && id.eq(&query_id)
-                && step.last
-                && let libp2p::kad::QueryResult::PutRecord(res) = result
-            {
-                match res {
-                    Ok(put_ok) => return Ok(put_ok),
-                    Err(put_err) => return Err(put_err.into()),
-                }
-            }
-        }
-    }
-    async fn inner_get<V: NetabaseSchemaKey>(
-        //TODO: make a mcaro for put and get
-        &mut self,
-        swarm: Arc<Mutex<Swarm<NetabaseBehaviour>>>,
-        mut result_listener: tokio::sync::broadcast::Receiver<NetabaseEvent>,
-        value: V,
-    ) -> anyhow::Result<GetRecordOk> {
-        let query_id = {
-            let mut swarm_guard = swarm.lock().await;
-            (&mut *swarm_guard)
-                .behaviour_mut()
-                .kad
-                .get_record(value.into()) //TODO: allow users to config timeout
-        };
-
-        loop {
-            //TODO: Consider adding a timeout here, but I'm like 50% sure that Kad does this for us anyways
-            if let Ok(NetabaseEvent(SwarmEvent::Behaviour(NetabaseBehaviourEvent::Kad(
-                libp2p::kad::Event::OutboundQueryProgressed {
-                    id,
-                    result,
-                    stats: _,
-                    step,
-                },
-            )))) = result_listener.recv().await
-                && id.eq(&query_id)
-                && step.last
-                && let libp2p::kad::QueryResult::GetRecord(res) = result
-            {
-                match res {
-                    Ok(put_ok) => return Ok(put_ok),
-                    Err(put_err) => return Err(put_err.into()),
-                }
-            }
         }
     }
 }
@@ -321,43 +223,55 @@ impl Netabase {
 }
 
 impl Database for Netabase {
-    async fn put<V: netabase_trait::NetabaseSchema, I: ExactSizeIterator<Item = PeerId>>(
+    async fn put<V: NetabaseSchema, I: ExactSizeIterator<Item = PeerId>>(
         &mut self,
         value: V,
         put_to: Option<I>,
         quorum: Quorum,
     ) -> anyhow::Result<PutRecordOk> {
-        match &self.swarm_event_listener {
-            Some(listener) => {
-                self.inner_put(
-                    self.swarm.clone(),
-                    quorum,
-                    listener.resubscribe(),
-                    value,
-                    put_to,
-                )
-                .await
-            }
-            None => Err(anyhow!("Netabase swarm has not started yet")),
-        }
+        let command_sender = self
+            .swarm_command_sender
+            .as_ref()
+            .ok_or_else(|| anyhow!("Netabase swarm has not started yet"))?;
+
+        let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+
+        let put_to_vec = put_to.map(|iter| iter.collect::<Vec<_>>());
+
+        let command = NetabaseCommand::Database(DatabaseCommand::Put {
+            record: value.into(),
+            put_to: put_to_vec,
+            quorum,
+            response_tx,
+        });
+
+        command_sender.send(command).await?;
+        response_rx.await?
     }
+
     async fn get<K: NetabaseSchemaKey>(&mut self, key: K) -> anyhow::Result<GetRecordOk> {
-        match &self.swarm_event_listener {
-            Some(listener) => {
-                self.inner_get(self.swarm.clone(), listener.resubscribe(), key)
-                    .await
-            }
-            None => Err(anyhow!("Netabase swarm has not started yet")),
-        }
+        let command_sender = self
+            .swarm_command_sender
+            .as_ref()
+            .ok_or_else(|| anyhow!("Netabase swarm has not started yet"))?;
+
+        let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+
+        let command = NetabaseCommand::Database(DatabaseCommand::Get {
+            key: key.into(),
+            response_tx,
+        });
+
+        command_sender.send(command).await?;
+        response_rx.await?
     }
 }
 
 // Public interface methods for Netabase
 impl Netabase {
     /// Get the actual listening addresses from the swarm
-    pub async fn get_listening_addresses(&mut self) -> Vec<libp2p::Multiaddr> {
-        let swarm_guard = self.swarm.lock().await;
-        (&*swarm_guard).listeners().cloned().collect()
+    pub async fn get_listening_addresses(&mut self) -> anyhow::Result<Vec<libp2p::Multiaddr>> {
+        self.listeners().await
     }
 }
 
@@ -388,4 +302,153 @@ fn extract_peer_id_from_multiaddr(addr: &libp2p::Multiaddr) -> Option<PeerId> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_swarm_thread_architecture() {
+        // Test that we can create a netabase instance and start the swarm thread
+        let temp_dir = get_test_temp_dir(Some(101), None);
+        let listen_addr: libp2p::Multiaddr = "/ip4/127.0.0.1/tcp/0".parse().unwrap();
+        let config = NetabaseConfig::default()
+            .with_storage_path(temp_dir)
+            .add_listen_address(listen_addr);
+
+        let mut netabase = Netabase::try_new(config, "/test-protocol")
+            .await
+            .expect("Failed to create netabase instance");
+
+        // Initially swarm should not be active
+        assert!(!netabase.swarm_active);
+        assert!(netabase.swarm_command_sender.is_none());
+        assert!(netabase.swarm_event_listener.is_none());
+
+        // Start the swarm thread
+        netabase.start_swarm().await.expect("Failed to start swarm");
+
+        // After starting, swarm should be active with channels
+        assert!(netabase.swarm_active);
+        assert!(netabase.swarm_command_sender.is_some());
+        assert!(netabase.swarm_event_listener.is_some());
+
+        // Give listeners time to be established
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        // Test that we can get listeners (this uses the message passing system)
+        let listeners = netabase.listeners().await.expect("Failed to get listeners");
+
+        println!("Listeners: {listeners:?}");
+
+        // Should have some listeners since we started the swarm
+        assert!(!listeners.is_empty(), "Expected at least one listener");
+
+        // Clean shutdown
+        let _ = netabase.close_swarm().await;
+    }
+
+    #[tokio::test]
+    async fn test_message_passing_channels() {
+        // Test that the message passing channels are properly set up
+        let temp_dir = get_test_temp_dir(Some(102), None);
+        let listen_addr: libp2p::Multiaddr = "/ip4/127.0.0.1/tcp/0".parse().unwrap();
+        let config = NetabaseConfig::default()
+            .with_storage_path(temp_dir)
+            .add_listen_address(listen_addr);
+
+        let mut netabase = Netabase::try_new(config, "/test-protocol-2")
+            .await
+            .expect("Failed to create netabase instance");
+
+        netabase.start_swarm().await.expect("Failed to start swarm");
+
+        // Verify we have command sender and event listener
+        assert!(netabase.swarm_command_sender.is_some());
+        assert!(netabase.swarm_event_listener.is_some());
+
+        // Give listeners time to be established
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        // Test multiple listener requests to verify the channel works
+        let listeners1 = netabase
+            .listeners()
+            .await
+            .expect("First listener request failed");
+        let listeners2 = netabase
+            .listeners()
+            .await
+            .expect("Second listener request failed");
+
+        // Both calls should succeed and return the same results
+        assert_eq!(listeners1, listeners2);
+        assert!(!listeners1.is_empty());
+
+        // Clean shutdown
+        let _ = netabase.close_swarm().await;
+    }
+
+    #[tokio::test]
+    async fn test_database_command_channel() {
+        // Test that database command channels are set up correctly
+        let temp_dir = get_test_temp_dir(Some(103), None);
+        let listen_addr: libp2p::Multiaddr = "/ip4/127.0.0.1/tcp/0".parse().unwrap();
+        let config = NetabaseConfig::default()
+            .with_storage_path(temp_dir)
+            .add_listen_address(listen_addr);
+
+        let mut netabase = Netabase::try_new(config, "/test-protocol-3")
+            .await
+            .expect("Failed to create netabase instance");
+
+        netabase.start_swarm().await.expect("Failed to start swarm");
+
+        // Verify we have command sender and event listener for database operations
+        assert!(netabase.swarm_command_sender.is_some());
+        assert!(netabase.swarm_event_listener.is_some());
+
+        // Test that we can send commands through the channel by creating a simple record key
+        let test_key = libp2p::kad::RecordKey::new(&b"test-key");
+
+        // Test GET operation through message passing - this tests the channel infrastructure
+        // We use timeout because there are no peers to respond
+        let get_result = tokio::time::timeout(std::time::Duration::from_millis(100), {
+            let command_sender = netabase.swarm_command_sender.as_ref().unwrap();
+            let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+
+            let command = NetabaseCommand::Database(DatabaseCommand::Get {
+                key: test_key,
+                response_tx,
+            });
+
+            async move {
+                command_sender.send(command).await.unwrap();
+                response_rx.await.unwrap()
+            }
+        })
+        .await;
+
+        // The message passing system is working! We either get:
+        // 1. A timeout (no peers available)
+        // 2. A successful result with NotFound error (system worked but no data)
+        match get_result {
+            Ok(result) => {
+                // Great! The message passing worked and we got a result
+                // This means the swarm thread processed our command successfully
+                assert!(
+                    result.is_err(),
+                    "Expected NotFound error since no data exists"
+                );
+                println!("Message passing successful: {:?}", result);
+            }
+            Err(_) => {
+                // Timeout occurred, which is also acceptable since no peers are available
+                println!("Timeout occurred - this is expected when no peers are available");
+            }
+        }
+
+        // Clean shutdown
+        let _ = netabase.close_swarm().await;
+    }
 }

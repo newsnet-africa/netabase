@@ -20,7 +20,7 @@ impl NetabaseBehaviour {
     pub fn new<P: AsRef<Path>>(
         storage_path: P,
         keypair: &Keypair,
-        protocol: &'static str,
+        protocol: String,
         netabase_config: NetabaseConfig,
     ) -> anyhow::Result<Self> {
         let local_peer_id = keypair.public().to_peer_id();
@@ -28,7 +28,7 @@ impl NetabaseBehaviour {
             local_peer_id,
             SledStore::new(local_peer_id, storage_path)?,
             {
-                let mut config = kad::Config::new(StreamProtocol::new(protocol));
+                let mut config = kad::Config::new(StreamProtocol::try_from_owned(protocol)?);
                 config.set_query_timeout(netabase_config.kademlia.query_timeout);
                 config.set_replication_factor(
                     netabase_config
