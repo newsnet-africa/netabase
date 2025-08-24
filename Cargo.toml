@@ -35,3 +35,4 @@ sled = "*"
 smallvec = { version = "*", features = ["bincode", "impl_bincode"] }
 tokio = { version = "*", features = ["full"] }
 derive_builder = "*"
+tracing = "0.1.41"
