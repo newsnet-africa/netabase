@@ -1,11 +1,12 @@
 use crate::SwarmEvent;
+use crate::config::NetabaseConfig;
 use crate::database::SledStore;
 use libp2p::Multiaddr;
 use libp2p::TransportError;
 use libp2p::swarm;
 use libp2p::swarm::ConnectionDenied;
 use libp2p::swarm::ConnectionError;
-use libp2p::{identify, identity::Keypair, kad, mdns, swarm::NetworkBehaviour};
+use libp2p::{StreamProtocol, identify, identity::Keypair, kad, mdns, swarm::NetworkBehaviour};
 use std::path::Path;
 
 #[derive(NetworkBehaviour)]
@@ -19,12 +20,49 @@ impl NetabaseBehaviour {
     pub fn new<P: AsRef<Path>>(
         storage_path: P,
         keypair: &Keypair,
-        protocol: String,
+        protocol: &'static str,
+        netabase_config: NetabaseConfig,
     ) -> anyhow::Result<Self> {
         let local_peer_id = keypair.public().to_peer_id();
-        let kad = kad::Behaviour::new(local_peer_id, SledStore::new(local_peer_id, storage_path)?);
-        let identify = identify::Behaviour::new(identify::Config::new(protocol, keypair.public()));
-        let mdns = mdns::Behaviour::new(mdns::Config::default(), local_peer_id)?;
+        let kad = kad::Behaviour::with_config(
+            local_peer_id,
+            SledStore::new(local_peer_id, storage_path)?,
+            {
+                let mut config = kad::Config::new(StreamProtocol::new(protocol));
+                config.set_query_timeout(netabase_config.kademlia.query_timeout);
+                config.set_replication_factor(
+                    netabase_config
+                        .kademlia
+                        .replication_factor
+                        .try_into()
+                        .unwrap(),
+                );
+                config
+            },
+        );
+
+        let identify = identify::Behaviour::new(
+            identify::Config::new(netabase_config.identify.protocol_version, keypair.public())
+                .with_agent_version(netabase_config.identify.agent_version)
+                .with_interval(netabase_config.identify.interval)
+                .with_push_listen_addr_updates(netabase_config.identify.push_listen_addr_updates)
+                .with_cache_size(netabase_config.identify.cache_size)
+                .with_hide_listen_addrs(netabase_config.identify.hide_listen_addrs),
+        );
+
+        let mdns = if netabase_config.mdns.enabled {
+            mdns::Behaviour::new(
+                mdns::Config {
+                    ttl: netabase_config.mdns.ttl,
+                    query_interval: netabase_config.mdns.query_interval,
+                    enable_ipv6: netabase_config.mdns.enable_ipv6,
+                },
+                local_peer_id,
+            )?
+        } else {
+            mdns::Behaviour::new(mdns::Config::default(), local_peer_id)?
+        };
+
         Ok(Self {
             kad,
             identify,
@@ -83,6 +121,7 @@ impl Clone for NetabaseBehaviourEvent {
 }
 
 #[repr(transparent)]
+#[derive(Debug)]
 pub struct NetabaseEvent(pub SwarmEvent<NetabaseBehaviourEvent>);
 
 fn multiaddr_cloner(multi: &Multiaddr) -> Multiaddr {
@@ -184,7 +223,7 @@ impl Clone for NetabaseEvent {
                             address: multiaddr_cloner(address),
                         }
                     }
-                    swarm::ListenError::Denied { cause } => swarm::ListenError::Denied {
+                    swarm::ListenError::Denied { cause: _ } => swarm::ListenError::Denied {
                         cause: ConnectionDenied::new(std::io::Error::new(
                             std::io::ErrorKind::ConnectionRefused,
                             "Connection denied",
@@ -225,7 +264,7 @@ impl Clone for NetabaseEvent {
                             address: multiaddr_cloner(address),
                         }
                     }
-                    swarm::DialError::Denied { cause } => swarm::DialError::Denied {
+                    swarm::DialError::Denied { cause: _ } => swarm::DialError::Denied {
                         cause: ConnectionDenied::new(std::io::Error::new(
                             std::io::ErrorKind::ConnectionRefused,
                             "Connection denied",

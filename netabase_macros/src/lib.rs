@@ -4,13 +4,10 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{DeriveInput, ItemMod, parse_macro_input, visit::Visit};
 
-use crate::{
-    generators::{from_traits2, schema::from_schema_for_record},
-    visitors::{
-        schema_finder::SchemaFinder,
-        schema_validator::SchemaValidator,
-        utils::{KeyType, SchemaInfo, schema_finder::SchemaType},
-    },
+use crate::visitors::{
+    schema_finder::SchemaFinder,
+    schema_validator::SchemaValidator,
+    utils::{KeyType, SchemaInfo, schema_finder::SchemaType},
 };
 
 mod generators;
