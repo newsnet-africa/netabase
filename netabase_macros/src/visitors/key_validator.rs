@@ -137,9 +137,11 @@ pub(super) fn find_inner_key<'ast>(item: &'ast Data) -> Result<Key<'ast>, VisitE
                         {
                             var_keys.push((var, path));
                         } else if key_count == 0 {
-                            panic!("No Inner keys found: Every Variant needs a key");
+                            return Err(VisitError::KeyError(KeyError::InnerKeyError(
+                                InnerKeyError::InnerKeyNotFound,
+                            )));
                         } else {
-                            panic!("Too many keys provided: Only one key per variant is valid");
+                            return Err(VisitError::KeyError(KeyError::TooManyKeys));
                         }
                     }
                     Fields::Unnamed(unnamed_fields) => {
@@ -166,9 +168,11 @@ pub(super) fn find_inner_key<'ast>(item: &'ast Data) -> Result<Key<'ast>, VisitE
                         {
                             var_keys.push((var, path));
                         } else if key_count == 0 {
-                            panic!("No Inner keys found");
+                            return Err(VisitError::KeyError(KeyError::InnerKeyError(
+                                InnerKeyError::InnerKeyNotFound,
+                            )));
                         } else {
-                            panic!("Too many keys provided");
+                            return Err(VisitError::KeyError(KeyError::TooManyKeys));
                         }
                     }
                     Fields::Unit => panic!("Schemas cannot have unit types"),
@@ -184,10 +188,11 @@ pub(super) fn find_inner_key<'ast>(item: &'ast Data) -> Result<Key<'ast>, VisitE
     }
 }
 
-// fn validate_key(key: Key) {
-//     match key {
-//         Key::Outer { function } => {}
-//         Key::StructInner { .. } => {}
-//         Key::EnumInner { .. } => {}
-//     }
-// }
+pub fn find_keys<'ast>(item: &'ast DeriveInput) -> Result<Key<'ast>, VisitError> {
+    match (find_outer_key_fn_path(&item), find_inner_key(&item.data)) {
+        (Ok(_), Ok(_)) => Err(VisitError::KeyError(KeyError::TooManyKeys)),
+        (Ok(out_key), Err(_)) => Ok(out_key),
+        (Err(_), Ok(in_key)) => Ok(in_key),
+        (Err(_), Err(_)) => Err(VisitError::KeyError(KeyError::KeyNotFound)),
+    }
+}

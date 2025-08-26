@@ -1,10 +1,11 @@
 mod key_validator;
 pub(super) mod validation_error;
 
+use proc_macro2::Span;
 use syn::{DeriveInput, Field, Ident, Path, Signature, Type, Variant, visit::Visit};
 
 use crate::visitors::{
-    key_validator::{find_inner_key, find_outer_key_fn_path},
+    key_validator::{find_inner_key, find_keys, find_outer_key_fn_path},
     validation_error::VisitError,
 };
 
@@ -14,10 +15,18 @@ pub enum Key<'ast> {
     },
     StructInner {
         field: &'ast Field,
+        tuple_number: Option<usize>,
     },
     EnumInner {
         variant_fields: Vec<(&'ast Variant, &'ast Field)>,
     },
+}
+impl<'ast> Key<'ast> {
+    pub fn ident(schema_ident: &Ident) -> Ident {
+        let mut new_name = schema_ident.to_string();
+        new_name.push_str("Key");
+        Ident::new(&new_name, Span::call_site())
+    }
 }
 
 #[derive(Default)]
@@ -68,7 +77,7 @@ impl<'ast> SchemaValidator<'ast> {
         }
     }
 
-    pub fn ident(&self) -> Result<&'ast Ident, VisitError> {
+    pub fn ident(&self) -> Result<&'ast syn::Ident, VisitError> {
         match &self.0 {
             SchemaValidatorType::NotInitiated => Err(VisitError::InvalidSchemaType),
             SchemaValidatorType::Invalid => Err(VisitError::InvalidSchemaType),
@@ -80,9 +89,7 @@ impl<'ast> SchemaValidator<'ast> {
 
 impl<'ast> Visit<'ast> for SchemaValidator<'ast> {
     fn visit_derive_input(&mut self, i: &'ast DeriveInput) {
-        let key = find_inner_key(&i.data).unwrap_or_else(|_| {
-            find_outer_key_fn_path(i).unwrap_or_else(|e| panic!("Cannot find key: {e:?}"))
-        });
+        let key = find_keys(&i).expect("Fix later");
         match &i.data {
             syn::Data::Struct(_data_struct) => {
                 self.0 = SchemaValidatorType::Struct {

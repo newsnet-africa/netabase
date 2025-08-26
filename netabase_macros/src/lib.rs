@@ -8,7 +8,8 @@ use quote::{ToTokens, quote};
 use syn::{DeriveInput, parse_macro_input, visit::Visit};
 
 use crate::{
-    generate_netabase_impl::generate_netabase_impl, generators::generate_netabase_impl,
+    generate_netabase_impl::{generate_netabase_impl, generate_netabase_macro},
+    generators::generate_netabase_impl,
     visitors::SchemaValidator,
 };
 
@@ -36,7 +37,7 @@ pub fn my_derive(input: TokenStream) -> TokenStream {
     let inp = parse_macro_input!(input as DeriveInput);
     let mut vi = SchemaValidator::default();
     vi.visit_derive_input(&inp);
-    let net_impl = generate_netabase_impl(vi).expect("Failed to generate");
+    let net_impl = generate_netabase_macro(vi);
 
     quote! {
         #net_impl
