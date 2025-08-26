@@ -12,6 +12,7 @@ pub enum VisitError {
 #[derive(Debug)]
 pub enum KeyError {
     TooManyKeys,
+    KeyNotFound,
     InvalidSchema,
     InnerKeyError(InnerKeyError),
     OuterKeyError(OuterKeyError),
@@ -20,6 +21,8 @@ pub enum KeyError {
 #[derive(Debug)]
 pub enum OuterKeyError {
     OuterKeyNotFound,
+    ReturnTypeNotFound,
+    ArgumentReceiverNotFound,
 }
 #[derive(Debug)]
 pub enum InnerKeyError {
@@ -36,6 +39,7 @@ impl Display for VisitError {
                 KeyError::InnerKeyError(inner_key_error) => todo!(),
                 KeyError::OuterKeyError(outer_key_error) => todo!(),
                 KeyError::InvalidSchema => todo!(),
+                KeyError::KeyNotFound => todo!(),
             },
             VisitError::InvalidSchemaType => {
                 write!(
