@@ -7,6 +7,10 @@ edition = "2024"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[[bin]]
+name = "test_compile"
+path = "test_compile.rs"
+
 [dependencies]
 anyhow = "*"
 netabase_macros = { path = "netabase_macros" }
@@ -32,6 +36,7 @@ libp2p = { version = "*", features = [
 log = "*"
 rand = "*"
 serde = { version = "*", features = ["derive"] }
+serde_json = "*"
 sled = "*"
 smallvec = { version = "*", features = ["bincode", "impl_bincode"] }
 tokio = { version = "*", features = ["full"] }

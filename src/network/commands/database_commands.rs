@@ -11,5 +11,7 @@ pub trait Database {
         put_to: Option<I>,
         quorum: Quorum,
     ) -> anyhow::Result<PutRecordOk>;
+
+    /// Get a record by its wrapped key type
     async fn get<K: NetabaseSchemaKey>(&mut self, key: K) -> anyhow::Result<GetRecordOk>;
 }
