@@ -28,7 +28,13 @@ impl NetabaseBehaviour {
             local_peer_id,
             SledStore::new(local_peer_id, storage_path)?,
             {
-                let mut config = kad::Config::new(StreamProtocol::try_from_owned(protocol)?);
+                let protocol_with_slash = if protocol.starts_with('/') {
+                    protocol
+                } else {
+                    format!("/{}", protocol)
+                };
+                let mut config =
+                    kad::Config::new(StreamProtocol::try_from_owned(protocol_with_slash)?);
                 config.set_query_timeout(netabase_config.kademlia.query_timeout);
                 config.set_replication_factor(
                     netabase_config

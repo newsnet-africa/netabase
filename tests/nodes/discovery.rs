@@ -19,9 +19,9 @@ async fn swarm_creation_and_basic_lifecycle() {
         .await
         .expect("faileed to start netabase");
     println!("Starting Swarm");
-    netabase.start_swarm();
+    netabase.start_swarm().await.expect("failed to start swarm");
 
-    netabase.close_swarm().await;
+    let _ = netabase.close_swarm().await;
 }
 
 #[tokio::test]

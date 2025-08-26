@@ -1,20 +1,102 @@
-//! Visitors module for netabase macro processing
-//!
-//! This module contains the core logic for validating and finding schemas within Rust code.
-//! It's organized with clear separation of concerns:
-//!
-//! - `schema_validator`: Validates individual schemas for compliance
-//! - `key_finder`: Validates and extracts key information from schemas
-//! - `schema_finder`: Finds valid schemas within modules using the validators
-//! - `utils`: Common data structures and utilities
+mod key_validator;
+pub(super) mod validation_error;
 
-pub mod key_finder;
-pub mod schema_finder;
-pub mod schema_validator;
-pub mod utils;
+use syn::{DeriveInput, Field, Ident, Path, Signature, Type, Variant, visit::Visit};
 
-// Re-export commonly used types for convenience
-// Note: These are used internally by the macro implementation
-pub use schema_finder::SchemaFinder;
-pub use schema_validator::{SchemaValidator, ValidationError, ValidationResult};
-pub use utils::{FieldKeyInfo, KeyInfo, KeyType, SchemaInfo, schema_finder::SchemaType};
+use crate::visitors::{
+    key_validator::{find_inner_key, find_outer_key_fn_path},
+    validation_error::VisitError,
+};
+
+pub enum Key<'ast> {
+    Outer {
+        sig: Signature,
+    },
+    StructInner {
+        field: &'ast Field,
+    },
+    EnumInner {
+        variant_fields: Vec<(&'ast Variant, &'ast Field)>,
+    },
+}
+
+#[derive(Default)]
+enum SchemaValidatorType<'ast> {
+    #[default]
+    NotInitiated,
+    Invalid,
+    Struct {
+        key: Key<'ast>,
+        derive_input: &'ast DeriveInput,
+    },
+    Enum {
+        key: Key<'ast>,
+        derive_input: &'ast DeriveInput,
+    },
+}
+
+#[derive(Default)]
+pub struct SchemaValidator<'ast>(SchemaValidatorType<'ast>);
+
+impl<'ast> SchemaValidator<'ast> {
+    pub fn key(&self) -> Result<&Key<'ast>, VisitError> {
+        match &self.0 {
+            SchemaValidatorType::NotInitiated => Err(VisitError::InvalidSchemaType),
+            SchemaValidatorType::Invalid => Err(VisitError::InvalidSchemaType),
+            SchemaValidatorType::Struct {
+                key,
+                derive_input: _,
+            } => Ok(&key),
+            SchemaValidatorType::Enum {
+                key,
+                derive_input: _,
+            } => Ok(&key),
+        }
+    }
+    pub fn derive_input(&self) -> Result<&'ast DeriveInput, VisitError> {
+        match &self.0 {
+            SchemaValidatorType::NotInitiated => Err(VisitError::InvalidSchemaType),
+            SchemaValidatorType::Invalid => Err(VisitError::InvalidSchemaType),
+            SchemaValidatorType::Struct {
+                key: _,
+                derive_input,
+            } => Ok(&derive_input),
+            SchemaValidatorType::Enum {
+                key: _,
+                derive_input,
+            } => Ok(&derive_input),
+        }
+    }
+
+    pub fn ident(&self) -> Result<&'ast Ident, VisitError> {
+        match &self.0 {
+            SchemaValidatorType::NotInitiated => Err(VisitError::InvalidSchemaType),
+            SchemaValidatorType::Invalid => Err(VisitError::InvalidSchemaType),
+            SchemaValidatorType::Struct { key, derive_input } => Ok(&derive_input.ident),
+            SchemaValidatorType::Enum { key, derive_input } => Ok(&derive_input.ident),
+        }
+    }
+}
+
+impl<'ast> Visit<'ast> for SchemaValidator<'ast> {
+    fn visit_derive_input(&mut self, i: &'ast DeriveInput) {
+        let key = find_inner_key(&i.data).unwrap_or_else(|_| {
+            find_outer_key_fn_path(i).unwrap_or_else(|e| panic!("Cannot find key: {e:?}"))
+        });
+        match &i.data {
+            syn::Data::Struct(_data_struct) => {
+                self.0 = SchemaValidatorType::Struct {
+                    key,
+                    derive_input: i,
+                }
+            }
+            syn::Data::Enum(_data_enum) => {
+                self.0 = SchemaValidatorType::Enum {
+                    key,
+                    derive_input: i,
+                }
+            }
+            syn::Data::Union(_data_union) => panic!("Unions are invalid"),
+        }
+    }
+}

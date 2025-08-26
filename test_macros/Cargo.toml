@@ -3,14 +3,6 @@ name = "test_macros"
 version = "0.1.0"
 edition = "2024"
 
-[[bin]]
-name = "test_macros"
-path = "src/main.rs"
-
 [dependencies]
-netabase_macros = { version = "0.1.0", path = "../netabase_macros" }
-netabase = { version = "0.1.0", path = ".." }
-bincode = "2.0.0-rc.3"
-libp2p = { version = "0.53", features = ["kad"] }
-anyhow = "1.0.98"
-serde = { version = "1.0", features = ["derive"] }
+netabase_macros = {path = "../netabase_macros"}
+netabase = {path = "../"}

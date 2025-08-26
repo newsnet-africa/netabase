@@ -2,8 +2,7 @@
 pub use netabase_trait::{NetabaseSchema, NetabaseSchemaKey};
 
 // Re-export the derive macro from netabase_macros
-pub use netabase_macros::{NetabaseSchema, schema};
-use std::{path::Path, time::Duration};
+use std::path::Path;
 
 use anyhow::anyhow;
 use libp2p::{
@@ -20,13 +19,10 @@ pub mod network;
 
 pub use crate::config::NetabaseConfig;
 
-use crate::{
-    config::NetabaseConfig,
-    network::{
-        behaviour::{NetabaseBehaviour, NetabaseBehaviourEvent, NetabaseEvent},
-        commands::database_commands::Database,
-        event_handlers::handle_events,
-    },
+use crate::network::{
+    behaviour::{NetabaseBehaviour, NetabaseBehaviourEvent, NetabaseEvent},
+    commands::database_commands::Database,
+    event_handlers::handle_events,
 };
 
 #[derive(Debug)]
@@ -257,8 +253,10 @@ impl Database for Netabase {
 
         let (response_tx, response_rx) = tokio::sync::oneshot::channel();
 
+        let record_key: libp2p::kad::RecordKey = key.into();
+
         let command = NetabaseCommand::Database(DatabaseCommand::Get {
-            key: key.into(),
+            key: record_key,
             response_tx,
         });
 
