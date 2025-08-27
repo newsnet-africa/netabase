@@ -1,4 +1,5 @@
 mod key_validator;
+pub mod schema_counter;
 pub(super) mod validation_error;
 
 use proc_macro2::Span;
@@ -11,11 +12,10 @@ use crate::visitors::{
 
 pub enum Key<'ast> {
     Outer {
-        sig: Signature,
+        sig: Box<Signature>,
     },
     StructInner {
         field: &'ast Field,
-        tuple_number: Option<usize>,
     },
     EnumInner {
         variant_fields: Vec<(&'ast Variant, &'ast Field)>,
