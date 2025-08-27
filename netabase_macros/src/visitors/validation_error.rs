@@ -27,6 +27,7 @@ pub enum OuterKeyError {
 #[derive(Debug)]
 pub enum InnerKeyError {
     InnerKeyNotFound,
+    KeyNotFirstTupleItem,
 }
 
 impl Display for VisitError {

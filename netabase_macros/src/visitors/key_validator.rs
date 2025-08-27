@@ -32,7 +32,9 @@ pub(super) fn find_outer_key_fn_path(item: &DeriveInput) -> Result<Key<'_>, Visi
     if key_count == 1
         && let Some(path) = found_keys.first()
     {
-        Ok(Key::Outer { sig: path.clone() })
+        Ok(Key::Outer {
+            sig: Box::new(path.clone()),
+        })
     } else if key_count == 0 {
         Err(VisitError::KeyError(KeyError::InnerKeyError(
             InnerKeyError::InnerKeyNotFound,
@@ -78,7 +80,7 @@ pub(super) fn find_inner_key<'ast>(item: &'ast Data) -> Result<Key<'ast>, VisitE
             }
             Fields::Unnamed(unnamed_fields) => {
                 let mut found_keys: Vec<&Field> = vec![];
-                for field in unnamed_fields.unnamed.iter() {
+                if let Some(field) = unnamed_fields.unnamed.first() {
                     if field.attrs.iter().any(|att| {
                         if let Meta::Path(path) = &att.meta
                             && path
@@ -93,6 +95,10 @@ pub(super) fn find_inner_key<'ast>(item: &'ast Data) -> Result<Key<'ast>, VisitE
                     }) {
                         found_keys.push(field);
                     }
+                } else {
+                    return Err(VisitError::KeyError(KeyError::InnerKeyError(
+                        InnerKeyError::KeyNotFirstTupleItem,
+                    )));
                 }
                 let key_count = found_keys.len();
                 if key_count == 1
@@ -146,7 +152,7 @@ pub(super) fn find_inner_key<'ast>(item: &'ast Data) -> Result<Key<'ast>, VisitE
                     }
                     Fields::Unnamed(unnamed_fields) => {
                         let mut found_keys: Vec<&Field> = vec![];
-                        for field in unnamed_fields.unnamed.iter() {
+                        if let Some(field) = unnamed_fields.unnamed.first() {
                             if field.attrs.iter().any(|att| {
                                 if let Meta::Path(path) = &att.meta
                                     && path
@@ -161,6 +167,10 @@ pub(super) fn find_inner_key<'ast>(item: &'ast Data) -> Result<Key<'ast>, VisitE
                             }) {
                                 found_keys.push(field);
                             }
+                        } else {
+                            return Err(VisitError::KeyError(KeyError::InnerKeyError(
+                                InnerKeyError::KeyNotFirstTupleItem,
+                            )));
                         }
                         let key_count = found_keys.len();
                         if key_count == 1
