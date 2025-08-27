@@ -2,6 +2,8 @@ mod key_validator;
 pub mod schema_counter;
 pub(super) mod validation_error;
 
+pub use schema_counter::SchemaCounterVisitor;
+
 use proc_macro2::Span;
 use syn::{DeriveInput, Field, Ident, Path, Signature, Type, Variant, visit::Visit};
 
@@ -10,7 +12,9 @@ use crate::visitors::{
     validation_error::VisitError,
 };
 
+#[derive(Debug)]
 pub enum Key<'ast> {
+    Registry,
     Outer {
         sig: Box<Signature>,
     },
@@ -29,7 +33,7 @@ impl<'ast> Key<'ast> {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 enum SchemaValidatorType<'ast> {
     #[default]
     NotInitiated,
@@ -44,7 +48,7 @@ enum SchemaValidatorType<'ast> {
     },
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct SchemaValidator<'ast>(SchemaValidatorType<'ast>);
 
 impl<'ast> SchemaValidator<'ast> {
@@ -89,7 +93,12 @@ impl<'ast> SchemaValidator<'ast> {
 
 impl<'ast> Visit<'ast> for SchemaValidator<'ast> {
     fn visit_derive_input(&mut self, i: &'ast DeriveInput) {
-        let key = find_keys(&i).expect("Fix later");
+        let key = find_keys(&i).unwrap_or_else(|err| match err {
+            VisitError::RegistryNotSchema => Key::Registry,
+            VisitError::KeyError(key_error) => todo!(),
+            VisitError::ParseError(error) => todo!(),
+            VisitError::InvalidSchemaType => todo!(),
+        });
         match &i.data {
             syn::Data::Struct(_data_struct) => {
                 self.0 = SchemaValidatorType::Struct {

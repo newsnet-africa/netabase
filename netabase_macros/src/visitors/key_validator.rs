@@ -1,6 +1,8 @@
 use crate::visitors::Key;
 use crate::visitors::VisitError;
 use crate::visitors::validation_error::{InnerKeyError, KeyError};
+use proc_macro::Diagnostic;
+use proc_macro::Span;
 use syn::FnArg;
 use syn::ReturnType;
 use syn::{Data, DeriveInput, Expr, Field, Fields, Meta, Signature, Variant};
@@ -199,10 +201,20 @@ pub(super) fn find_inner_key<'ast>(item: &'ast Data) -> Result<Key<'ast>, VisitE
 }
 
 pub fn find_keys<'ast>(item: &'ast DeriveInput) -> Result<Key<'ast>, VisitError> {
+    let registry = item
+        .attrs
+        .iter()
+        .any(|att| att.path().is_ident("__netabase_registery"));
     match (find_outer_key_fn_path(&item), find_inner_key(&item.data)) {
         (Ok(_), Ok(_)) => Err(VisitError::KeyError(KeyError::TooManyKeys)),
         (Ok(out_key), Err(_)) => Ok(out_key),
         (Err(_), Ok(in_key)) => Ok(in_key),
-        (Err(_), Err(_)) => Err(VisitError::KeyError(KeyError::KeyNotFound)),
+        (Err(_), Err(_)) => {
+            if !registry {
+                Err(VisitError::KeyError(KeyError::KeyNotFound))
+            } else {
+                Err(VisitError::RegistryNotSchema)
+            }
+        }
     }
 }
