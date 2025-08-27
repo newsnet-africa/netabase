@@ -1,9 +1,28 @@
-use bincode::Encode;
-use netabase::NetabaseSchema;
 use netabase_macros::NetabaseSchema;
+use netabase_macros::NetabaseSchemaKey;
+use netabase_macros::schema_module;
 
-#[derive(NetabaseSchema, Encode, Decode)]
-enum You {
-    First(String, #[key] u128),
-    Second(#[key] u128),
+#[schema_module]
+pub mod schemas {
+    use bincode::Decode;
+    use bincode::Encode;
+    use netabase_macros::NetabaseSchema;
+    use netabase_macros::NetabaseSchemaKey;
+
+    #[derive(NetabaseSchema, Encode, Decode, Clone, Debug)]
+    pub struct Me {
+        #[key]
+        first: String,
+        second: u128,
+    }
+
+    #[derive(NetabaseSchema, Encode, Decode, Clone, Debug)]
+    pub enum You {
+        First(#[key] String, u128),
+        Second(#[key] u128),
+        Third {
+            #[key]
+            name: String,
+        },
+    }
 }
