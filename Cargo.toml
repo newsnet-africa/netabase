@@ -7,10 +7,6 @@ edition = "2024"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
-[[bin]]
-name = "test_compile"
-path = "test_compile.rs"
-
 [dependencies]
 anyhow = "*"
 netabase_macros = { path = "netabase_macros" }

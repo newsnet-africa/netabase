@@ -15,3 +15,6 @@ pub trait NetabaseSchemaKey:
     Clone + From<libp2p::kad::RecordKey> + Encode + Decode<()> + Into<libp2p::kad::RecordKey>
 {
 }
+
+pub trait NetabaseRegistery: NetabaseSchema {}
+pub trait NetabaseKeyRegistery: NetabaseSchemaKey {}
