@@ -4,6 +4,7 @@ use std::{
 };
 #[derive(Debug)]
 pub enum VisitError {
+    RegistryNotSchema,
     KeyError(KeyError),
     ParseError(syn::Error),
     InvalidSchemaType,
@@ -49,6 +50,7 @@ impl Display for VisitError {
                 )
             }
             VisitError::ParseError(error) => todo!(),
+            VisitError::RegistryNotSchema => todo!(),
         }
     }
 }
