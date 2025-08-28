@@ -38,3 +38,4 @@ smallvec = { version = "*", features = ["bincode", "impl_bincode"] }
 tokio = { version = "*", features = ["full"] }
 derive_builder = "*"
 tracing = "0.1.41"
+macro_exports = { version = "0.1.0", path = "macro_exports" }

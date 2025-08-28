@@ -1,12 +1,13 @@
-use proc_macro2::{Span, TokenStream};
-use quote::{ToTokens, quote};
-use syn::{Ident, ImplItemFn, ItemImpl, parse_quote};
+use proc_macro2::TokenStream;
+use quote::quote;
+use syn::{ImplItemFn, ItemImpl, parse_quote};
 
 use crate::{
     SchemaValidator,
-    generate_netabase_impl::netabase_schema_key::{generate_key_getter, generate_netabase_key},
     visitors::{Key, validation_error::VisitError},
 };
+
+use self::netabase_schema_key::{generate_key_getter, generate_netabase_key};
 
 pub fn generate_netabase_macro(input: SchemaValidator) -> TokenStream {
     let key_item = generate_netabase_key(
@@ -15,19 +16,21 @@ pub fn generate_netabase_macro(input: SchemaValidator) -> TokenStream {
             .ident()
             .expect("Fix later: generate netabase macro fn"),
     )
-    .unwrap_or_else(|e| match e {
-        VisitError::RegistryNotSchema => netabase_schema_key::KeyItemType::Registery,
-        VisitError::KeyError(key_error) => todo!(),
-        VisitError::ParseError(error) => todo!(),
-        VisitError::InvalidSchemaType => todo!(),
-    });
+    .expect("Key erruh");
     let key = input.key().expect("Fix later: key gen");
-    let k_fun = generate_key_getter(&key_item, key).expect("Fix later: key fun");
+    let k_fun = generate_key_getter(&key_item, key).unwrap_or_else(|e| {
+        panic!(
+            "Key function generation failed: {:?} for key_item: {:?} and key: {:?}",
+            e, key_item, key
+        )
+    });
 
     let impl_item = generate_netabase_impl(&input, k_fun).expect("Fix later i guess?");
+    let from_to_record = generate_from_to_record(&input);
     quote! {
         #key_item
         #impl_item
+        #from_to_record
     }
 }
 
@@ -46,23 +49,52 @@ pub fn generate_netabase_impl(
     })
 }
 
+pub fn generate_from_to_record(input: &SchemaValidator) -> proc_macro2::TokenStream {
+    let ident = input.ident().expect("Todo");
+    quote! {
+        impl From<::macro_exports::__netabase_libp2p_kad::Record> for #ident {
+            fn from(value: ::macro_exports::__netabase_libp2p_kad::Record) -> Self {
+                let bytes = value.value;
+                ::macro_exports::__netabase_bincode::decode_from_slice(&bytes, ::macro_exports::__netabase_bincode_config::standard()).expect("Fix later: bincode").0
+            }
+        }
+
+        impl From<#ident> for ::macro_exports::__netabase_libp2p_kad::Record {
+            fn from(value: #ident) -> Self {
+                let key = ::macro_exports::__netabase_libp2p_kad::RecordKey::from(value.key());
+                let bytes = ::macro_exports::__netabase_bincode::encode_to_vec(value, ::macro_exports::__netabase_bincode_config::standard()).expect("Encoding Error: Fix later");
+                ::macro_exports::__netabase_libp2p_kad::Record {
+                    key,
+                    value: bytes,
+                    publisher: None,
+                    expires: None
+                }
+            }
+        }
+    }
+}
+
 pub mod netabase_schema_key {
-    use std::str::FromStr;
 
     use proc_macro2::Span;
+
     use quote::ToTokens;
+    use quote::quote;
+
+    use syn::Meta;
     use syn::{
         Arm, Fields, Ident, ImplItemFn, ItemEnum, ItemImpl, ItemStruct, ReturnType, Variant,
         parse_quote,
     };
 
+    use crate::generators::schema_enum_generator::SchemaEnumGenerator;
     use crate::visitors::{
         Key,
         validation_error::{KeyError, OuterKeyError, VisitError},
     };
 
+    #[derive(Debug)]
     pub enum KeyItemType {
-        Registery,
         StructKey(ItemStruct),
         EnumKey(ItemEnum),
     }
@@ -76,7 +108,6 @@ pub mod netabase_schema_key {
                 KeyItemType::EnumKey(item_enum) => {
                     item_enum.to_tokens(tokens);
                 }
-                KeyItemType::Registery => {}
             }
         }
     }
@@ -119,11 +150,15 @@ pub mod netabase_schema_key {
                 Ok(KeyItemType::EnumKey(parse_quote!(
                     #[derive(NetabaseSchemaKey, Debug, Encode, Decode, Clone)]
                     pub enum #name {
-                        #(#variant_iter,)*
+                        #(#variant_iter),*
                     }
                 )))
             }
-            Key::Registry => Err(VisitError::RegistryNotSchema),
+            Key::Registry(boxed_enum) => Ok(KeyItemType::EnumKey({
+                let item =
+                    SchemaEnumGenerator::generate_schema_keys_enum_from_attr(boxed_enum, &name);
+                parse_quote!(#item)
+            })),
         }
     }
     pub fn generate_key_impl(key_ident: &Ident) -> ItemImpl {
@@ -133,6 +168,22 @@ pub mod netabase_schema_key {
         )
     }
 
+    pub fn generate_from_to_key_record(input: &Ident) -> proc_macro2::TokenStream {
+        quote! {
+            impl From<::macro_exports::__netabase_libp2p_kad::RecordKey> for #input {
+                fn from(value: ::macro_exports::__netabase_libp2p_kad::RecordKey) -> Self {
+                    let bytes = value.to_vec();
+                    ::macro_exports::__netabase_bincode::decode_from_slice(&bytes, ::macro_exports::__netabase_bincode_config::standard()).expect("Fix later: bincode").0
+                }
+            }
+            impl From<#input> for ::macro_exports::__netabase_libp2p_kad::RecordKey {
+                fn from(value: #input) -> Self {
+                    let bytes = ::macro_exports::__netabase_bincode::encode_to_vec(value, ::macro_exports::__netabase_bincode_config::standard()).expect("Encoding error fix later");
+                    ::macro_exports::__netabase_libp2p_kad::RecordKey::new(&bytes)
+                }
+            }
+        }
+    }
     pub fn generate_key_getter(
         key_item: &KeyItemType,
         key: &Key,
@@ -142,7 +193,7 @@ pub mod netabase_schema_key {
                 let name = &item_struct.ident;
                 let fn_call = &sig.ident;
                 Ok(parse_quote!(
-                    fn key(&self) -> #name {
+                    fn key(&self) -> Self::Key {
                         #name(self.#fn_call())
                     }
                 ))
@@ -156,7 +207,7 @@ pub mod netabase_schema_key {
                     }
                 };
                 Ok(parse_quote! {
-                    fn key(&self) -> #name {
+                    fn key(&self) -> Self::Key {
                         #name(self.#field_name.clone())
                     }
                 })
@@ -164,43 +215,94 @@ pub mod netabase_schema_key {
             (KeyItemType::EnumKey(item_enum), Key::EnumInner { variant_fields }) => {
                 //TODO: Match against itself
                 let name = &item_enum.ident;
-                let enumkey_variantfields =
-                    item_enum.variants.iter().zip(variant_fields.iter()).map(
-                        |(key_variants, (v, f))| {
-                            let var_pattern: Arm = {
-                                let variant_name = &v.ident;
-                                let res_variant_name = &key_variants.ident;
-                                match (&v.fields, &f.ident) {
-                                    (Fields::Named(fields_named), Some(field_name)) => {
-                                        parse_quote! {
-                                            Self::#variant_name { #field_name, .. } => #name::#res_variant_name(#field_name.clone())
+                let enumkey_variantfields: Result<Vec<Arm>, VisitError> =
+                            item_enum.variants.iter().zip(variant_fields.iter()).map(
+                                |(key_variants, (v, f))| {
+                                    let variant_name = &v.ident;
+                                    let res_variant_name = &key_variants.ident;
+                                    match (&v.fields, &f.ident) {
+                                        (Fields::Named(_fields_named), Some(field_name)) => {
+                                            Ok(parse_quote! {
+                                                Self::#variant_name { #field_name, .. } => #name::#res_variant_name(#field_name.clone())
+                                            })
+                                        },
+                                        (Fields::Unnamed(_fields_unnamed), None) => {
+                                            Ok(parse_quote! {
+                                                Self::#variant_name(first, .. ) => #name::#res_variant_name(first.clone())
+                                            })
+                                        },
+                                        _ => {
+                                            Err(VisitError::InvalidSchemaType)
                                         }
-                                    },
-                                    (Fields::Unnamed(fields_unnamed), None) => {
-                                        parse_quote! {
-                                            Self::#variant_name(first, .. ) => #name::#res_variant_name(first.clone())
-                                        }
-                                    },
-                                    _ => todo!()
-                                }
-
-                            };
-                            var_pattern
-                        },
-                    );
+                                    }
+                                },
+                            ).collect();
+                let enumkey_variantfields = enumkey_variantfields?;
                 Ok(parse_quote!(
-                    fn key(&self) -> #name {
+                    fn key(&self) -> Self::Key {
                         match self {
-                            #(#enumkey_variantfields,)*
+                            #(#enumkey_variantfields),*
                         }
                     }
                 ))
             }
-            (KeyItemType::StructKey(item_struct), Key::EnumInner { variant_fields }) => todo!(),
-            (KeyItemType::EnumKey(item_enum), Key::Outer { sig }) => todo!(),
-            (KeyItemType::EnumKey(item_enum), Key::StructInner { field }) => todo!(),
-            (KeyItemType::Registery, Key::Registry) => todo!(),
-            (_, _) => todo!(),
+            (KeyItemType::EnumKey(reg_item_enum), Key::Registry(item_enum)) => {
+                let arms: Vec<Arm> = {
+                    if let Meta::List(list_of_var) = &item_enum.meta {
+                        let list = list_of_var.tokens.to_string();
+                        let split = list.split(",");
+                        split
+                            .map(|v| {
+                                let v_trimmed = v.trim();
+                                // Extract the key variant name (e.g., "MeKey" from "MeKey(schemas :: Me)")
+                                let key_name = if let Some(paren_pos) = v_trimmed.find('(') {
+                                    v_trimmed[..paren_pos].trim()
+                                } else {
+                                    v_trimmed
+                                };
+                                // Extract the schema name (e.g., "Me" from "MeKey")
+                                let self_name = if let Some(key_pos) = key_name.find("Key") {
+                                    &key_name[..key_pos]
+                                } else {
+                                    key_name
+                                };
+                                let self_ident =
+                                    syn::Ident::new(self_name, proc_macro2::Span::call_site());
+                                let key_ident =
+                                    syn::Ident::new(key_name, proc_macro2::Span::call_site());
+                                parse_quote!(
+                                    Self::#self_ident(__v) => Self::Key::#key_ident(__v.key())
+                                )
+                            })
+                            .collect()
+                    } else {
+                        vec![]
+                    }
+                };
+                Ok(parse_quote!(
+                    fn key(&self) -> Self::Key {
+                        match self {
+                            #(#arms),*
+                        }
+                    }
+                ))
+            }
+            (KeyItemType::StructKey(_item_struct), Key::EnumInner { variant_fields: _ }) => {
+                Err(VisitError::InvalidSchemaType)
+            }
+            (KeyItemType::EnumKey(_item_enum), Key::Outer { sig: _ }) => {
+                Err(VisitError::InvalidSchemaType)
+            }
+            (KeyItemType::EnumKey(_item_enum), Key::StructInner { field: _ }) => {
+                Err(VisitError::InvalidSchemaType)
+            }
+            (KeyItemType::StructKey(item_struct), Key::Registry(item_enum)) => {
+                eprintln!(
+                    "Unhandled key generation case: key_item={:?}, key={:?}",
+                    key_item, key
+                );
+                Err(VisitError::InvalidSchemaType)
+            }
         }
     }
 }

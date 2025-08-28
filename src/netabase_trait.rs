@@ -1,7 +1,12 @@
 use bincode::{Decode, Encode};
 
 pub trait NetabaseSchema:
-    Clone + From<libp2p::kad::Record> + Encode + Decode<()> + Into<libp2p::kad::Record>
+    Clone
+    + Send
+    + From<::macro_exports::__netabase_libp2p_kad::Record>
+    + Encode
+    + Decode<()>
+    + Into<::macro_exports::__netabase_libp2p_kad::Record> // TODO: TryFrom
 {
     type Key: NetabaseSchemaKey;
     fn key(&self) -> Self::Key;
@@ -12,9 +17,11 @@ pub trait NetabaseSchema:
 /// This trait now allows users to pass unwrapped key types directly to query methods,
 /// while the library handles the wrapping/unwrapping internally during serialization.
 pub trait NetabaseSchemaKey:
-    Clone + From<libp2p::kad::RecordKey> + Encode + Decode<()> + Into<libp2p::kad::RecordKey>
+    Clone
+    + Send
+    + From<::macro_exports::__netabase_libp2p_kad::RecordKey>
+    + Encode
+    + Decode<()>
+    + Into<::macro_exports::__netabase_libp2p_kad::RecordKey>
 {
 }
-
-pub trait NetabaseRegistery: NetabaseSchema {}
-pub trait NetabaseKeyRegistery: NetabaseSchemaKey {}

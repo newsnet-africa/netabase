@@ -7,3 +7,4 @@ edition = "2024"
 netabase_macros = {path = "../netabase_macros"}
 netabase = {path = "../"}
 bincode = { version = "2.0.1", features = ["derive"] }
+macro_exports = { version = "0.1.0", path = "../macro_exports" }

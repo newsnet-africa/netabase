@@ -1,23 +1,26 @@
 use libp2p::Swarm;
 use libp2p::futures::StreamExt;
 
+use crate::netabase_trait::{NetabaseSchema, NetabaseSchemaKey};
 use crate::network::behaviour::NetabaseBehaviour;
 use crate::network::event_loop::handle_behaviour_events::handle_behaviour_event;
 use crate::network::event_messages::command_messages::NetabaseCommand;
 use crate::network::event_messages::swarm_messages::NetabaseEvent;
 pub mod handle_behaviour_events;
 
-pub async fn event_loop(
+pub async fn event_loop<K: NetabaseSchemaKey, V: NetabaseSchema>(
     swarm: &mut Swarm<NetabaseBehaviour>,
-    // event_sender: tokio::sync::broadcast::Sender<NetabaseEvent>,
-    // command_receiver: tokio::sync::mpsc::Receiver<NetabaseCommand>,
+    mut event_sender: tokio::sync::broadcast::Sender<NetabaseEvent>,
+    mut command_receiver: tokio::sync::mpsc::UnboundedReceiver<NetabaseCommand<K, V>>,
 ) {
     let list_res = swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse().expect("Multi Parse erruh"));
     println!("Starting loop: Listen res: {list_res:?}");
     loop {
         tokio::select! {
             event = swarm.select_next_some() => {
-                match event {
+                let sent_event = NetabaseEvent(event);
+                event_sender.send(sent_event.clone());
+                match sent_event.0 {
                     libp2p::swarm::SwarmEvent::Behaviour(event) => handle_behaviour_event(event),
                     libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, connection_id, endpoint, num_established, concurrent_dial_errors, established_in } => {},
                     libp2p::swarm::SwarmEvent::ConnectionClosed { peer_id, connection_id, endpoint, num_established, cause } => {},
@@ -36,6 +39,9 @@ pub async fn event_loop(
                     _ => {},
                 }
             },
+            command = command_receiver.recv() => {
+                break;
+            }
         }
     }
 }

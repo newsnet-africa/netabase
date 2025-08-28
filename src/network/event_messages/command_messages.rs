@@ -4,6 +4,7 @@ use crate::{
 };
 
 pub enum NetabaseCommand<Key: NetabaseSchemaKey, Value: NetabaseSchema> {
+    Close,
     Database(DatabaseCommand<Key, Value>),
 }
 

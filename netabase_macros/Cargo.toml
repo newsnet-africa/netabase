@@ -13,3 +13,4 @@ proc-macro = true
 quote = "*"
 proc-macro2 = "*"
 syn = { version = "*", features = ["full", "visit", "derive"]}
+macro_exports = { path = "../macro_exports" }

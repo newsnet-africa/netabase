@@ -7,8 +7,6 @@ use libp2p::swarm::SwarmEvent;
 
 use crate::network::behaviour::NetabaseBehaviourEvent;
 
-pub struct NetabaseEvent(SwarmEvent<NetabaseBehaviourEvent>);
-
 impl Clone for NetabaseBehaviourEvent {
     fn clone(&self) -> Self {
         match self {
@@ -58,6 +56,10 @@ impl Clone for NetabaseBehaviourEvent {
     }
 }
 
+#[repr(transparent)]
+#[derive(Debug)]
+pub struct NetabaseEvent(pub SwarmEvent<NetabaseBehaviourEvent>);
+
 fn multiaddr_cloner(multi: &Multiaddr) -> Multiaddr {
     Multiaddr::try_from(multi.to_vec()).expect("MultiAddr clone error")
 }
@@ -72,7 +74,7 @@ fn cause_cloner(cause: &ConnectionError) -> ConnectionError {
 }
 
 fn multi_trans_error_cloner(
-    vect: &[(Multiaddr, TransportError<std::io::Error>)],
+    vect: &Vec<(Multiaddr, TransportError<std::io::Error>)>,
 ) -> Vec<(Multiaddr, TransportError<std::io::Error>)> {
     vect.iter()
         .map(|(multi, tre)| {
@@ -123,7 +125,7 @@ impl Clone for NetabaseEvent {
                 connection_id: *connection_id,
                 endpoint: endpoint.clone(),
                 num_established: *num_established,
-                cause: cause.as_ref().map(cause_cloner),
+                cause: cause.as_ref().map(|c| cause_cloner(c)),
             }),
             SwarmEvent::IncomingConnection {
                 connection_id,
@@ -229,7 +231,10 @@ impl Clone for NetabaseEvent {
                 reason,
             } => NetabaseEvent(SwarmEvent::ListenerClosed {
                 listener_id: *listener_id,
-                addresses: addresses.iter().map(multiaddr_cloner).collect(),
+                addresses: addresses
+                    .iter()
+                    .map(|addr| multiaddr_cloner(addr))
+                    .collect(),
                 reason: match reason {
                     Ok(_) => Ok(()),
                     Err(r) => Err(std::io::Error::from(r.kind())),
