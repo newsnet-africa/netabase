@@ -1,4 +1,3 @@
-use proc_macro::{Diagnostic, Span};
 use syn::visit::Visit;
 use syn::{Ident, Item, ItemEnum, ItemStruct, Path};
 use syn::{Meta, parse_quote};

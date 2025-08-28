@@ -1,31 +1,33 @@
-#![feature(proc_macro_diagnostic)]
-
-mod example_usage;
 mod generators;
 mod visitors;
 
 extern crate proc_macro;
 use proc_macro::TokenStream;
 
-use quote::{ToTokens, quote};
-use syn::{DeriveInput, ItemMod, parse_macro_input, visit::Visit};
+use quote::quote;
+use syn::{DeriveInput, Ident, ItemMod, parse_macro_input, visit::Visit};
 
 use crate::{
-    generate_netabase_impl::{
-        generate_netabase_impl, generate_netabase_macro, netabase_schema_key::generate_key_impl,
+    generators::{
+        SchemaEnumGenerator,
+        generate_netabase_impl::{
+            generate_netabase_macro,
+            netabase_schema_key::{generate_from_to_key_record, generate_key_impl},
+        },
     },
-    generators::{SchemaEnumGenerator, generate_netabase_impl},
     visitors::{SchemaCounterVisitor, SchemaValidator},
 };
 
 #[proc_macro_attribute]
-pub fn schema_module(_attr: TokenStream, input: TokenStream) -> TokenStream {
+pub fn schema_module(name: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as ItemMod);
     let mut visit = SchemaCounterVisitor::default();
     visit.visit_item_mod(&input);
     let generator = SchemaEnumGenerator::new(visit.get_schemas());
 
-    let tok = generator.generate_both_enums("NetabaseSchemaRegistry", "NetabaseKeysRegistry");
+    let ident = parse_macro_input!(name as Ident);
+
+    let tok = generator.generate_both_enums(&ident);
 
     quote! {
         #input
@@ -34,7 +36,7 @@ pub fn schema_module(_attr: TokenStream, input: TokenStream) -> TokenStream {
     .into()
 }
 
-#[proc_macro_derive(NetabaseSchema, attributes(key))]
+#[proc_macro_derive(NetabaseSchema, attributes(key, __netabase_registery))]
 pub fn netabase_schema_derive(input: TokenStream) -> TokenStream {
     let inp = parse_macro_input!(input as DeriveInput);
     let mut vi = SchemaValidator::default();
@@ -51,9 +53,11 @@ pub fn netabase_schema_key_derive(input: TokenStream) -> TokenStream {
     let inp = parse_macro_input!(input as DeriveInput);
     let name = inp.ident;
     let net_impl = generate_key_impl(&name);
+    let conversions = generate_from_to_key_record(&name);
 
     quote! {
         #net_impl
+        #conversions
     }
     .into()
 }

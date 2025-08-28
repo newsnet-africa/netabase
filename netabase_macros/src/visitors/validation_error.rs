@@ -1,6 +1,6 @@
 use std::{
     error::Error,
-    fmt::{Debug, Display, Formatter, write},
+    fmt::{Debug, Display, Formatter},
 };
 #[derive(Debug)]
 pub enum VisitError {

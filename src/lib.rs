@@ -1,7 +1,7 @@
 use tokio::task::JoinHandle;
 
 use crate::{
-    netabase_trait::{NetabaseKeyRegistery, NetabaseRegistery},
+    netabase_trait::{NetabaseSchema, NetabaseSchemaKey},
     network::{
         event_loop::event_loop,
         event_messages::{command_messages::NetabaseCommand, swarm_messages::NetabaseEvent},
@@ -13,14 +13,17 @@ pub mod database;
 pub mod netabase_trait;
 pub mod network;
 
-pub struct Netabase<K: NetabaseKeyRegistery, V: NetabaseRegistery> {
+pub struct Netabase<K: NetabaseSchemaKey, V: NetabaseSchema> {
     swarm_thread: JoinHandle<()>,
     pub swarm_event_listener: tokio::sync::broadcast::Receiver<NetabaseEvent>,
-    pub swarm_command_sender: tokio::sync::mpsc::Sender<NetabaseCommand<K, V>>,
+    pub swarm_command_sender: tokio::sync::mpsc::UnboundedSender<NetabaseCommand<K, V>>,
 }
 
-impl<K: NetabaseKeyRegistery, V: NetabaseRegistery> Netabase<K, V> {
+impl<K: NetabaseSchemaKey + 'static, V: NetabaseSchema + 'static> Netabase<K, V> {
     pub fn new_test(test_number: usize) -> Self {
+        let (command_sender, command_receiver) =
+            tokio::sync::mpsc::unbounded_channel::<NetabaseCommand<K, V>>();
+        let (event_sender, event_receiver) = tokio::sync::broadcast::channel::<NetabaseEvent>(20);
         let swarm_thread: JoinHandle<()> = tokio::spawn(async move {
             const BOOTNODES: [&str; 4] = [
                 "QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
@@ -36,15 +39,16 @@ impl<K: NetabaseKeyRegistery, V: NetabaseRegistery> Netabase<K, V> {
                     "/dnsaddr/bootstrap.libp2p.io".parse().expect("ParseErruh"),
                 );
             }
-            event_loop(&mut swarm).await
+            event_loop(&mut swarm, event_sender, command_receiver).await;
         });
         Self {
             swarm_thread,
-            swarm_event_listener: todo!(),
-            swarm_command_sender: todo!(),
+            swarm_event_listener: event_receiver,
+            swarm_command_sender: command_sender,
         }
     }
     pub async fn close(self) {
-        let _ = self.swarm_thread.await;
+        self.swarm_command_sender.send(NetabaseCommand::Close);
+        self.swarm_thread.await;
     }
 }

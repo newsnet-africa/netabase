@@ -1,3 +1,6 @@
+use bincode::Decode;
+use bincode::Encode;
+use netabase::netabase_trait::NetabaseSchema;
 use netabase_macros::NetabaseSchema;
 use netabase_macros::NetabaseSchemaKey;
 use netabase_macros::schema_module;
@@ -6,6 +9,7 @@ use netabase_macros::schema_module;
 pub mod schemas {
     use bincode::Decode;
     use bincode::Encode;
+    use netabase::netabase_trait::NetabaseSchema as NetabaseSchemaTrait;
     use netabase_macros::NetabaseSchema;
     use netabase_macros::NetabaseSchemaKey;
 
