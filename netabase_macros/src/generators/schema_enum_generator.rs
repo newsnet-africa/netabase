@@ -19,7 +19,7 @@ impl<'a> SchemaEnumGenerator<'a> {
     /// Generate an enum containing all found schemas
     pub fn generate_schemas_enum(&self, enum_ident: &Ident) -> ItemEnum {
         if self.schemas.is_empty() {
-            return self.generate_empty_enum(&enum_ident, "No schemas found");
+            return self.generate_empty_enum(enum_ident, "No schemas found");
         }
 
         let key_variants = self.generate_key_variants();
@@ -52,22 +52,19 @@ impl<'a> SchemaEnumGenerator<'a> {
                                 {
                                     let key_name = &parsed_variant.ident;
                                     // Extract the schema path and convert it to key path
-                                    if let Fields::Unnamed(fields) = &parsed_variant.fields {
-                                        if let Some(field) = fields.unnamed.first() {
-                                            if let Type::Path(type_path) = &field.ty {
-                                                let mut key_path = type_path.path.clone();
-                                                // Replace the last segment (schema name) with key name
-                                                if let Some(last_segment) =
-                                                    key_path.segments.last_mut()
-                                                {
-                                                    last_segment.ident = key_name.clone();
-                                                }
-                                                let new_variant = parse_quote! {
-                                                    #key_name(#key_path)
-                                                };
-                                                variants.push(new_variant);
-                                            }
+                                    if let Fields::Unnamed(fields) = &parsed_variant.fields
+                                        && let Some(field) = fields.unnamed.first()
+                                        && let Type::Path(type_path) = &field.ty
+                                    {
+                                        let mut key_path = type_path.path.clone();
+                                        // Replace the last segment (schema name) with key name
+                                        if let Some(last_segment) = key_path.segments.last_mut() {
+                                            last_segment.ident = key_name.clone();
                                         }
+                                        let new_variant = parse_quote! {
+                                            #key_name(#key_path)
+                                        };
+                                        variants.push(new_variant);
                                     }
                                 }
                                 current_tokens = TokenStream::new();
@@ -80,25 +77,24 @@ impl<'a> SchemaEnumGenerator<'a> {
                 }
 
                 // Handle the last variant (after the last comma or if there's only one)
-                if !current_tokens.is_empty() {
-                    if let Ok(parsed_variant) = syn::parse2::<Variant>(current_tokens) {
-                        let key_name = &parsed_variant.ident;
-                        // Extract the schema path and convert it to key path
-                        if let Fields::Unnamed(fields) = &parsed_variant.fields {
-                            if let Some(field) = fields.unnamed.first() {
-                                if let Type::Path(type_path) = &field.ty {
-                                    let mut key_path = type_path.path.clone();
-                                    // Replace the last segment (schema name) with key name
-                                    if let Some(last_segment) = key_path.segments.last_mut() {
-                                        last_segment.ident = key_name.clone();
-                                    }
-                                    let new_variant = parse_quote! {
-                                        #key_name(#key_path)
-                                    };
-                                    variants.push(new_variant);
-                                }
-                            }
+                if !current_tokens.is_empty()
+                    && let Ok(parsed_variant) = syn::parse2::<Variant>(current_tokens)
+                {
+                    let key_name = &parsed_variant.ident;
+                    // Extract the schema path and convert it to key path
+                    if let Fields::Unnamed(fields) = &parsed_variant.fields
+                        && let Some(field) = fields.unnamed.first()
+                        && let Type::Path(type_path) = &field.ty
+                    {
+                        let mut key_path = type_path.path.clone();
+                        // Replace the last segment (schema name) with key name
+                        if let Some(last_segment) = key_path.segments.last_mut() {
+                            last_segment.ident = key_name.clone();
                         }
+                        let new_variant = parse_quote! {
+                            #key_name(#key_path)
+                        };
+                        variants.push(new_variant);
                     }
                 }
 

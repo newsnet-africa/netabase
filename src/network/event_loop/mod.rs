@@ -13,8 +13,6 @@ pub async fn event_loop<K: NetabaseSchemaKey, V: NetabaseSchema>(
     mut event_sender: tokio::sync::broadcast::Sender<NetabaseEvent>,
     mut command_receiver: tokio::sync::mpsc::UnboundedReceiver<NetabaseCommand<K, V>>,
 ) {
-    let list_res = swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse().expect("Multi Parse erruh"));
-    println!("Starting loop: Listen res: {list_res:?}");
     loop {
         tokio::select! {
             event = swarm.select_next_some() => {

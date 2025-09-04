@@ -5,7 +5,7 @@ use netabase_macros::NetabaseSchema;
 use netabase_macros::NetabaseSchemaKey;
 use netabase_macros::schema_module;
 
-#[schema_module]
+#[schema_module(MyRegistry)]
 pub mod schemas {
     use bincode::Decode;
     use bincode::Encode;
