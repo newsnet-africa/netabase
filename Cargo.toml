@@ -15,6 +15,7 @@ chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.4", features = ["derive", "env"] }
 env_logger = "*"
 envy = "*"
+futures = "*"
 libp2p = { version = "*", features = [
     "identify",
     "kad",
@@ -28,6 +29,7 @@ libp2p = { version = "*", features = [
     "yamux",
     "noise",
     "dns",
+    "serde",
 ] }
 log = "*"
 rand = "*"
@@ -39,3 +41,6 @@ tokio = { version = "*", features = ["full"] }
 derive_builder = "*"
 tracing = "0.1.41"
 macro_exports = { version = "0.1.0", path = "macro_exports" }
+async-trait = "0.1"
+thiserror = "1.0"
+regex = "1.0"
