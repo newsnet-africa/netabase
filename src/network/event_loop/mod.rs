@@ -1,44 +1,72 @@
 use libp2p::Swarm;
 use libp2p::futures::StreamExt;
+use libp2p::kad::QueryId;
+use std::collections::HashMap;
+use tokio::sync::oneshot;
 
 use crate::netabase_trait::{NetabaseSchema, NetabaseSchemaKey};
 use crate::network::behaviour::NetabaseBehaviour;
 use crate::network::event_loop::handle_behaviour_events::handle_behaviour_event;
-use crate::network::event_messages::command_messages::NetabaseCommand;
+use crate::network::event_loop::handle_commands::{
+    database_commands::DatabaseOperationContext, handle_command,
+};
+use crate::network::event_messages::command_messages::{CommandResponse, CommandWithResponse};
 use crate::network::event_messages::swarm_messages::NetabaseEvent;
 pub mod handle_behaviour_events;
+pub mod handle_commands;
 
-pub async fn event_loop<K: NetabaseSchemaKey, V: NetabaseSchema>(
+pub async fn event_loop<
+    K: NetabaseSchemaKey + std::fmt::Debug,
+    V: NetabaseSchema + std::fmt::Debug,
+>(
     swarm: &mut Swarm<NetabaseBehaviour>,
     mut event_sender: tokio::sync::broadcast::Sender<NetabaseEvent>,
-    mut command_receiver: tokio::sync::mpsc::UnboundedReceiver<NetabaseCommand<K, V>>,
+    mut command_receiver: tokio::sync::mpsc::UnboundedReceiver<CommandWithResponse<K, V>>,
 ) {
+    let mut query_queue: HashMap<QueryId, oneshot::Sender<CommandResponse<K, V>>> = HashMap::new();
+    let mut database_context: HashMap<QueryId, DatabaseOperationContext> = HashMap::new();
     loop {
         tokio::select! {
             event = swarm.select_next_some() => {
                 let sent_event = NetabaseEvent(event);
-                event_sender.send(sent_event.clone());
+                let _ = event_sender.send(sent_event.clone());
                 match sent_event.0 {
-                    libp2p::swarm::SwarmEvent::Behaviour(event) => handle_behaviour_event(event),
-                    libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, connection_id, endpoint, num_established, concurrent_dial_errors, established_in } => {},
-                    libp2p::swarm::SwarmEvent::ConnectionClosed { peer_id, connection_id, endpoint, num_established, cause } => {},
-                    libp2p::swarm::SwarmEvent::IncomingConnection { connection_id, local_addr, send_back_addr } => {},
-                    libp2p::swarm::SwarmEvent::IncomingConnectionError { connection_id, local_addr, send_back_addr, error, peer_id } => {},
-                    libp2p::swarm::SwarmEvent::OutgoingConnectionError { connection_id, peer_id, error } => {},
-                    libp2p::swarm::SwarmEvent::NewListenAddr { listener_id, address } => {},
-                    libp2p::swarm::SwarmEvent::ExpiredListenAddr { listener_id, address } => {},
-                    libp2p::swarm::SwarmEvent::ListenerClosed { listener_id, addresses, reason } => {},
-                    libp2p::swarm::SwarmEvent::ListenerError { listener_id, error } => {},
-                    libp2p::swarm::SwarmEvent::Dialing { peer_id, connection_id } => {},
-                    libp2p::swarm::SwarmEvent::NewExternalAddrCandidate { address } => {},
-                    libp2p::swarm::SwarmEvent::ExternalAddrConfirmed { address } => {},
-                    libp2p::swarm::SwarmEvent::ExternalAddrExpired { address } => {},
-                    libp2p::swarm::SwarmEvent::NewExternalAddrOfPeer { peer_id, address } => {},
+                    libp2p::swarm::SwarmEvent::Behaviour(event) => handle_behaviour_event(event, &mut query_queue, &mut database_context, swarm),
+                    libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id: _, connection_id: _, endpoint: _, num_established: _, concurrent_dial_errors: _, established_in: _ } => {},
+                    libp2p::swarm::SwarmEvent::ConnectionClosed { peer_id: _, connection_id: _, endpoint: _, num_established: _, cause: _ } => {},
+                    libp2p::swarm::SwarmEvent::IncomingConnection { connection_id: _, local_addr: _, send_back_addr: _ } => {},
+                    libp2p::swarm::SwarmEvent::IncomingConnectionError { connection_id: _, local_addr: _, send_back_addr: _, error: _, peer_id: _ } => {},
+                    libp2p::swarm::SwarmEvent::OutgoingConnectionError { connection_id: _, peer_id: _, error: _ } => {},
+                    libp2p::swarm::SwarmEvent::NewListenAddr { listener_id: _, address: _ } => {},
+                    libp2p::swarm::SwarmEvent::ExpiredListenAddr { listener_id: _, address: _ } => {},
+                    libp2p::swarm::SwarmEvent::ListenerClosed { listener_id: _, addresses: _, reason: _ } => {},
+                    libp2p::swarm::SwarmEvent::ListenerError { listener_id: _, error: _ } => {},
+                    libp2p::swarm::SwarmEvent::Dialing { peer_id: _, connection_id: _ } => {},
+                    libp2p::swarm::SwarmEvent::NewExternalAddrCandidate { address: _ } => {},
+                    libp2p::swarm::SwarmEvent::ExternalAddrConfirmed { address: _ } => {},
+                    libp2p::swarm::SwarmEvent::ExternalAddrExpired { address: _ } => {},
+                    libp2p::swarm::SwarmEvent::NewExternalAddrOfPeer { peer_id: _, address: _ } => {},
                     _ => {},
                 }
             },
             command = command_receiver.recv() => {
-                break;
+                match command {
+                    Some(cmd_with_response) => {
+                        // Handle the command using the exhaustive command handler
+                        handle_command(
+                            cmd_with_response.command,
+                            Some(cmd_with_response.response_sender),
+                            &mut query_queue,
+                            &mut database_context,
+                            swarm
+                        );
+                    }
+                    None => {
+                        // Channel closed, break out of loop
+                        log::info!("Command channel closed, shutting down event loop");
+                        break;
+                    }
+                }
             }
         }
     }

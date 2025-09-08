@@ -1,0 +1,10 @@
+/home/rusta/Projects/NewsNet/netabase/test_macros/target/debug/deps/libp2p_metrics-fa1ee9e3a60bd250.d: /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-metrics-0.17.0/src/lib.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-metrics-0.17.0/src/bandwidth.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-metrics-0.17.0/src/identify.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-metrics-0.17.0/src/kad.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-metrics-0.17.0/src/protocol_stack.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-metrics-0.17.0/src/swarm.rs
+
+/home/rusta/Projects/NewsNet/netabase/test_macros/target/debug/deps/liblibp2p_metrics-fa1ee9e3a60bd250.rmeta: /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-metrics-0.17.0/src/lib.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-metrics-0.17.0/src/bandwidth.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-metrics-0.17.0/src/identify.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-metrics-0.17.0/src/kad.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-metrics-0.17.0/src/protocol_stack.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-metrics-0.17.0/src/swarm.rs
+
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-metrics-0.17.0/src/lib.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-metrics-0.17.0/src/bandwidth.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-metrics-0.17.0/src/identify.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-metrics-0.17.0/src/kad.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-metrics-0.17.0/src/protocol_stack.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-metrics-0.17.0/src/swarm.rs:
