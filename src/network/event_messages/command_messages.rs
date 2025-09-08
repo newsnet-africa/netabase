@@ -6,7 +6,7 @@ use crate::{
     },
     traits::network::{DhtModeStats, KademliaDhtMode},
 };
-use libp2p::{Multiaddr, PeerId};
+use libp2p::{Multiaddr, PeerId, kad};
 
 use tokio::sync::oneshot;
 
@@ -62,6 +62,9 @@ pub enum DatabaseResponse<K: NetabaseSchemaKey, V: NetabaseSchema> {
     LenResult(usize),
     IsEmptyResult(bool),
     Stats(crate::traits::database::DatabaseStats),
+    TransactionId(String),
+    IntegrityReport(Vec<K>), // Keys that failed integrity check
+    SyncStatus(bool),        // Whether sync completed successfully
 }
 
 /// Network operation responses
@@ -71,23 +74,34 @@ pub enum NetworkResponse<K: NetabaseSchemaKey, V: NetabaseSchema> {
     Stats(crate::traits::network::NetworkStats),
     LocalPeerId(PeerId),
     ListeningAddresses(Vec<Multiaddr>),
-    DhtGetResult(Option<Vec<u8>>),
+
     DhtAddresses(Vec<Multiaddr>),
     SubscribedTopics(Vec<String>),
     DhtMode(KademliaDhtMode),
     IsDhtServer(bool),
     IsDhtClient(bool),
     DhtModeStats(DhtModeStats),
+
+    // Detailed DHT operation responses - using libp2p types directly
+    DhtPutRecord(Result<kad::PutRecordOk, kad::PutRecordError>),
+    DhtGetRecord(Result<kad::GetRecordOk, kad::GetRecordError>),
+    DhtGetClosestPeers(Result<kad::GetClosestPeersOk, kad::GetClosestPeersError>),
+    DhtGetProviders(Result<kad::GetProvidersOk, kad::GetProvidersError>),
+    DhtStartProviding(Result<kad::AddProviderOk, kad::AddProviderError>),
+    DhtBootstrap(Result<kad::BootstrapOk, kad::BootstrapError>),
+    DhtRepublishRecord(Result<kad::PutRecordOk, kad::PutRecordError>),
+    DhtRepublishProvider(Result<kad::AddProviderOk, kad::AddProviderError>),
 }
 
 /// Configuration operation responses
 pub enum ConfigurationResponse {
-    Value(String),
-    Keys(Vec<String>),
-    Map(std::collections::HashMap<String, String>),
-    Exists(bool),
+    Setting(String),
+    AllSettings(std::collections::HashMap<String, String>),
+    SectionSettings(std::collections::HashMap<String, String>),
+    SettingExists(bool),
     IsValid(bool),
-    Export(String),
+    ValidationErrors(Vec<String>),
+    Profiles(Vec<String>),
 }
 
 /// System operation responses
@@ -109,7 +123,7 @@ pub mod database_commands {
     use crate::traits::database::{DatabaseConfig, QueryOptions};
 
     pub enum DatabaseCommand<K: NetabaseSchemaKey, V: NetabaseSchema> {
-        // Basic operations
+        // Core CRUD operations on user data
         Put {
             key: K,
             value: V,
@@ -124,7 +138,7 @@ pub mod database_commands {
             key: K,
         },
 
-        // Batch operations
+        // Batch operations for efficiency
         PutBatch {
             entries: Vec<(K, V)>,
         },
@@ -135,7 +149,26 @@ pub mod database_commands {
             keys: Vec<K>,
         },
 
-        // Collection operations
+        // Advanced data operations
+        Update {
+            key: K,
+            value: V,
+        },
+        Upsert {
+            key: K,
+            value: V,
+        },
+
+        // Querying and scanning user data
+        ScanPrefix {
+            prefix: String,
+            options: Option<QueryOptions>,
+        },
+        ScanRange {
+            start: K,
+            end: K,
+            options: Option<QueryOptions>,
+        },
         Keys {
             options: Option<QueryOptions>,
         },
@@ -147,40 +180,8 @@ pub mod database_commands {
         },
         Len,
         IsEmpty,
-        Clear,
 
-        // Advanced operations
-        Update {
-            key: K,
-            value: V,
-        },
-        Insert {
-            key: K,
-            value: V,
-        },
-        Upsert {
-            key: K,
-            value: V,
-        },
-        Take {
-            key: K,
-        },
-
-        // Range operations
-        ScanPrefix {
-            prefix: String,
-            options: Option<QueryOptions>,
-        },
-        ScanRange {
-            start: K,
-            end: K,
-            options: Option<QueryOptions>,
-        },
-
-        // Statistics
-        Stats,
-
-        // Transaction operations
+        // Transaction operations for data consistency
         BeginTransaction,
         CommitTransaction {
             transaction_id: String,
@@ -189,22 +190,32 @@ pub mod database_commands {
             transaction_id: String,
         },
 
-        // Maintenance operations
+        // Database maintenance operations
         Compact,
-        Backup {
-            backup_path: String,
-        },
-        Restore {
-            backup_path: String,
-        },
+        Stats,
 
-        // Configuration
+        // Database lifecycle
         Initialize {
             config: DatabaseConfig,
         },
         Close,
 
-        // Monitoring
+        // Data replication and sync
+        SyncData {
+            peer_id: Option<libp2p::PeerId>,
+        },
+        ReplicateKey {
+            key: K,
+            target_peers: Vec<libp2p::PeerId>,
+        },
+
+        // Data integrity
+        VerifyIntegrity,
+        RepairCorruption {
+            keys: Vec<K>,
+        },
+
+        // Change monitoring
         Subscribe {
             key: K,
         },
@@ -416,66 +427,45 @@ pub mod configuration_commands {
     use std::collections::HashMap;
 
     pub enum ConfigurationCommand {
-        // Loading and saving
-        Load {
-            options: ConfigurationOptions,
-        },
-        Reload,
-        Save {
+        // Configuration file operations
+        LoadFromFile {
             path: String,
             format: FileFormat,
         },
+        SaveToFile {
+            path: String,
+            format: FileFormat,
+        },
+        ReloadFromFile,
 
-        // Value operations
-        Get {
+        // Configuration loading with options
+        Load {
+            options: ConfigurationOptions,
+        },
+
+        // Individual setting management
+        GetSetting {
             key: String,
         },
-        Set {
+        SetSetting {
             key: String,
             value: String,
         },
-        Delete {
+        RemoveSetting {
             key: String,
         },
-        Contains {
+        HasSetting {
             key: String,
         },
 
-        // Collection operations
-        GetKeys,
-        GetMap,
-        Clear,
-
-        // Validation
-        Validate,
-        IsValid,
-
-        // Merging
-        Merge {
-            other_config: HashMap<String, String>,
-            strategy: MergeStrategy,
+        // Bulk setting operations
+        GetAllSettings,
+        UpdateSettings {
+            settings: HashMap<String, String>,
         },
+        ClearAllSettings,
 
-        // Snapshots
-        CreateSnapshot,
-        RestoreSnapshot {
-            snapshot_id: String,
-        },
-
-        // File watching
-        StartWatching,
-        StopWatching,
-
-        // Import/Export
-        Export {
-            format: FileFormat,
-        },
-        Import {
-            data: String,
-            format: FileFormat,
-        },
-
-        // Sections
+        // Configuration sections
         GetSection {
             section: String,
         },
@@ -483,18 +473,51 @@ pub mod configuration_commands {
             section: String,
             values: HashMap<String, String>,
         },
-
-        // Advanced
-        GetRequired {
-            key: String,
+        RemoveSection {
+            section: String,
         },
-        SetIfMissing {
+
+        // Environment and runtime configuration
+        LoadEnvironmentOverrides,
+        ApplyDefaults,
+        SetDefault {
             key: String,
             value: String,
         },
-        UpdateValue {
-            key: String,
-            updater: String,
-        }, // Simplified for command serialization
+
+        // Configuration validation
+        Validate,
+        ValidateSection {
+            section: String,
+        },
+
+        // Configuration merging
+        MergeConfiguration {
+            other_config: HashMap<String, String>,
+            strategy: MergeStrategy,
+        },
+
+        // File watching for configuration changes
+        StartFileWatcher {
+            paths: Vec<String>,
+        },
+        StopFileWatcher,
+
+        // Configuration profiles/presets
+        LoadProfile {
+            profile_name: String,
+        },
+        SaveProfile {
+            profile_name: String,
+        },
+        ListProfiles,
+
+        // Configuration backup/restore (system settings only)
+        BackupConfiguration {
+            backup_path: String,
+        },
+        RestoreConfiguration {
+            backup_path: String,
+        },
     }
 }

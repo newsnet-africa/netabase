@@ -5,7 +5,13 @@ use crate::{
     netabase_trait::{NetabaseSchema, NetabaseSchemaKey},
     network::{
         event_loop::event_loop,
-        event_messages::{command_messages::NetabaseCommand, swarm_messages::NetabaseEvent},
+        event_messages::{
+            command_messages::{
+                CommandResponse, CommandWithResponse, NetabaseCommand,
+                database_commands::DatabaseCommand,
+            },
+            swarm_messages::NetabaseEvent,
+        },
         generate_swarm, generate_swarm_with_config,
     },
 };
@@ -48,16 +54,32 @@ pub use config::{BehaviourConfig, NetabaseConfig, NetabaseSwarmConfig};
 /// let keypair = Keypair::generate_ed25519();
 /// let netabase = Netabase::with_keypair(keypair);
 /// ```
-pub struct Netabase<K: NetabaseSchemaKey, V: NetabaseSchema> {
+pub struct Netabase<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema + std::fmt::Debug> {
     swarm_thread: JoinHandle<()>,
     pub swarm_event_listener: tokio::sync::broadcast::Receiver<NetabaseEvent>,
-    pub swarm_command_sender: tokio::sync::mpsc::UnboundedSender<NetabaseCommand<K, V>>,
+    pub swarm_command_sender: tokio::sync::mpsc::UnboundedSender<CommandWithResponse<K, V>>,
 }
 
-impl<K: NetabaseSchemaKey + 'static, V: NetabaseSchema + 'static> Netabase<K, V> {
+#[derive(Debug, thiserror::Error)]
+pub enum NetabaseError {
+    #[error("Channel send error: {0}")]
+    SendError(String),
+    #[error("Response receive error: {0}")]
+    ReceiveError(String),
+    #[error("Operation error: {0}")]
+    OperationError(String),
+    #[error("Unexpected response type")]
+    UnexpectedResponse,
+}
+
+impl<
+    K: NetabaseSchemaKey + std::fmt::Debug + 'static,
+    V: NetabaseSchema + std::fmt::Debug + 'static,
+> Netabase<K, V>
+{
     pub fn new_test(test_number: usize) -> Self {
         let (command_sender, command_receiver) =
-            tokio::sync::mpsc::unbounded_channel::<NetabaseCommand<K, V>>();
+            tokio::sync::mpsc::unbounded_channel::<CommandWithResponse<K, V>>();
         let (event_sender, event_receiver) = tokio::sync::broadcast::channel::<NetabaseEvent>(20);
         let swarm_thread: JoinHandle<()> = tokio::spawn(async move {
             const BOOTNODES: [&str; 4] = [
@@ -106,7 +128,7 @@ impl<K: NetabaseSchemaKey + 'static, V: NetabaseSchema + 'static> Netabase<K, V>
     /// ```
     pub fn new(config: NetabaseConfig) -> Self {
         let (command_sender, command_receiver) =
-            tokio::sync::mpsc::unbounded_channel::<NetabaseCommand<K, V>>();
+            tokio::sync::mpsc::unbounded_channel::<CommandWithResponse<K, V>>();
         let (event_sender, event_receiver) = tokio::sync::broadcast::channel::<NetabaseEvent>(20);
 
         let bootstrap_nodes = config.swarm_config().bootstrap_nodes().to_vec();
@@ -303,12 +325,187 @@ impl<K: NetabaseSchemaKey + 'static, V: NetabaseSchema + 'static> Netabase<K, V>
     /// netabase.close().await;
     /// ```
     pub async fn close(self) {
-        let _ = self.swarm_command_sender.send(NetabaseCommand::Close);
+        let (response_sender, _) = tokio::sync::oneshot::channel();
+        let command_with_response = CommandWithResponse {
+            command: NetabaseCommand::Close,
+            response_sender,
+        };
+        let _ = self.swarm_command_sender.send(command_with_response);
         let _ = self.swarm_thread.await;
+    }
+
+    // Database API methods
+
+    /// Store a key-value pair in the distributed database
+    ///
+    /// This method stores the provided key-value pair in the distributed hash table
+    /// using the Kademlia DHT protocol.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The key to store
+    /// * `value` - The value to store
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` on success, or a `NetabaseError` on failure.
+    pub async fn put(&self, key: K, value: V) -> Result<(), NetabaseError> {
+        let (response_sender, response_receiver) = tokio::sync::oneshot::channel();
+
+        let command = NetabaseCommand::Database(DatabaseCommand::Put { key, value });
+
+        let command_with_response = CommandWithResponse {
+            command,
+            response_sender,
+        };
+
+        // Send command with response channel to swarm thread
+        self.swarm_command_sender
+            .send(command_with_response)
+            .map_err(|e| NetabaseError::SendError(e.to_string()))?;
+
+        // Wait for response
+        let response = response_receiver
+            .await
+            .map_err(|e| NetabaseError::ReceiveError(e.to_string()))?;
+
+        self.handle_response(response)
+    }
+
+    /// Retrieve a value by key from the distributed database
+    ///
+    /// This method queries the distributed hash table for the value associated
+    /// with the provided key.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The key to look up
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(Some(value))` if found, `Ok(None)` if not found,
+    /// or a `NetabaseError` on failure.
+    pub async fn get(&self, key: K) -> Result<Option<V>, NetabaseError> {
+        let (response_sender, response_receiver) = tokio::sync::oneshot::channel();
+
+        let command = NetabaseCommand::Database(DatabaseCommand::Get { key });
+
+        let command_with_response = CommandWithResponse {
+            command,
+            response_sender,
+        };
+
+        self.swarm_command_sender
+            .send(command_with_response)
+            .map_err(|e| NetabaseError::SendError(e.to_string()))?;
+
+        let response = response_receiver
+            .await
+            .map_err(|e| NetabaseError::ReceiveError(e.to_string()))?;
+
+        match response {
+            CommandResponse::Database(
+                crate::network::event_messages::command_messages::DatabaseResponse::GetResult(
+                    result,
+                ),
+            ) => Ok(result),
+            CommandResponse::Error(msg) => Err(NetabaseError::OperationError(msg)),
+            _ => Err(NetabaseError::UnexpectedResponse),
+        }
+    }
+
+    /// Delete a key-value pair from the distributed database
+    ///
+    /// This method removes the key-value pair from the distributed hash table
+    /// by storing an empty value (tombstone).
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The key to delete
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` on success, or a `NetabaseError` on failure.
+    pub async fn delete(&self, key: K) -> Result<(), NetabaseError> {
+        let (response_sender, response_receiver) = tokio::sync::oneshot::channel();
+
+        let command = NetabaseCommand::Database(DatabaseCommand::Delete { key });
+
+        let command_with_response = CommandWithResponse {
+            command,
+            response_sender,
+        };
+
+        self.swarm_command_sender
+            .send(command_with_response)
+            .map_err(|e| NetabaseError::SendError(e.to_string()))?;
+
+        let response = response_receiver
+            .await
+            .map_err(|e| NetabaseError::ReceiveError(e.to_string()))?;
+
+        self.handle_response(response)
+    }
+
+    /// Check if a key exists in the distributed database
+    ///
+    /// This method checks whether the provided key exists in the distributed
+    /// hash table without retrieving the full value.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The key to check
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(true)` if the key exists, `Ok(false)` if not,
+    /// or a `NetabaseError` on failure.
+    pub async fn contains(&self, key: K) -> Result<bool, NetabaseError> {
+        let (response_sender, response_receiver) = tokio::sync::oneshot::channel();
+
+        let command = NetabaseCommand::Database(DatabaseCommand::Contains { key });
+
+        let command_with_response = CommandWithResponse {
+            command,
+            response_sender,
+        };
+
+        self.swarm_command_sender
+            .send(command_with_response)
+            .map_err(|e| NetabaseError::SendError(e.to_string()))?;
+
+        let response = response_receiver
+            .await
+            .map_err(|e| NetabaseError::ReceiveError(e.to_string()))?;
+
+        match response {
+            CommandResponse::Database(
+                crate::network::event_messages::command_messages::DatabaseResponse::ExistsResult(
+                    exists,
+                ),
+            ) => Ok(exists),
+            CommandResponse::Error(msg) => Err(NetabaseError::OperationError(msg)),
+            _ => Err(NetabaseError::UnexpectedResponse),
+        }
+    }
+
+    // Helper methods
+
+    /// Handle a generic command response
+    fn handle_response(&self, response: CommandResponse<K, V>) -> Result<(), NetabaseError> {
+        match response {
+            CommandResponse::Success => Ok(()),
+            CommandResponse::Error(msg) => Err(NetabaseError::OperationError(msg)),
+            _ => Err(NetabaseError::UnexpectedResponse),
+        }
     }
 }
 
-impl<K: NetabaseSchemaKey + 'static, V: NetabaseSchema + 'static> Default for Netabase<K, V> {
+impl<
+    K: NetabaseSchemaKey + std::fmt::Debug + 'static,
+    V: NetabaseSchema + std::fmt::Debug + 'static,
+> Default for Netabase<K, V>
+{
     /// Create a new Netabase instance with default configuration
     ///
     /// This creates a Netabase instance using `NetabaseConfig::default()`, which provides
