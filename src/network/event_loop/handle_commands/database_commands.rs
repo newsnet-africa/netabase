@@ -4,7 +4,10 @@ use crate::{
     network::event_messages::command_messages::{
         CommandResponse, DatabaseResponse, database_commands::DatabaseCommand,
     },
-    traits::database::{DatabaseConfig, QueryOptions},
+    traits::{
+        database::{DatabaseConfig, QueryOptions},
+        network::NetworkError,
+    },
 };
 use bincode;
 use libp2p::{
@@ -155,7 +158,16 @@ fn handle_put<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
     log::info!("Database put operation for key: {:?}", key);
 
     // Use NetabaseSchema Into<Record> trait to convert value to DHT record
-    let record: kad::Record = value.into();
+    let record: kad::Record = match value.try_into() {
+        Ok(record) => record,
+        Err(_) => {
+            log::error!("Failed to convert value to record");
+            if let Some(sender) = response_sender {
+                let _ = sender.send(CommandResponse::Error("Serialization error".to_string()));
+            }
+            return;
+        }
+    };
 
     if let Some(sender) = response_sender {
         // Store the record in DHT with quorum
@@ -196,7 +208,18 @@ fn handle_get<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
     log::info!("Database get operation for key: {:?}", key);
 
     // Use NetabaseSchemaKey Into<RecordKey> trait to convert key
-    let record_key: kad::RecordKey = key.into();
+    let record_key: kad::RecordKey = match key.try_into() {
+        Ok(record_key) => record_key,
+        Err(_) => {
+            log::error!("Failed to convert key to record key");
+            if let Some(sender) = response_sender {
+                let _ = sender.send(CommandResponse::Error(
+                    "Key serialization error".to_string(),
+                ));
+            }
+            return;
+        }
+    };
 
     if let Some(sender) = response_sender {
         let query_id = swarm.behaviour_mut().kad.get_record(record_key);
@@ -218,7 +241,18 @@ fn handle_delete<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
 ) {
     log::info!("Database delete operation for key: {:?}", key);
 
-    let record_key: kad::RecordKey = key.into();
+    let record_key: kad::RecordKey = match key.try_into() {
+        Ok(record_key) => record_key,
+        Err(_) => {
+            log::error!("Failed to convert key to record key");
+            if let Some(sender) = response_sender {
+                let _ = sender.send(CommandResponse::Error(
+                    "Key serialization error".to_string(),
+                ));
+            }
+            return;
+        }
+    };
 
     let record = kad::Record {
         key: record_key,

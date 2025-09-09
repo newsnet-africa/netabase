@@ -9,7 +9,7 @@ use syn::{DeriveInput, Ident, ItemMod, parse_macro_input, visit::Visit};
 
 use crate::{
     generators::{
-        SchemaEnumGenerator,
+        IntoCompileError, SchemaEnumGenerator,
         generate_netabase_impl::{
             generate_netabase_macro,
             netabase_schema_key::{generate_from_to_key_record, generate_key_impl},
@@ -27,13 +27,14 @@ pub fn schema_module(name: TokenStream, input: TokenStream) -> TokenStream {
 
     let ident = parse_macro_input!(name as Ident);
 
-    let tok = generator.generate_both_enums(&ident);
-
-    quote! {
-        #input
-        #tok
+    match generator.generate_both_enums(&ident) {
+        Ok(tok) => quote! {
+            #input
+            #tok
+        }
+        .into(),
+        Err(err) => err.into_compile_error().into(),
     }
-    .into()
 }
 
 #[proc_macro_derive(NetabaseSchema, attributes(key, __netabase_registery))]
@@ -41,23 +42,29 @@ pub fn netabase_schema_derive(input: TokenStream) -> TokenStream {
     let inp = parse_macro_input!(input as DeriveInput);
     let mut vi = SchemaValidator::default();
     vi.visit_derive_input(&inp);
-    let net_impl = generate_netabase_macro(vi);
 
-    quote! {
-        #net_impl
+    match generate_netabase_macro(vi) {
+        Ok(net_impl) => quote! {
+            #net_impl
+        }
+        .into(),
+        Err(err) => err.into_compile_error().into(),
     }
-    .into()
 }
 #[proc_macro_derive(NetabaseSchemaKey)]
 pub fn netabase_schema_key_derive(input: TokenStream) -> TokenStream {
     let inp = parse_macro_input!(input as DeriveInput);
     let name = inp.ident;
-    let net_impl = generate_key_impl(&name);
-    let conversions = generate_from_to_key_record(&name);
 
-    quote! {
-        #net_impl
-        #conversions
+    match (|| -> Result<_, crate::generators::GenerationError> {
+        let net_impl = generate_key_impl(&name);
+        let conversions = generate_from_to_key_record(&name);
+        Ok(quote! {
+            #net_impl
+            #conversions
+        })
+    })() {
+        Ok(tokens) => tokens.into(),
+        Err(err) => err.into_compile_error().into(),
     }
-    .into()
 }

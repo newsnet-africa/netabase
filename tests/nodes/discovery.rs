@@ -13,10 +13,9 @@ use tokio::time::sleep;
 #[schema_module(MyRegistery)]
 pub mod schemas {
     use bincode::{Decode, Encode};
-    use netabase::netabase_trait::NetabaseSchema;
+    use netabase::netabase_trait::NetabaseSchema as NetabaseSchemaTrait;
     use netabase_macros::NetabaseSchema;
     use netabase_macros::NetabaseSchemaKey;
-    use netabase_macros::schema_module;
 
     #[derive(NetabaseSchema, Encode, Decode, Debug, Clone)]
     pub struct TestItem {
