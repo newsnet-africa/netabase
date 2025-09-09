@@ -1,3 +1,4 @@
+#![feature(proc_macro_diagnostic)]
 mod generators;
 mod visitors;
 

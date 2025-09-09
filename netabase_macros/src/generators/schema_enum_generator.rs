@@ -1,6 +1,7 @@
 use crate::generators::GenerationError;
+use proc_macro::Diagnostic;
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{ToTokens, quote};
 use syn::{Attribute, Fields, Ident, ItemEnum, Meta, Path, Type, Variant, parse_quote};
 
 /// Generator for creating schema-related enums from collected schema data
@@ -29,7 +30,8 @@ impl<'a> SchemaEnumGenerator<'a> {
         let variants = self.generate_schema_variants();
 
         Ok(parse_quote! {
-            #[derive(Debug, Clone, ::macro_exports::__netabase_bincode::Encode, ::macro_exports::__netabase_bincode::Decode)]
+            #[derive(NetabaseSchema, Debug, Clone, ::macro_exports::__netabase_bincode::Encode, ::macro_exports::__netabase_bincode::Decode)]
+            #[__netabase_registery(#(#variants)*)]
             pub enum #enum_ident {
                 #(#variants),*
             }
@@ -46,6 +48,10 @@ impl<'a> SchemaEnumGenerator<'a> {
                 // Parse variant names and create new variants that hold key types
                 let mut variants = Vec::new();
                 let mut current_tokens = TokenStream::new();
+                Diagnostic::new(
+                    proc_macro::Level::Warning,
+                    format!("{:?}", current_tokens.to_string()),
+                );
 
                 for token in list_of_var.tokens.clone() {
                     match &token {
@@ -123,20 +129,18 @@ impl<'a> SchemaEnumGenerator<'a> {
         registry_enum_name: &Ident,
     ) -> Result<TokenStream, GenerationError> {
         let schemas_enum = self.generate_schemas_enum(registry_enum_name)?;
-        let keys_enum = self.generate_keys_enum(registry_enum_name)?;
 
         let mut schema_name = registry_enum_name.to_string();
         schema_name.push_str("Schema");
-        let schema_name = Ident::new(&schema_name, proc_macro2::Span::call_site());
-        let mut schema_key_name = registry_enum_name.to_string();
+        let mut schema_key_name = schema_name.clone();
         schema_key_name.push_str("Key");
+        let schema_name = Ident::new(&schema_name, proc_macro2::Span::call_site());
         let schema_key_name = Ident::new(&schema_key_name, proc_macro2::Span::call_site());
 
         Ok(quote! {
             #schemas_enum
 
-            #keys_enum
-
+            #[derive(Encode, Decode, Debug, Clone)]
             pub struct #registry_enum_name {
                 _schema: #schema_name,
                 _keys: #schema_key_name,

@@ -170,7 +170,9 @@ pub mod netabase_schema_key {
                         .map_err(|e| GenerationError::KeyGeneration {
                             key_type: format!("Failed to generate registry key enum: {}", e),
                         })?;
-                Ok(KeyItemType::EnumKey(parse_quote!(#item)))
+                Ok(KeyItemType::EnumKey(
+                    parse_quote!(#[derive(NetabaseSchemaKey, Clone, Debug, Encode, Decode)]#item),
+                ))
             }
         }
     }
