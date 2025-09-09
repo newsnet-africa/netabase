@@ -13,32 +13,24 @@
 //! local network. Peers should automatically discover each other via mDNS and
 //! add each other to their Kademlia routing tables.
 
+use bincode::{Decode, Encode};
 use netabase::{
-    Netabase, NetabaseSchema, NetabaseSchemaKey,
+    Netabase,
     config::{DefaultBehaviourConfig, DefaultNetabaseConfig, KadStoreConfig, NetabaseSwarmConfig},
+    netabase_trait::NetabaseSchema,
 };
+use netabase_macros::{NetabaseSchema, NetabaseSchemaKey};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tokio::time::sleep;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-struct ExampleKey {
-    id: String,
-}
-
-impl NetabaseSchemaKey for ExampleKey {
-    fn key(&self) -> Vec<u8> {
-        self.id.as_bytes().to_vec()
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(NetabaseSchema, Debug, Clone, Serialize, Deserialize, PartialEq, Encode, Decode)]
 struct ExampleValue {
-    data: String,
-    timestamp: u64,
+    #[key]
+    pub id: String,
+    pub data: String,
+    pub timestamp: u64,
 }
-
-impl NetabaseSchema for ExampleValue {}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -66,7 +58,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("✓ Configuration created with mDNS auto-connect enabled");
 
     // Create Netabase instance
-    let mut netabase: Netabase<ExampleKey, ExampleValue> = Netabase::new(config_with_auto_connect);
+    let mut netabase: Netabase<ExampleValueKey, ExampleValue> =
+        Netabase::new(config_with_auto_connect);
     println!("✓ Netabase instance created (swarm not started yet)");
 
     // Start the swarm
@@ -74,11 +67,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("✓ Swarm started - now listening for mDNS discoveries");
 
     // Create some test data
-    let test_key = ExampleKey {
-        id: "test_key_001".to_string(),
-    };
-
     let test_value = ExampleValue {
+        id: "test_key_001".to_string(),
         data: "Hello from mDNS auto-connect example!".to_string(),
         timestamp: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
@@ -86,7 +76,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Store the test data
-    netabase.put(test_key.clone(), test_value.clone()).await?;
+    netabase.put(test_value.key(), test_value.clone()).await?;
     println!("✓ Stored test data in DHT");
 
     println!("\nWaiting for mDNS peer discovery...");
@@ -130,7 +120,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             _ = sleep(Duration::from_secs(5)) => {
                 // Periodically try to retrieve the test data
-                match netabase.get(test_key.clone()).await {
+                match netabase.get(test_value.key()).await {
                     Ok(Some(retrieved_value)) => {
                         if retrieved_value == test_value {
                             println!("✓ Successfully retrieved test data from DHT");
@@ -170,7 +160,7 @@ async fn comparison_example() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n=== Comparison: Auto-Connect vs Manual ===");
 
     // Configuration WITHOUT auto-connect (default behavior)
-    let config_manual = DefaultNetabaseConfig::builder()
+    let _config_manual = DefaultNetabaseConfig::builder()
         .swarm_config(
             NetabaseSwarmConfig::builder()
                 .mdns_enabled(true)
@@ -181,7 +171,7 @@ async fn comparison_example() -> Result<(), Box<dyn std::error::Error>> {
         .build()?;
 
     // Configuration WITH auto-connect
-    let config_auto = DefaultNetabaseConfig::builder()
+    let _config_auto = DefaultNetabaseConfig::builder()
         .swarm_config(
             NetabaseSwarmConfig::builder()
                 .mdns_enabled(true)

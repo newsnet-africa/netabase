@@ -4,41 +4,45 @@ use syn::{ImplItemFn, ItemImpl, parse_quote};
 
 use crate::{
     SchemaValidator,
-    visitors::{Key, validation_error::VisitError},
+    generators::{GenerationError, generation_error::TryFromGenerationError},
+    visitors::Key,
 };
 
 use self::netabase_schema_key::{generate_key_getter, generate_netabase_key};
 
-pub fn generate_netabase_macro(input: SchemaValidator) -> TokenStream {
+pub fn generate_netabase_macro(input: SchemaValidator) -> Result<TokenStream, GenerationError> {
     let key_item = generate_netabase_key(
-        input.key().expect("Another fix later"),
-        input
-            .ident()
-            .expect("Fix later: generate netabase macro fn"),
-    )
-    .expect("Key erruh");
-    let key = input.key().expect("Fix later: key gen");
-    let k_fun = generate_key_getter(&key_item, key).unwrap_or_else(|e| {
-        panic!(
-            "Key function generation failed: {:?} for key_item: {:?} and key: {:?}",
-            e, key_item, key
-        )
-    });
+        input.key().map_err(|e| GenerationError::KeyGeneration {
+            key_type: format!("Failed to get key from validator: {}", e),
+        })?,
+        input.ident().map_err(|e| GenerationError::KeyGeneration {
+            key_type: format!("Failed to get identifier from validator: {}", e),
+        })?,
+    )?;
 
-    let impl_item = generate_netabase_impl(&input, k_fun).expect("Fix later i guess?");
-    let from_to_record = generate_from_to_record(&input);
-    quote! {
+    let key = input.key().map_err(|e| GenerationError::KeyGeneration {
+        key_type: format!("Failed to get key reference: {}", e),
+    })?;
+
+    let k_fun = generate_key_getter(&key_item, key)?;
+    let impl_item = generate_netabase_impl(&input, k_fun)?;
+    let from_to_record = generate_from_to_record(&input)?;
+
+    Ok(quote! {
         #key_item
         #impl_item
         #from_to_record
-    }
+    })
 }
 
 pub fn generate_netabase_impl(
     input: &SchemaValidator,
     key: ImplItemFn,
-) -> Result<ItemImpl, VisitError> {
-    let ident = input.ident()?;
+) -> Result<ItemImpl, GenerationError> {
+    let ident = input.ident().map_err(|e| GenerationError::ImplGeneration {
+        impl_type: "NetabaseSchema".to_string(),
+        reason: format!("Failed to get identifier: {}", e),
+    })?;
 
     let key_ident = Key::ident(ident);
     Ok(parse_quote! {
@@ -49,29 +53,38 @@ pub fn generate_netabase_impl(
     })
 }
 
-pub fn generate_from_to_record(input: &SchemaValidator) -> proc_macro2::TokenStream {
-    let ident = input.ident().expect("Todo");
-    quote! {
-        impl From<::macro_exports::__netabase_libp2p_kad::Record> for #ident {
-            fn from(value: ::macro_exports::__netabase_libp2p_kad::Record) -> Self {
+pub fn generate_from_to_record(
+    input: &SchemaValidator,
+) -> Result<proc_macro2::TokenStream, GenerationError> {
+    let ident = input.ident().map_err(|e| {
+        GenerationError::TryFromConversion(TryFromGenerationError::RecordValueGeneration {
+            value_type: format!("Failed to get identifier: {}", e),
+        })
+    })?;
+
+    Ok(quote! {
+        impl TryFrom<::macro_exports::__netabase_libp2p_kad::Record> for #ident {
+            type Error = ::macro_exports::__netabase_anyhow::Error;
+            fn try_from(value: ::macro_exports::__netabase_libp2p_kad::Record) -> Result<Self, ::macro_exports::__netabase_anyhow::Error> {
                 let bytes = value.value;
-                ::macro_exports::__netabase_bincode::decode_from_slice(&bytes, ::macro_exports::__netabase_bincode_config::standard()).expect("Fix later: bincode").0
+                Ok(::macro_exports::__netabase_bincode::decode_from_slice(&bytes, ::macro_exports::__netabase_bincode_config::standard())?.0)
             }
         }
 
-        impl From<#ident> for ::macro_exports::__netabase_libp2p_kad::Record {
-            fn from(value: #ident) -> Self {
-                let key = ::macro_exports::__netabase_libp2p_kad::RecordKey::from(value.key());
-                let bytes = ::macro_exports::__netabase_bincode::encode_to_vec(value, ::macro_exports::__netabase_bincode_config::standard()).expect("Encoding Error: Fix later");
-                ::macro_exports::__netabase_libp2p_kad::Record {
+        impl TryFrom<#ident> for ::macro_exports::__netabase_libp2p_kad::Record {
+            type Error = ::macro_exports::__netabase_anyhow::Error;
+            fn try_from(value: #ident) -> Result<Self, ::macro_exports::__netabase_anyhow::Error> {
+                let key = ::macro_exports::__netabase_libp2p_kad::RecordKey::try_from(value.key())?;
+                let bytes = ::macro_exports::__netabase_bincode::encode_to_vec(value, ::macro_exports::__netabase_bincode_config::standard())?;
+                Ok(::macro_exports::__netabase_libp2p_kad::Record {
                     key,
                     value: bytes,
                     publisher: None,
                     expires: None
-                }
+                })
             }
         }
-    }
+    })
 }
 
 pub mod netabase_schema_key {
@@ -87,11 +100,8 @@ pub mod netabase_schema_key {
         parse_quote,
     };
 
-    use crate::generators::schema_enum_generator::SchemaEnumGenerator;
-    use crate::visitors::{
-        Key,
-        validation_error::{KeyError, OuterKeyError, VisitError},
-    };
+    use crate::generators::{GenerationError, schema_enum_generator::SchemaEnumGenerator};
+    use crate::visitors::Key;
 
     #[derive(Debug)]
     pub enum KeyItemType {
@@ -115,7 +125,7 @@ pub mod netabase_schema_key {
     pub fn generate_netabase_key(
         key: &Key,
         schema_name: &Ident,
-    ) -> Result<KeyItemType, VisitError> {
+    ) -> Result<KeyItemType, GenerationError> {
         let name = Key::ident(schema_name);
         match key {
             Key::Outer { sig } => {
@@ -126,9 +136,9 @@ pub mod netabase_schema_key {
                         pub struct #name(#type_name);
                     )))
                 } else {
-                    Err(VisitError::KeyError(KeyError::OuterKeyError(
-                        OuterKeyError::ReturnTypeNotFound,
-                    )))
+                    Err(GenerationError::KeyGeneration {
+                        key_type: format!("Outer key for '{}' missing return type", schema_name),
+                    })
                 }
             }
             Key::StructInner { field, .. } => {
@@ -154,11 +164,14 @@ pub mod netabase_schema_key {
                     }
                 )))
             }
-            Key::Registry(boxed_enum) => Ok(KeyItemType::EnumKey({
+            Key::Registry(boxed_enum) => {
                 let item =
-                    SchemaEnumGenerator::generate_schema_keys_enum_from_attr(boxed_enum, &name);
-                parse_quote!(#item)
-            })),
+                    SchemaEnumGenerator::generate_schema_keys_enum_from_attr(boxed_enum, &name)
+                        .map_err(|e| GenerationError::KeyGeneration {
+                            key_type: format!("Failed to generate registry key enum: {}", e),
+                        })?;
+                Ok(KeyItemType::EnumKey(parse_quote!(#item)))
+            }
         }
     }
     pub fn generate_key_impl(key_ident: &Ident) -> ItemImpl {
@@ -170,16 +183,18 @@ pub mod netabase_schema_key {
 
     pub fn generate_from_to_key_record(input: &Ident) -> proc_macro2::TokenStream {
         quote! {
-            impl From<::macro_exports::__netabase_libp2p_kad::RecordKey> for #input {
-                fn from(value: ::macro_exports::__netabase_libp2p_kad::RecordKey) -> Self {
+            impl TryFrom<::macro_exports::__netabase_libp2p_kad::RecordKey> for #input {
+                type Error = ::macro_exports::__netabase_anyhow::Error;
+                fn try_from(value: ::macro_exports::__netabase_libp2p_kad::RecordKey) -> Result<Self, ::macro_exports::__netabase_anyhow::Error> {
                     let bytes = value.to_vec();
-                    ::macro_exports::__netabase_bincode::decode_from_slice(&bytes, ::macro_exports::__netabase_bincode_config::standard()).expect("Fix later: bincode").0
+                    Ok(::macro_exports::__netabase_bincode::decode_from_slice(&bytes, ::macro_exports::__netabase_bincode_config::standard())?.0)
                 }
             }
-            impl From<#input> for ::macro_exports::__netabase_libp2p_kad::RecordKey {
-                fn from(value: #input) -> Self {
-                    let bytes = ::macro_exports::__netabase_bincode::encode_to_vec(value, ::macro_exports::__netabase_bincode_config::standard()).expect("Encoding error fix later");
-                    ::macro_exports::__netabase_libp2p_kad::RecordKey::new(&bytes)
+            impl TryFrom<#input> for ::macro_exports::__netabase_libp2p_kad::RecordKey {
+                type Error = ::macro_exports::__netabase_anyhow::Error;
+                fn try_from(value: #input) -> Result<Self, ::macro_exports::__netabase_anyhow::Error> {
+                    let bytes = ::macro_exports::__netabase_bincode::encode_to_vec(value, ::macro_exports::__netabase_bincode_config::standard())?;
+                    Ok(::macro_exports::__netabase_libp2p_kad::RecordKey::new(&bytes))
                 }
             }
         }
@@ -187,7 +202,7 @@ pub mod netabase_schema_key {
     pub fn generate_key_getter(
         key_item: &KeyItemType,
         key: &Key,
-    ) -> Result<ImplItemFn, VisitError> {
+    ) -> Result<ImplItemFn, GenerationError> {
         match (key_item, key) {
             (KeyItemType::StructKey(item_struct), Key::Outer { sig }) => {
                 let name = &item_struct.ident;
@@ -215,7 +230,7 @@ pub mod netabase_schema_key {
             (KeyItemType::EnumKey(item_enum), Key::EnumInner { variant_fields }) => {
                 //TODO: Match against itself
                 let name = &item_enum.ident;
-                let enumkey_variantfields: Result<Vec<Arm>, VisitError> =
+                let enumkey_variantfields: Result<Vec<Arm>, GenerationError> =
                             item_enum.variants.iter().zip(variant_fields.iter()).map(
                                 |(key_variants, (v, f))| {
                                     let variant_name = &v.ident;
@@ -232,7 +247,9 @@ pub mod netabase_schema_key {
                                             })
                                         },
                                         _ => {
-                                            Err(VisitError::InvalidSchemaType)
+                                            Err(GenerationError::KeyGeneration {
+                                                key_type: "Invalid enum variant field combination for key generation".to_string(),
+                                            })
                                         }
                                     }
                                 },
@@ -246,7 +263,7 @@ pub mod netabase_schema_key {
                     }
                 ))
             }
-            (KeyItemType::EnumKey(reg_item_enum), Key::Registry(item_enum)) => {
+            (KeyItemType::EnumKey(_reg_item_enum), Key::Registry(item_enum)) => {
                 let arms: Vec<Arm> = {
                     if let Meta::List(list_of_var) = &item_enum.meta {
                         let list = list_of_var.tokens.to_string();
@@ -288,20 +305,24 @@ pub mod netabase_schema_key {
                 ))
             }
             (KeyItemType::StructKey(_item_struct), Key::EnumInner { variant_fields: _ }) => {
-                Err(VisitError::InvalidSchemaType)
+                Err(GenerationError::KeyGeneration {
+                    key_type: "Cannot generate struct key for enum inner key".to_string(),
+                })
             }
             (KeyItemType::EnumKey(_item_enum), Key::Outer { sig: _ }) => {
-                Err(VisitError::InvalidSchemaType)
+                Err(GenerationError::KeyGeneration {
+                    key_type: "Cannot generate enum key for outer key".to_string(),
+                })
             }
             (KeyItemType::EnumKey(_item_enum), Key::StructInner { field: _ }) => {
-                Err(VisitError::InvalidSchemaType)
+                Err(GenerationError::KeyGeneration {
+                    key_type: "Cannot generate enum key for struct inner key".to_string(),
+                })
             }
-            (KeyItemType::StructKey(item_struct), Key::Registry(item_enum)) => {
-                eprintln!(
-                    "Unhandled key generation case: key_item={:?}, key={:?}",
-                    key_item, key
-                );
-                Err(VisitError::InvalidSchemaType)
+            (KeyItemType::StructKey(_item_struct), Key::Registry(_item_enum)) => {
+                Err(GenerationError::KeyGeneration {
+                    key_type: format!("Unhandled key generation case: struct key with registry"),
+                })
             }
         }
     }

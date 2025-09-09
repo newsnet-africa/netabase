@@ -16,7 +16,7 @@ pub(super) fn find_outer_key_fn_path(item: &DeriveInput) -> Result<Key<'_>, Visi
             && let syn::Lit::Str(lit_str) = &expr_lit.lit
         {
             let sig: Signature = lit_str.parse().expect("Parse Erruh");
-            if let Some(FnArg::Receiver(rec)) = sig.inputs.first()
+            if let Some(FnArg::Receiver(_rec)) = sig.inputs.first()
                 && sig.inputs.iter().count().eq(&1)
                 && let ReturnType::Type(_, _) = sig.output
             {
@@ -202,7 +202,7 @@ pub(super) fn find_inner_key<'ast>(item: &'ast Data) -> Result<Key<'ast>, VisitE
 
 pub fn find_keys<'ast>(
     item: &'ast DeriveInput,
-    schema_enum_gen: &SchemaEnumGenerator,
+    _schema_enum_gen: &SchemaEnumGenerator,
 ) -> Result<Key<'ast>, VisitError> {
     let registry = item
         .attrs

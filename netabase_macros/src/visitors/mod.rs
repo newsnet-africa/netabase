@@ -85,15 +85,28 @@ impl<'ast> SchemaValidator<'ast> {
         match &self.0 {
             SchemaValidatorType::NotInitiated => Err(VisitError::InvalidSchemaType),
             SchemaValidatorType::Invalid => Err(VisitError::InvalidSchemaType),
-            SchemaValidatorType::Struct { key, derive_input } => Ok(&derive_input.ident),
-            SchemaValidatorType::Enum { key, derive_input } => Ok(&derive_input.ident),
+            SchemaValidatorType::Struct {
+                key: _,
+                derive_input,
+            } => Ok(&derive_input.ident),
+            SchemaValidatorType::Enum {
+                key: _,
+                derive_input,
+            } => Ok(&derive_input.ident),
         }
     }
 }
 
 impl<'ast> Visit<'ast> for SchemaValidator<'ast> {
     fn visit_derive_input(&mut self, i: &'ast DeriveInput) {
-        let key = find_keys(&i, &self.1).expect("Key erruhs");
+        let key = match find_keys(&i, &self.1) {
+            Ok(key) => key,
+            Err(_) => {
+                self.0 = SchemaValidatorType::Invalid;
+                return;
+            }
+        };
+
         match &i.data {
             syn::Data::Struct(_data_struct) => {
                 self.0 = SchemaValidatorType::Struct {
@@ -107,7 +120,9 @@ impl<'ast> Visit<'ast> for SchemaValidator<'ast> {
                     derive_input: i,
                 }
             }
-            syn::Data::Union(_data_union) => panic!("Unions are invalid"),
+            syn::Data::Union(_data_union) => {
+                self.0 = SchemaValidatorType::Invalid;
+            }
         }
     }
 }
