@@ -1,0 +1,11 @@
+/home/rusta/Projects/NewsNet/netabase/test_macros/target/debug/deps/env_logger-492c33ba64fd4c78.d: /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/env_logger-0.11.8/src/lib.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/env_logger-0.11.8/src/logger.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/env_logger-0.11.8/src/fmt/mod.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/env_logger-0.11.8/src/fmt/humantime.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/env_logger-0.11.8/src/fmt/writer/mod.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/env_logger-0.11.8/src/fmt/writer/buffer.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/env_logger-0.11.8/src/fmt/writer/target.rs
+
+/home/rusta/Projects/NewsNet/netabase/test_macros/target/debug/deps/libenv_logger-492c33ba64fd4c78.rmeta: /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/env_logger-0.11.8/src/lib.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/env_logger-0.11.8/src/logger.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/env_logger-0.11.8/src/fmt/mod.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/env_logger-0.11.8/src/fmt/humantime.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/env_logger-0.11.8/src/fmt/writer/mod.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/env_logger-0.11.8/src/fmt/writer/buffer.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/env_logger-0.11.8/src/fmt/writer/target.rs
+
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/env_logger-0.11.8/src/lib.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/env_logger-0.11.8/src/logger.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/env_logger-0.11.8/src/fmt/mod.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/env_logger-0.11.8/src/fmt/humantime.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/env_logger-0.11.8/src/fmt/writer/mod.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/env_logger-0.11.8/src/fmt/writer/buffer.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/env_logger-0.11.8/src/fmt/writer/target.rs:

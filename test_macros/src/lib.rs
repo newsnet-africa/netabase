@@ -14,10 +14,11 @@ pub mod schemas {
     use netabase_macros::NetabaseSchemaKey;
 
     #[derive(NetabaseSchema, Encode, Decode, Clone, Debug)]
-    pub struct Me {
+    pub struct Me<T: Encode + Decode> {
         #[key]
         first: String,
         second: u128,
+        blah: T,
     }
 
     #[derive(NetabaseSchema, Encode, Decode, Clone, Debug)]
