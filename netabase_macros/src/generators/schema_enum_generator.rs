@@ -1,3 +1,4 @@
+use proc_macro::Span;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Attribute, Fields, Ident, ItemEnum, Meta, Path, Type, Variant, parse_quote};
@@ -22,6 +23,9 @@ impl<'a> SchemaEnumGenerator<'a> {
             return self.generate_empty_enum(enum_ident, "No schemas found");
         }
 
+        let mut schema_ident = enum_ident.to_string();
+        schema_ident.push_str("Schema");
+        let enum_ident = Ident::new(&schema_ident, proc_macro2::Span::call_site());
         let key_variants = self.generate_key_variants();
         let variants = self.generate_schema_variants();
 
@@ -113,10 +117,18 @@ impl<'a> SchemaEnumGenerator<'a> {
     }
 
     /// Generate both enums as a combined TokenStream
-    pub fn generate_both_enums(&self, schemas_enum_name: &Ident) -> TokenStream {
-        let schemas_enum = self.generate_schemas_enum(schemas_enum_name);
+    pub fn generate_both_enums(&self, registry_enum_name: &Ident) -> TokenStream {
+        let schemas_enum = self.generate_schemas_enum(registry_enum_name);
+        let mut schema_name = registry_enum_name.to_string();
+        schema_name.push_str("Schema");
+        let schema_name = Ident::new(&schema_name, proc_macro2::Span::call_site());
+        let mut schema_key_name = registry_enum_name.to_string();
+        schema_key_name.push_str("SchemaKey");
+        let schema_key_name = Ident::new(&schema_key_name, proc_macro2::Span::call_site());
+
         quote! {
             #schemas_enum
+            pub struct #registry_enum_name {_schema: #schema_name, _keys: #schema_key_name};
         }
     }
 }
