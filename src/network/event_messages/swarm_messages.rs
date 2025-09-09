@@ -133,8 +133,8 @@ impl Clone for NetabaseEvent {
                 send_back_addr,
             } => NetabaseEvent(SwarmEvent::IncomingConnection {
                 connection_id: *connection_id,
-                local_addr: multiaddr_cloner(local_addr),
-                send_back_addr: multiaddr_cloner(send_back_addr),
+                local_addr: multiaddr_cloner(&local_addr),
+                send_back_addr: multiaddr_cloner(&send_back_addr),
             }),
             SwarmEvent::IncomingConnectionError {
                 connection_id,
@@ -144,8 +144,8 @@ impl Clone for NetabaseEvent {
                 peer_id,
             } => NetabaseEvent(SwarmEvent::IncomingConnectionError {
                 connection_id: *connection_id,
-                local_addr: multiaddr_cloner(local_addr),
-                send_back_addr: multiaddr_cloner(send_back_addr),
+                local_addr: multiaddr_cloner(&local_addr),
+                send_back_addr: multiaddr_cloner(&send_back_addr),
                 error: match error {
                     swarm::ListenError::Aborted => swarm::ListenError::Aborted,
                     swarm::ListenError::WrongPeerId { obtained, endpoint } => {

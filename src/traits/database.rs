@@ -7,20 +7,15 @@ use std::collections::HashMap;
 pub type DatabaseResult<T> = Result<T, DatabaseError>;
 
 /// Storage backend types available for the database
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum StorageBackend {
     /// Use libp2p MemoryStore (in-memory, kad::Record native)
     Memory,
     /// Use Sled embedded database (persistent, file-based)
+    #[default]
     Sled,
     /// Custom storage backend with specified name
     Custom(String),
-}
-
-impl Default for StorageBackend {
-    fn default() -> Self {
-        StorageBackend::Sled
-    }
 }
 
 /// Errors that can occur during database operations

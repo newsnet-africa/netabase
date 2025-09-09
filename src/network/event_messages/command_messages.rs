@@ -10,50 +10,27 @@ use libp2p::{Multiaddr, PeerId, kad};
 
 use tokio::sync::oneshot;
 
-/// Main command enum that encompasses all possible operations
 pub enum NetabaseCommand<K: NetabaseSchemaKey, V: NetabaseSchema> {
-    /// System-level commands
     System(SystemCommand),
-
-    /// Database operations
     Database(DatabaseCommand<K, V>),
-
-    /// Network operations
     Network(NetworkCommand<K, V>),
-
-    /// Configuration operations
     Configuration(ConfigurationCommand),
-
-    /// Shutdown the system
     Close,
 }
 
-/// Response types for commands that need to return results
 pub enum CommandResponse<K: NetabaseSchemaKey, V: NetabaseSchema> {
-    /// Database operation responses
     Database(DatabaseResponse<K, V>),
-
-    /// Network operation responses
     Network(NetworkResponse<K, V>),
-
-    /// Configuration operation responses
     Configuration(ConfigurationResponse),
-
-    /// System operation responses
     System(SystemResponse),
-
-    /// Generic success response
     Success,
-
-    /// Generic error response
     Error(String),
 }
 
-/// Database operation responses
 pub enum DatabaseResponse<K: NetabaseSchemaKey, V: NetabaseSchema> {
     GetResult(Option<V>),
     BatchGetResult(std::collections::HashMap<K, V>),
-    ExistsResult(bool),
+
     DeleteResult(bool),
     BatchDeleteResult(Vec<K>),
     KeysResult(Vec<K>),
@@ -67,7 +44,6 @@ pub enum DatabaseResponse<K: NetabaseSchemaKey, V: NetabaseSchema> {
     SyncStatus(bool),        // Whether sync completed successfully
 }
 
-/// Network operation responses
 pub enum NetworkResponse<K: NetabaseSchemaKey, V: NetabaseSchema> {
     _Phantom(std::marker::PhantomData<(K, V)>),
     PeerInfo(Vec<crate::traits::network::PeerInfo>),
@@ -81,8 +57,6 @@ pub enum NetworkResponse<K: NetabaseSchemaKey, V: NetabaseSchema> {
     IsDhtServer(bool),
     IsDhtClient(bool),
     DhtModeStats(DhtModeStats),
-
-    // Detailed DHT operation responses - using libp2p types directly
     DhtPutRecord(Result<kad::PutRecordOk, kad::PutRecordError>),
     DhtGetRecord(Result<kad::GetRecordOk, kad::GetRecordError>),
     DhtGetClosestPeers(Result<kad::GetClosestPeersOk, kad::GetClosestPeersError>),
@@ -93,7 +67,6 @@ pub enum NetworkResponse<K: NetabaseSchemaKey, V: NetabaseSchema> {
     DhtRepublishProvider(Result<kad::AddProviderOk, kad::AddProviderError>),
 }
 
-/// Configuration operation responses
 pub enum ConfigurationResponse {
     Setting(String),
     AllSettings(std::collections::HashMap<String, String>),
@@ -134,10 +107,6 @@ pub mod database_commands {
         Delete {
             key: K,
         },
-        Contains {
-            key: K,
-        },
-
         // Batch operations for efficiency
         PutBatch {
             entries: Vec<(K, V)>,
