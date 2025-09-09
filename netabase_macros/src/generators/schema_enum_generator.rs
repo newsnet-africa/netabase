@@ -1,5 +1,5 @@
 use crate::generators::GenerationError;
-use proc_macro::Diagnostic;
+use proc_macro::{Diagnostic, Span};
 use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
 use syn::{Attribute, Fields, Ident, ItemEnum, Meta, Path, Type, Variant, parse_quote};
@@ -100,7 +100,11 @@ impl<'a> SchemaEnumGenerator<'a> {
                         let mut key_path = type_path.path.clone();
                         // Replace the last segment (schema name) with key name
                         if let Some(last_segment) = key_path.segments.last_mut() {
-                            last_segment.ident = key_name.clone();
+                            let mut key_name = key_name.to_string();
+                            key_name.push_str("Key");
+                            let new_key_name =
+                                Ident::new(&key_name, proc_macro2::Span::call_site());
+                            last_segment.ident = new_key_name.clone();
                         }
                         let new_variant = parse_quote! {
                             #key_name(#key_path)

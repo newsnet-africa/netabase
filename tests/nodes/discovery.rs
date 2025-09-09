@@ -32,7 +32,9 @@ async fn scratch1() {
     };
     // Use mDNS auto-connect enabled version
     let mut net1 =
-        Netabase::<MyRegisteryKey, MyRegistery>::new_test_with_mdns_auto_connect(1, true, true);
+        Netabase::<MyRegisterySchemaKey, MyRegisterySchema>::new_test_with_mdns_auto_connect(
+            1, true, true,
+        );
     let mut list = net1.swarm_event_listener.resubscribe();
     println!("Node 1 (server) started, waiting for events...");
 
@@ -56,7 +58,9 @@ async fn scratch2() {
     };
     // Use mDNS auto-connect enabled version - also make this node a server so it can store
     let mut net2 =
-        Netabase::<MyRegisteryKey, MyRegistery>::new_test_with_mdns_auto_connect(2, true, true);
+        Netabase::<MyRegisterySchemaKey, MyRegisterySchema>::new_test_with_mdns_auto_connect(
+            2, true, true,
+        );
     let mut list = net2.swarm_event_listener.resubscribe();
 
     println!("Node 2 (server with auto-connect) started, waiting for first event...");
@@ -68,8 +72,8 @@ async fn scratch2() {
     println!("Attempting to put data to DHT...");
     let put_result = net2
         .put(
-            nodes::discovery::MyRegisteryKey::TestItemKey(test_item.key()),
-            nodes::discovery::MyRegistery::TestItem(test_item.clone()),
+            nodes::discovery::MyRegisterySchemaKey::TestItem(test_item.key()),
+            nodes::discovery::MyRegisterySchema::TestItem(test_item.clone()),
         )
         .await;
 
@@ -82,7 +86,7 @@ async fn scratch2() {
     sleep(Duration::from_secs(2)).await;
     println!("Attempting to get data from DHT...");
     let get_result = net2
-        .get(nodes::discovery::MyRegisteryKey::TestItemKey(
+        .get(nodes::discovery::MyRegisterySchemaKey::TestItem(
             test_item.key(),
         ))
         .await;
