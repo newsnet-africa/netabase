@@ -3,10 +3,10 @@ use bincode::{Decode, Encode};
 pub trait NetabaseSchema:
     Clone
     + Send
-    + From<::macro_exports::__netabase_libp2p_kad::Record>
+    + TryFrom<::macro_exports::__netabase_libp2p_kad::Record>
     + Encode
     + Decode<()>
-    + Into<::macro_exports::__netabase_libp2p_kad::Record> // TODO: TryFrom
+    + TryInto<::macro_exports::__netabase_libp2p_kad::Record>
 {
     type Key: NetabaseSchemaKey;
     fn key(&self) -> Self::Key;
@@ -15,9 +15,9 @@ pub trait NetabaseSchema:
 pub trait NetabaseSchemaKey:
     Clone
     + Send
-    + From<::macro_exports::__netabase_libp2p_kad::RecordKey>
+    + TryFrom<::macro_exports::__netabase_libp2p_kad::RecordKey>
     + Encode
     + Decode<()>
-    + Into<::macro_exports::__netabase_libp2p_kad::RecordKey>
+    + TryInto<::macro_exports::__netabase_libp2p_kad::RecordKey>
 {
 }
