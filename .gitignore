@@ -1,3 +1,4 @@
 /target
 *tmp*
 /test_tmp
+test_macros/target
