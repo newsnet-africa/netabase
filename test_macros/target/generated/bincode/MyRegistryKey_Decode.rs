@@ -4,27 +4,9 @@ impl < __Context > :: bincode :: Decode < __Context > for MyRegistryKey
     (decoder : & mut __D) ->core :: result :: Result < Self, :: bincode ::
     error :: DecodeError >
     {
-        let variant_index = < u32 as :: bincode :: Decode ::< __D :: Context
-        >>:: decode(decoder) ?; match variant_index
-        {
-            0u32 =>core :: result :: Result ::
-            Ok(Self ::MeKey
-            {
-                0 : :: bincode :: Decode ::< __D :: Context >::
-                decode(decoder) ?,
-            }), 1u32 =>core :: result :: Result ::
-            Ok(Self ::YouKey
-            {
-                0 : :: bincode :: Decode ::< __D :: Context >::
-                decode(decoder) ?,
-            }), variant =>core :: result :: Result ::
-            Err(:: bincode :: error :: DecodeError :: UnexpectedVariant
-            {
-                found : variant, type_name : "MyRegistryKey", allowed : &::
-                bincode :: error :: AllowedEnumVariants :: Range
-                { min: 0, max: 1 }
-            })
-        }
+        core :: result :: Result ::
+        Err(::bincode::error::DecodeError::EmptyEnum
+        { type_name: core::any::type_name::<Self>() })
     }
 } impl < '__de, __Context > :: bincode :: BorrowDecode < '__de, __Context >
 for MyRegistryKey
@@ -33,26 +15,8 @@ for MyRegistryKey
     Context = __Context > > (decoder : & mut __D) ->core :: result :: Result <
     Self, :: bincode :: error :: DecodeError >
     {
-        let variant_index = < u32 as :: bincode :: Decode ::< __D :: Context
-        >>:: decode(decoder) ?; match variant_index
-        {
-            0u32 =>core :: result :: Result ::
-            Ok(Self ::MeKey
-            {
-                0 : :: bincode :: BorrowDecode ::< __D :: Context >::
-                borrow_decode(decoder) ?,
-            }), 1u32 =>core :: result :: Result ::
-            Ok(Self ::YouKey
-            {
-                0 : :: bincode :: BorrowDecode ::< __D :: Context >::
-                borrow_decode(decoder) ?,
-            }), variant =>core :: result :: Result ::
-            Err(:: bincode :: error :: DecodeError :: UnexpectedVariant
-            {
-                found : variant, type_name : "MyRegistryKey", allowed : &::
-                bincode :: error :: AllowedEnumVariants :: Range
-                { min: 0, max: 1 }
-            })
-        }
+        core :: result :: Result ::
+        Err(::bincode::error::DecodeError::EmptyEnum
+        { type_name: core::any::type_name::<Self>() })
     }
 }

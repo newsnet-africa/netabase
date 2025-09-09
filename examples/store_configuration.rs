@@ -112,11 +112,11 @@ fn main() -> anyhow::Result<()> {
     println!("\n5. Creating NetabaseBehaviour instances:");
 
     // Memory store behaviour
-    let memory_behaviour = NetabaseBehaviour::with_memory_store(&keypair, peer_id)?;
+    let _memory_behaviour = NetabaseBehaviour::with_memory_store(&keypair, peer_id)?;
     println!("   ✓ NetabaseBehaviour with MemoryStore created");
 
     // Sled store behaviour
-    let sled_behaviour = NetabaseBehaviour::with_sled_store(&keypair, "./behaviour_database")?;
+    let _sled_behaviour = NetabaseBehaviour::with_sled_store(&keypair, "./behaviour_database")?;
     println!("   ✓ NetabaseBehaviour with SledStore created");
 
     // Custom memory store behaviour with config
@@ -124,7 +124,7 @@ fn main() -> anyhow::Result<()> {
         max_records: 1024,
         ..kad::store::MemoryStoreConfig::default()
     };
-    let custom_memory_behaviour =
+    let _custom_memory_behaviour =
         NetabaseBehaviour::with_memory_store_config(&keypair, peer_id, memory_config)?;
     println!("   ✓ NetabaseBehaviour with custom MemoryStore config created");
 
@@ -135,7 +135,7 @@ fn main() -> anyhow::Result<()> {
         max_provided_keys: 4096,
         max_providers_per_key: 100,
     };
-    let custom_sled_behaviour = NetabaseBehaviour::with_sled_store_config(
+    let _custom_sled_behaviour = NetabaseBehaviour::with_sled_store_config(
         &keypair,
         "./custom_behaviour_database",
         custom_sled_config,
@@ -145,10 +145,10 @@ fn main() -> anyhow::Result<()> {
     // Example 6: Using KadStoreConfig directly
     println!("\n6. Using KadStoreConfig builders:");
 
-    let memory_store_config = KadStoreConfig::memory_store(peer_id);
+    let _memory_store_config = KadStoreConfig::memory_store(peer_id);
     println!("   ✓ KadStoreConfig::memory_store created");
 
-    let memory_store_with_config = KadStoreConfig::memory_store_with_config(
+    let _memory_store_with_config = KadStoreConfig::memory_store_with_config(
         peer_id,
         kad::store::MemoryStoreConfig {
             max_records: 512,
@@ -157,10 +157,10 @@ fn main() -> anyhow::Result<()> {
     );
     println!("   ✓ KadStoreConfig::memory_store_with_config created");
 
-    let sled_store_config = KadStoreConfig::sled_store("./direct_database");
+    let _sled_store_config = KadStoreConfig::sled_store("./direct_database");
     println!("   ✓ KadStoreConfig::sled_store created");
 
-    let sled_store_with_config = KadStoreConfig::sled_store_with_config(
+    let _sled_store_with_config = KadStoreConfig::sled_store_with_config(
         "./direct_custom_database",
         SledStoreConfig::default(),
     );

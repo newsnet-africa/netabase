@@ -402,14 +402,28 @@ pub trait NetabaseDatabase<K: NetabaseSchemaKey, V: NetabaseSchema>: Send + Sync
     /// Retrieve a kad::Record directly (for network integration)
     async fn get_record(&self, key: &KadKey) -> DatabaseResult<Option<Record>>;
 
-    /// Convert a value to a kad::Record using auto-generated Into trait
-    fn to_record(&self, value: V) -> Record {
-        value.into()
+    /// Convert a value to a kad::Record using auto-generated TryInto trait
+    fn to_record(&self, value: V) -> Result<Record, DatabaseError> {
+        value
+            .try_into()
+            .map_err(|e| DatabaseError::SerializationError {
+                source: Box::new(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "Failed to convert value to record",
+                )),
+            })
     }
 
-    /// Convert a kad::Record back to a value using auto-generated From trait
-    fn from_record(&self, record: Record) -> V {
-        record.into()
+    /// Convert a kad::Record back to a value using auto-generated TryFrom trait
+    fn from_record(&self, record: Record) -> Result<V, DatabaseError> {
+        record
+            .try_into()
+            .map_err(|e| DatabaseError::SerializationError {
+                source: Box::new(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "Failed to convert record to value",
+                )),
+            })
     }
 
     /// Get all records that should be republished (for DHT maintenance)
@@ -431,14 +445,26 @@ pub trait NetabaseDatabase<K: NetabaseSchemaKey, V: NetabaseSchema>: Send + Sync
         expires: Option<std::time::Instant>,
     ) -> DatabaseResult<()>;
 
-    /// Convert NetabaseSchemaKey to kad::record::Key using auto-generated Into trait
-    fn schema_key_to_kad_key(&self, key: K) -> KadKey {
-        key.into()
+    /// Convert NetabaseSchemaKey to kad::record::Key using auto-generated TryInto trait
+    fn schema_key_to_kad_key(&self, key: K) -> Result<KadKey, DatabaseError> {
+        key.try_into()
+            .map_err(|e| DatabaseError::SerializationError {
+                source: Box::new(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "Failed to convert key to record key",
+                )),
+            })
     }
 
-    /// Convert kad::record::Key to NetabaseSchemaKey using auto-generated From trait
-    fn kad_key_to_schema_key(&self, key: KadKey) -> K {
-        key.into()
+    /// Convert kad::record::Key to NetabaseSchemaKey using auto-generated TryInto trait
+    fn kad_key_to_schema_key(&self, key: KadKey) -> Result<K, DatabaseError> {
+        key.try_into()
+            .map_err(|e| DatabaseError::SerializationError {
+                source: Box::new(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "Failed to convert record key to key",
+                )),
+            })
     }
 
     /// Backup the database to a specified path
