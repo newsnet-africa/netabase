@@ -19,7 +19,6 @@ use database_commands::{DatabaseOperationContext, handle_database_command};
 
 use system_commands::handle_system_command;
 
-/// Main command handler that dispatches commands to appropriate handlers
 pub fn handle_command<
     K: NetabaseSchemaKey + std::fmt::Debug,
     V: NetabaseSchema + std::fmt::Debug,
@@ -63,12 +62,9 @@ pub fn handle_command<
 fn handle_close<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement proper close logic
     log::info!("Close command received - shutting down");
 
     if let Some(sender) = response_sender {
         let _ = sender.send(CommandResponse::Success);
     }
-
-    // The event loop should break when this command is received
 }

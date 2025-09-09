@@ -1,6 +1,6 @@
 use libp2p::{Swarm, noise, tcp, yamux};
 
-use crate::{config::NetabaseConfig, network::behaviour::NetabaseBehaviour};
+use crate::{config::DefaultNetabaseConfig, network::behaviour::NetabaseBehaviour};
 
 pub mod behaviour;
 pub mod event_loop;
@@ -20,7 +20,7 @@ pub fn generate_swarm(path: usize) -> anyhow::Result<Swarm<NetabaseBehaviour>> {
 }
 
 pub fn generate_swarm_with_config(
-    config: &NetabaseConfig,
+    config: &DefaultNetabaseConfig,
 ) -> anyhow::Result<Swarm<NetabaseBehaviour>> {
     let swarm_config = config.swarm_config();
     let behaviour_config = config.behaviour_config();

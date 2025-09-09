@@ -14,7 +14,6 @@ use libp2p::{Multiaddr, PeerId, Swarm, kad::QueryId};
 use std::{collections::HashMap, time::Duration};
 use tokio::sync::oneshot;
 
-/// Handle all network-level commands
 pub fn handle_network_command<K: NetabaseSchemaKey, V: NetabaseSchema>(
     command: NetworkCommand<K, V>,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
@@ -164,7 +163,6 @@ fn handle_initialize<K: NetabaseSchemaKey, V: NetabaseSchema>(
     config: NetworkConfig,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement network initialization logic
     log::info!("Network initialize command received");
 
     if let Some(sender) = response_sender {
@@ -175,7 +173,6 @@ fn handle_initialize<K: NetabaseSchemaKey, V: NetabaseSchema>(
 fn handle_start<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement network start logic
     log::info!("Network start command received");
 
     if let Some(sender) = response_sender {
@@ -186,7 +183,6 @@ fn handle_start<K: NetabaseSchemaKey, V: NetabaseSchema>(
 fn handle_stop<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement network stop logic
     log::info!("Network stop command received");
 
     if let Some(sender) = response_sender {
@@ -199,7 +195,6 @@ fn handle_connect_peer<K: NetabaseSchemaKey, V: NetabaseSchema>(
     address: Multiaddr,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement connect peer logic
     log::info!(
         "Connect peer command received for peer: {} at {}",
         peer_id,
@@ -215,7 +210,6 @@ fn handle_disconnect_peer<K: NetabaseSchemaKey, V: NetabaseSchema>(
     peer_id: PeerId,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement disconnect peer logic
     log::info!("Disconnect peer command received for peer: {}", peer_id);
 
     if let Some(sender) = response_sender {
@@ -227,7 +221,6 @@ fn handle_add_listening_address<K: NetabaseSchemaKey, V: NetabaseSchema>(
     address: Multiaddr,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement add listening address logic
     log::info!("Add listening address command received for: {}", address);
 
     if let Some(sender) = response_sender {
@@ -239,7 +232,6 @@ fn handle_remove_listening_address<K: NetabaseSchemaKey, V: NetabaseSchema>(
     address: Multiaddr,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement remove listening address logic
     log::info!("Remove listening address command received for: {}", address);
 
     if let Some(sender) = response_sender {
@@ -252,7 +244,6 @@ fn handle_send_message<K: NetabaseSchemaKey, V: NetabaseSchema>(
     message: NetworkMessage<K, V>,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement send message logic
     log::info!("Send message command received for peer: {}", peer_id);
 
     if let Some(sender) = response_sender {
@@ -265,7 +256,6 @@ fn handle_broadcast_message<K: NetabaseSchemaKey, V: NetabaseSchema>(
     options: BroadcastOptions,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement broadcast message logic
     log::info!("Broadcast message command received");
 
     if let Some(sender) = response_sender {
@@ -277,7 +267,6 @@ fn handle_subscribe_topic<K: NetabaseSchemaKey, V: NetabaseSchema>(
     topic: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement subscribe topic logic
     log::info!("Subscribe topic command received for: {}", topic);
 
     if let Some(sender) = response_sender {
@@ -289,7 +278,6 @@ fn handle_unsubscribe_topic<K: NetabaseSchemaKey, V: NetabaseSchema>(
     topic: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement unsubscribe topic logic
     log::info!("Unsubscribe topic command received for: {}", topic);
 
     if let Some(sender) = response_sender {
@@ -302,7 +290,6 @@ fn handle_publish_topic<K: NetabaseSchemaKey, V: NetabaseSchema>(
     data: Vec<u8>,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement publish topic logic
     log::info!(
         "Publish topic command received for: {} with {} bytes",
         topic,
@@ -317,7 +304,6 @@ fn handle_publish_topic<K: NetabaseSchemaKey, V: NetabaseSchema>(
 fn handle_get_subscribed_topics<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement get subscribed topics logic
     log::info!("Get subscribed topics command received");
 
     if let Some(sender) = response_sender {
@@ -364,7 +350,6 @@ fn handle_dht_put<K: NetabaseSchemaKey, V: NetabaseSchema>(
             }
         }
     } else {
-        // Fire and forget
         let record = libp2p::kad::Record {
             key: libp2p::kad::RecordKey::new(&key),
             value,
@@ -393,7 +378,6 @@ fn handle_dht_get<K: NetabaseSchemaKey, V: NetabaseSchema>(
             .get_record(libp2p::kad::RecordKey::new(&key));
         query_queue.insert(query_id, sender);
     } else {
-        // Fire and forget
         swarm
             .behaviour_mut()
             .kad
@@ -428,7 +412,6 @@ fn handle_dht_get_addresses<K: NetabaseSchemaKey, V: NetabaseSchema>(
     log::info!("DHT get addresses command received for peer: {}", peer_id);
 
     if let Some(sender) = response_sender {
-        // TODO: Implement proper address lookup from Kademlia routing table
         let addresses: Vec<Multiaddr> = vec![];
         let _ = sender.send(CommandResponse::Network(NetworkResponse::DhtAddresses(
             addresses,
@@ -474,7 +457,6 @@ fn handle_dht_get_providers<K: NetabaseSchemaKey, V: NetabaseSchema>(
             .get_providers(libp2p::kad::RecordKey::new(&key));
         query_queue.insert(query_id, sender);
     } else {
-        // Fire and forget
         swarm
             .behaviour_mut()
             .kad
@@ -779,7 +761,6 @@ fn handle_get_dht_mode<K: NetabaseSchemaKey, V: NetabaseSchema>(
 fn handle_is_dht_server<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement is DHT server logic
     log::info!("Is DHT server command received");
 
     if let Some(sender) = response_sender {
@@ -792,7 +773,6 @@ fn handle_is_dht_server<K: NetabaseSchemaKey, V: NetabaseSchema>(
 fn handle_is_dht_client<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement is DHT client logic
     log::info!("Is DHT client command received");
 
     if let Some(sender) = response_sender {
@@ -803,7 +783,6 @@ fn handle_is_dht_client<K: NetabaseSchemaKey, V: NetabaseSchema>(
 fn handle_toggle_dht_mode_auto<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement toggle DHT mode auto logic
     log::info!("Toggle DHT mode auto command received");
 
     if let Some(sender) = response_sender {
@@ -816,7 +795,6 @@ fn handle_toggle_dht_mode_auto<K: NetabaseSchemaKey, V: NetabaseSchema>(
 fn handle_force_dht_server_mode<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement force DHT server mode logic
     log::info!("Force DHT server mode command received");
 
     if let Some(sender) = response_sender {
@@ -827,7 +805,6 @@ fn handle_force_dht_server_mode<K: NetabaseSchemaKey, V: NetabaseSchema>(
 fn handle_force_dht_client_mode<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement force DHT client mode logic
     log::info!("Force DHT client mode command received");
 
     if let Some(sender) = response_sender {
@@ -838,7 +815,6 @@ fn handle_force_dht_client_mode<K: NetabaseSchemaKey, V: NetabaseSchema>(
 fn handle_get_dht_mode_stats<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement get DHT mode stats logic
     log::info!("Get DHT mode stats command received");
 
     if let Some(sender) = response_sender {

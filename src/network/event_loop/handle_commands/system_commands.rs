@@ -10,7 +10,6 @@ use crate::{
 use std::time::Duration;
 use tokio::sync::oneshot;
 
-/// Handle all system-level commands
 pub fn handle_system_command<K: NetabaseSchemaKey, V: NetabaseSchema>(
     command: SystemCommand,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
@@ -83,7 +82,7 @@ pub fn handle_system_command<K: NetabaseSchemaKey, V: NetabaseSchema>(
             handle_sync_key(key, response_sender);
         }
         SystemCommand::WaitForCondition { condition, timeout } => {
-            handle_wait_for_condition(condition, timeout, response_sender);
+            handle_wait_for_condition(condition, Some(timeout), response_sender);
         }
     }
 }
@@ -92,7 +91,6 @@ fn handle_initialize<K: NetabaseSchemaKey, V: NetabaseSchema>(
     _config: NetabaseConfig,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement system initialization logic
     log::info!("System initialize command received with config");
 
     if let Some(sender) = response_sender {
@@ -103,7 +101,6 @@ fn handle_initialize<K: NetabaseSchemaKey, V: NetabaseSchema>(
 fn handle_start<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement system start logic
     log::info!("System start command received");
 
     if let Some(sender) = response_sender {
@@ -114,7 +111,6 @@ fn handle_start<K: NetabaseSchemaKey, V: NetabaseSchema>(
 fn handle_stop<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement system stop logic
     log::info!("System stop command received");
 
     if let Some(sender) = response_sender {
@@ -125,7 +121,6 @@ fn handle_stop<K: NetabaseSchemaKey, V: NetabaseSchema>(
 fn handle_shutdown<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement system shutdown logic
     log::info!("System shutdown command received");
 
     if let Some(sender) = response_sender {
@@ -136,11 +131,10 @@ fn handle_shutdown<K: NetabaseSchemaKey, V: NetabaseSchema>(
 fn handle_get_state<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement get state logic
     log::info!("Get system state command received");
 
     if let Some(sender) = response_sender {
-        let state = SystemState::Initialized; // Placeholder
+        let state = SystemState::Initialized;
         let _ = sender.send(CommandResponse::System(SystemResponse::State(state)));
     }
 }
@@ -148,11 +142,9 @@ fn handle_get_state<K: NetabaseSchemaKey, V: NetabaseSchema>(
 fn handle_is_initialized<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement is initialized check
     log::info!("Is initialized check command received");
 
     if let Some(sender) = response_sender {
-        // Placeholder response
         let _ = sender.send(CommandResponse::Success);
     }
 }
@@ -160,11 +152,9 @@ fn handle_is_initialized<K: NetabaseSchemaKey, V: NetabaseSchema>(
 fn handle_is_running<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement is running check
     log::info!("Is running check command received");
 
     if let Some(sender) = response_sender {
-        // Placeholder response
         let _ = sender.send(CommandResponse::Success);
     }
 }
@@ -172,7 +162,6 @@ fn handle_is_running<K: NetabaseSchemaKey, V: NetabaseSchema>(
 fn handle_health_check<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement health check logic
     log::info!("Health check command received");
 
     if let Some(sender) = response_sender {
@@ -208,7 +197,6 @@ fn handle_health_check<K: NetabaseSchemaKey, V: NetabaseSchema>(
 fn handle_get_stats<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement get stats logic
     log::info!("Get system stats command received");
 
     if let Some(sender) = response_sender {
@@ -279,7 +267,6 @@ fn handle_get_stats<K: NetabaseSchemaKey, V: NetabaseSchema>(
 fn handle_get_performance_metrics<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement get performance metrics logic
     log::info!("Get performance metrics command received");
 
     if let Some(sender) = response_sender {
@@ -300,7 +287,6 @@ fn handle_get_performance_metrics<K: NetabaseSchemaKey, V: NetabaseSchema>(
 fn handle_start_monitoring<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement start monitoring logic
     log::info!("Start monitoring command received");
 
     if let Some(sender) = response_sender {
@@ -311,7 +297,6 @@ fn handle_start_monitoring<K: NetabaseSchemaKey, V: NetabaseSchema>(
 fn handle_stop_monitoring<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement stop monitoring logic
     log::info!("Stop monitoring command received");
 
     if let Some(sender) = response_sender {
@@ -323,7 +308,6 @@ fn handle_backup<K: NetabaseSchemaKey, V: NetabaseSchema>(
     backup_path: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement backup logic
     log::info!("Backup command received for path: {}", backup_path);
 
     if let Some(sender) = response_sender {
@@ -335,7 +319,6 @@ fn handle_restore<K: NetabaseSchemaKey, V: NetabaseSchema>(
     backup_path: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement restore logic
     log::info!("Restore command received from path: {}", backup_path);
 
     if let Some(sender) = response_sender {
@@ -347,7 +330,6 @@ fn handle_export<K: NetabaseSchemaKey, V: NetabaseSchema>(
     format: ExportFormat,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement export logic
     log::info!("Export command received with format: {:?}", format);
 
     if let Some(sender) = response_sender {
@@ -360,7 +342,6 @@ fn handle_import<K: NetabaseSchemaKey, V: NetabaseSchema>(
     format: ExportFormat,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement import logic
     log::info!(
         "Import command received with {} bytes in format: {:?}",
         data.len(),
@@ -375,7 +356,6 @@ fn handle_import<K: NetabaseSchemaKey, V: NetabaseSchema>(
 fn handle_optimize<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement optimization logic
     log::info!("Optimize command received");
 
     if let Some(sender) = response_sender {
@@ -386,7 +366,6 @@ fn handle_optimize<K: NetabaseSchemaKey, V: NetabaseSchema>(
 fn handle_create_snapshot<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement create snapshot logic
     log::info!("Create snapshot command received");
 
     if let Some(sender) = response_sender {
@@ -398,7 +377,6 @@ fn handle_register_event_handler<K: NetabaseSchemaKey, V: NetabaseSchema>(
     handler_id: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement register event handler logic
     log::info!(
         "Register event handler command received for handler: {}",
         handler_id
@@ -413,7 +391,6 @@ fn handle_unregister_event_handler<K: NetabaseSchemaKey, V: NetabaseSchema>(
     handler_id: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement unregister event handler logic
     log::info!(
         "Unregister event handler command received for handler: {}",
         handler_id
@@ -427,7 +404,6 @@ fn handle_unregister_event_handler<K: NetabaseSchemaKey, V: NetabaseSchema>(
 fn handle_sync_all<K: NetabaseSchemaKey, V: NetabaseSchema>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement sync all logic
     log::info!("Sync all command received");
 
     if let Some(sender) = response_sender {
@@ -439,7 +415,6 @@ fn handle_sync_key<K: NetabaseSchemaKey, V: NetabaseSchema>(
     key: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement sync key logic
     log::info!("Sync key command received for key: {}", key);
 
     if let Some(sender) = response_sender {
@@ -449,10 +424,9 @@ fn handle_sync_key<K: NetabaseSchemaKey, V: NetabaseSchema>(
 
 fn handle_wait_for_condition<K: NetabaseSchemaKey, V: NetabaseSchema>(
     condition: String,
-    timeout: Duration,
+    timeout: Option<Duration>,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
-    // TODO: Implement wait for condition logic
     log::info!(
         "Wait for condition command received: {} with timeout: {:?}",
         condition,

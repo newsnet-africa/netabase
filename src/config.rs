@@ -1,235 +1,234 @@
-//! Configuration module for Netabase
-//!
-//! This module provides comprehensive configuration structures for both the libp2p swarm
-//! and the network behaviors (Kademlia DHT, Identify, and mDNS).
-//!
-//! # Examples
-//!
-//! ## Basic Configuration
-//!
-//! ```rust
-//! use netabase::config::{NetabaseConfig, BehaviourConfig, NetabaseSwarmConfig};
-//! use std::time::Duration;
-//!
-//! // Create a basic configuration with defaults
-//! let config = NetabaseConfig::default();
-//!
-//! // Use the configuration to create a swarm
-//! // let swarm = generate_swarm_with_config(&config)?;
-//! ```
-//!
-//! ## Custom Configuration
-//!
-//! ```rust
-//! use netabase::config::{NetabaseConfig, BehaviourConfig, NetabaseSwarmConfig};
-//! use libp2p::{kad, identify, mdns};
-//! use std::time::Duration;
-//!
-//! // Create custom behavior configuration
-//! let mut kad_config = kad::Config::default();
-//! kad_config.set_query_timeout(Duration::from_secs(60));
-//!
-//! let identify_config = identify::Config::new("/myapp/1.0.0".to_string(), keypair.public())
-//!     .with_agent_version("MyApp/1.0.0".to_string());
-//!
-//! let behaviour_config = BehaviourConfig::builder()
-//!     .kad_config(Some(kad_config))
-//!     .identify_config(Some(identify_config))
-//!     .protocol_version("/myapp/1.0.0".to_string())
-//!     .database_path("./custom_db".to_string())
-//!     .build()
-//!     .expect("Valid behaviour config");
-//!
-//! // Create custom swarm configuration
-//! let swarm_config = NetabaseSwarmConfig::builder()
-//!     .connection_timeout(Duration::from_secs(45))
-//!     .dns(true)
-//!     .quic_enabled(true)
-//!     .mdns_enabled(true)
-//!     .max_connections_per_peer(Some(3))
-//!     .build()
-//!     .expect("Valid swarm config");
-//!
-//! // Combine into main configuration
-//! let config = NetabaseConfig::builder()
-//!     .swarm_config(swarm_config)
-//!     .behaviour_config(behaviour_config)
-//!     .build()
-//!     .expect("Valid netabase config");
-//! ```
-//!
-//! ## Production Configuration Example
-//!
-//! ```rust
-//! use netabase::config::{NetabaseConfig, BehaviourConfig, NetabaseSwarmConfig};
-//! use libp2p::{kad, identify, mdns, identity::Keypair};
-//! use std::time::Duration;
-//!
-//! // Production-ready configuration
-//! let keypair = Keypair::generate_ed25519();
-//!
-//! let mut kad_config = kad::Config::default();
-//! kad_config.set_query_timeout(Duration::from_secs(120));
-//! kad_config.set_replication_factor(20.try_into().unwrap());
-//!
-//! let behaviour_config = BehaviourConfig::builder()
-//!     .kad_config(Some(kad_config))
-//!     .protocol_version("/newsnet/1.0.0".to_string())
-//!     .agent_version("NewsNet/1.0.0".to_string())
-//!     .database_path("./production_db".to_string())
-//!     .build()
-//!     .unwrap();
-//!
-//! let swarm_config = NetabaseSwarmConfig::builder()
-//!     .identity(Some(keypair))
-//!     .connection_timeout(Duration::from_secs(30))
-//!     .idle_connection_timeout(Duration::from_secs(60))
-//!     .max_connections_per_peer(Some(5))
-//!     .max_pending_connections(Some(512))
-//!     .quic_enabled(true)
-//!     .mdns_enabled(false) // Disable mDNS in production
-//!     .listen_addresses(vec![
-//!         "/ip4/0.0.0.0/tcp/4001".parse().unwrap(),
-//!         "/ip4/0.0.0.0/udp/4001/quic-v1".parse().unwrap(),
-//!     ])
-//!     .build()
-//!     .unwrap();
-//!
-//! let config = NetabaseConfig::builder()
-//!     .swarm_config(swarm_config)
-//!     .behaviour_config(behaviour_config)
-//!     .build()
-//!     .unwrap();
-//! ```
-
 use derive_builder::Builder;
-use libp2p::{Multiaddr, identify, identity::Keypair, kad, mdns, noise, quic, tcp, yamux};
+use libp2p::{Multiaddr, PeerId, identify, identity::Keypair, kad, mdns, noise, quic, tcp, yamux};
 use std::time::Duration;
 
-/// Main configuration structure for Netabase
-///
-/// This structure contains all configuration options for both the libp2p swarm
-/// and the network behaviors used by Netabase.
-#[derive(Builder, Clone, Default)]
+#[derive(Builder, Clone)]
 pub struct NetabaseConfig {
-    /// Configuration for the libp2p swarm
     swarm_config: NetabaseSwarmConfig,
-    /// Configuration for network behaviors (Kademlia, Identify, mDNS)
     behaviour_config: BehaviourConfig,
 }
 
-/// Configuration for the libp2p swarm
-///
-/// This structure contains all configuration options that affect the libp2p swarm
-/// behavior, including transport settings, connection limits, and network addresses.
+pub type DefaultNetabaseConfig = NetabaseConfig;
+
+impl NetabaseConfig {
+    pub fn with_memory_store(peer_id: PeerId) -> NetabaseConfigBuilder {
+        let mut builder = NetabaseConfig::builder();
+        builder
+            .swarm_config(NetabaseSwarmConfig::default())
+            .behaviour_config(BehaviourConfig::with_memory_store(peer_id).build().unwrap());
+        builder
+    }
+
+    pub fn with_sled_store<P: AsRef<str>>(path: P) -> NetabaseConfigBuilder {
+        let mut builder = NetabaseConfig::builder();
+        builder
+            .swarm_config(NetabaseSwarmConfig::default())
+            .behaviour_config(BehaviourConfig::with_sled_store(path).build().unwrap());
+        builder
+    }
+
+    pub fn with_sled_store_config<P: AsRef<str>>(
+        path: P,
+        config: crate::database::SledStoreConfig,
+    ) -> NetabaseConfigBuilder {
+        let mut builder = NetabaseConfig::builder();
+        builder
+            .swarm_config(NetabaseSwarmConfig::default())
+            .behaviour_config(
+                BehaviourConfig::with_sled_store_config(path, config)
+                    .build()
+                    .unwrap(),
+            );
+        builder
+    }
+}
+
 #[derive(Builder, Clone)]
 pub struct NetabaseSwarmConfig {
-    /// Connection timeout for establishing connections
     #[builder(default = "Duration::from_secs(30)")]
     connection_timeout: Duration,
 
-    /// Enable DNS resolution
     #[builder(default = "true")]
     dns: bool,
 
-    /// Optional identity keypair for the node
     #[builder(default = "None")]
     identity: Option<Keypair>,
 
-    /// TCP transport configuration
     #[builder(default = "tcp::Config::default()")]
     tcp_config: tcp::Config,
 
-    /// Noise protocol configuration for encryption
     #[builder(default)]
     noise_config: Option<noise::Config>,
 
-    /// Yamux multiplexing configuration
     #[builder(default = "yamux::Config::default()")]
     yamux_config: yamux::Config,
 
-    /// Enable QUIC transport
     #[builder(default = "true")]
     quic_enabled: bool,
 
-    /// QUIC transport configuration
     #[builder(default)]
     quic_config: Option<quic::Config>,
 
-    /// Enable mDNS for local peer discovery
     #[builder(default = "true")]
     mdns_enabled: bool,
 
-    /// Enable relay functionality
+    #[builder(default = "false")]
+    mdns_auto_connect: bool,
+
     #[builder(default = "false")]
     relay_enabled: bool,
 
-    /// External addresses to announce
     #[builder(default = "Vec::new()")]
     external_addresses: Vec<Multiaddr>,
 
-    /// Addresses to listen on
     #[builder(default = "vec![\"/ip4/0.0.0.0/tcp/0\".parse().unwrap()]")]
     listen_addresses: Vec<Multiaddr>,
 
-    /// Maximum number of concurrent inbound streams being negotiated
     #[builder(default = "Some(256)")]
     max_negotiating_inbound_streams: Option<usize>,
 
-    /// Maximum number of established connections per peer
     #[builder(default = "Some(1)")]
     max_connections_per_peer: Option<u32>,
 
-    /// Maximum number of pending connections
     #[builder(default = "Some(256)")]
     max_pending_connections: Option<u32>,
 
-    /// Connection idle timeout
     #[builder(default = "Duration::from_secs(30)")]
     idle_connection_timeout: Duration,
 
-    /// Enable connection limits
     #[builder(default = "true")]
     connection_limits_enabled: bool,
 
-    /// Bootstrap nodes to connect to
     #[builder(default = "Vec::new()")]
     bootstrap_nodes: Vec<(String, Multiaddr)>,
 
-    /// Custom user agent string
     #[builder(default = "\"netabase/0.1.0\".to_string()")]
     user_agent: String,
 }
 
-/// Configuration for network behaviors
-///
-/// This structure contains configuration options for the various libp2p behaviors
-/// used by Netabase: Kademlia DHT, Identify protocol, and mDNS discovery.
+#[derive(Clone)]
+pub enum KadStoreConfig {
+    MemoryStore {
+        peer_id: PeerId,
+        config: Option<kad::store::MemoryStoreConfig>,
+    },
+    SledStore {
+        path: String,
+        config: Option<crate::database::SledStoreConfig>,
+    },
+}
+
+impl Default for KadStoreConfig {
+    fn default() -> Self {
+        KadStoreConfig::SledStore {
+            path: "./database".to_string(),
+            config: None,
+        }
+    }
+}
+
+impl KadStoreConfig {
+    pub fn memory_store(peer_id: PeerId) -> Self {
+        KadStoreConfig::MemoryStore {
+            peer_id,
+            config: None,
+        }
+    }
+
+    pub fn memory_store_with_config(
+        peer_id: PeerId,
+        config: kad::store::MemoryStoreConfig,
+    ) -> Self {
+        KadStoreConfig::MemoryStore {
+            peer_id,
+            config: Some(config),
+        }
+    }
+
+    pub fn sled_store<P: AsRef<str>>(path: P) -> Self {
+        KadStoreConfig::SledStore {
+            path: path.as_ref().to_string(),
+            config: None,
+        }
+    }
+
+    pub fn sled_store_with_config<P: AsRef<str>>(
+        path: P,
+        config: crate::database::SledStoreConfig,
+    ) -> Self {
+        KadStoreConfig::SledStore {
+            path: path.as_ref().to_string(),
+            config: Some(config),
+        }
+    }
+}
+
 #[derive(Builder, Clone)]
 pub struct BehaviourConfig {
-    /// Kademlia DHT configuration
     #[builder(default)]
     kad_config: Option<kad::Config>,
 
-    /// Identify protocol configuration
     #[builder(default)]
     identify_config: Option<identify::Config>,
 
-    /// mDNS configuration for local peer discovery
     #[builder(default)]
     mdns_config: Option<mdns::Config>,
 
-    /// Protocol version string for identify
     #[builder(default = "\"/p2p/newsnet/0.1.0\".to_string()")]
     protocol_version: String,
 
-    /// Agent version string for identify
     #[builder(default = "\"netabase/0.1.0\".to_string()")]
     agent_version: String,
 
-    /// Database path for Kademlia store
-    #[builder(default = "\"./database\".to_string()")]
-    database_path: String,
+    #[builder(default = "KadStoreConfig::default()")]
+    store_config: KadStoreConfig,
+}
+
+pub type DefaultBehaviourConfig = BehaviourConfig;
+
+impl BehaviourConfig {
+    pub fn with_memory_store(peer_id: PeerId) -> BehaviourConfigBuilder {
+        let mut builder = BehaviourConfig::builder();
+        builder.store_config(KadStoreConfig::memory_store(peer_id));
+        builder
+    }
+
+    pub fn with_memory_store_config(
+        peer_id: PeerId,
+        config: kad::store::MemoryStoreConfig,
+    ) -> BehaviourConfigBuilder {
+        let mut builder = BehaviourConfig::builder();
+        builder.store_config(KadStoreConfig::memory_store_with_config(peer_id, config));
+        builder
+    }
+
+    pub fn with_sled_store<P: AsRef<str>>(path: P) -> BehaviourConfigBuilder {
+        let mut builder = BehaviourConfig::builder();
+        builder.store_config(KadStoreConfig::sled_store(path));
+        builder
+    }
+
+    pub fn with_sled_store_config<P: AsRef<str>>(
+        path: P,
+        config: crate::database::SledStoreConfig,
+    ) -> BehaviourConfigBuilder {
+        let mut builder = BehaviourConfig::builder();
+        builder.store_config(KadStoreConfig::sled_store_with_config(path, config));
+        builder
+    }
+}
+
+impl Default for DefaultBehaviourConfig {
+    fn default() -> Self {
+        Self {
+            kad_config: None,
+            identify_config: None,
+            mdns_config: None,
+            protocol_version: "/p2p/newsnet/0.1.0".to_string(),
+            agent_version: "netabase/0.1.0".to_string(),
+            store_config: KadStoreConfig::default(),
+        }
+    }
 }
 
 impl Default for NetabaseSwarmConfig {
@@ -244,6 +243,7 @@ impl Default for NetabaseSwarmConfig {
             quic_enabled: true,
             quic_config: None,
             mdns_enabled: true,
+            mdns_auto_connect: false,
             relay_enabled: false,
             external_addresses: Vec::new(),
             listen_addresses: vec!["/ip4/0.0.0.0/tcp/0".parse().unwrap()],
@@ -258,157 +258,121 @@ impl Default for NetabaseSwarmConfig {
     }
 }
 
-impl Default for BehaviourConfig {
-    fn default() -> Self {
-        Self {
-            kad_config: None,
-            identify_config: None,
-            mdns_config: None,
-            protocol_version: "/p2p/newsnet/0.1.0".to_string(),
-            agent_version: "netabase/0.1.0".to_string(),
-            database_path: "./database".to_string(),
-        }
-    }
-}
-
 impl NetabaseSwarmConfig {
-    /// Create a new builder for NetabaseSwarmConfig
     pub fn builder() -> NetabaseSwarmConfigBuilder {
         NetabaseSwarmConfigBuilder::default()
     }
 
-    /// Get connection timeout
     pub fn connection_timeout(&self) -> Duration {
         self.connection_timeout
     }
 
-    /// Check if DNS is enabled
     pub fn dns_enabled(&self) -> bool {
         self.dns
     }
 
-    /// Get the identity keypair
     pub fn identity(&self) -> &Option<Keypair> {
         &self.identity
     }
 
-    /// Get TCP configuration
     pub fn tcp_config(&self) -> &tcp::Config {
         &self.tcp_config
     }
 
-    /// Get Yamux configuration
     pub fn yamux_config(&self) -> &yamux::Config {
         &self.yamux_config
     }
 
-    /// Check if QUIC is enabled
     pub fn quic_enabled(&self) -> bool {
         self.quic_enabled
     }
 
-    /// Check if mDNS is enabled
     pub fn mdns_enabled(&self) -> bool {
         self.mdns_enabled
     }
 
-    /// Check if relay is enabled
+    pub fn mdns_auto_connect(&self) -> bool {
+        self.mdns_auto_connect
+    }
+
     pub fn relay_enabled(&self) -> bool {
         self.relay_enabled
     }
 
-    /// Get external addresses
     pub fn external_addresses(&self) -> &[Multiaddr] {
         &self.external_addresses
     }
 
-    /// Get listen addresses
     pub fn listen_addresses(&self) -> &[Multiaddr] {
         &self.listen_addresses
     }
 
-    /// Get bootstrap nodes
     pub fn bootstrap_nodes(&self) -> &[(String, Multiaddr)] {
         &self.bootstrap_nodes
     }
 
-    /// Get user agent string
     pub fn user_agent(&self) -> &str {
         &self.user_agent
     }
 
-    /// Get idle connection timeout
     pub fn idle_connection_timeout(&self) -> Duration {
         self.idle_connection_timeout
     }
 
-    /// Get maximum negotiating inbound streams
     pub fn max_negotiating_inbound_streams(&self) -> Option<usize> {
         self.max_negotiating_inbound_streams
     }
 
-    /// Get maximum connections per peer
     pub fn max_connections_per_peer(&self) -> Option<u32> {
         self.max_connections_per_peer
     }
 
-    /// Get maximum pending connections
     pub fn max_pending_connections(&self) -> Option<u32> {
         self.max_pending_connections
     }
 }
 
 impl NetabaseConfig {
-    /// Create a new builder for NetabaseConfig
     pub fn builder() -> NetabaseConfigBuilder {
         NetabaseConfigBuilder::default()
     }
 
-    /// Get swarm configuration
     pub fn swarm_config(&self) -> &NetabaseSwarmConfig {
         &self.swarm_config
     }
 
-    /// Get behaviour configuration
     pub fn behaviour_config(&self) -> &BehaviourConfig {
         &self.behaviour_config
     }
 }
 
 impl BehaviourConfig {
-    /// Create a new builder for BehaviourConfig
     pub fn builder() -> BehaviourConfigBuilder {
         BehaviourConfigBuilder::default()
     }
 
-    /// Get Kademlia configuration
     pub fn kad_config(&self) -> &Option<kad::Config> {
         &self.kad_config
     }
 
-    /// Get Identify configuration
     pub fn identify_config(&self) -> &Option<identify::Config> {
         &self.identify_config
     }
 
-    /// Get mDNS configuration
     pub fn mdns_config(&self) -> &Option<mdns::Config> {
         &self.mdns_config
     }
 
-    /// Get protocol version
     pub fn protocol_version(&self) -> &str {
         &self.protocol_version
     }
 
-    /// Get agent version
     pub fn agent_version(&self) -> &str {
         &self.agent_version
     }
 
-    /// Get database path
-    pub fn database_path(&self) -> &str {
-        &self.database_path
+    pub fn store_config(&self) -> &KadStoreConfig {
+        &self.store_config
     }
 }
 
@@ -420,9 +384,12 @@ mod tests {
 
     #[test]
     fn test_default_netabase_config() {
-        let config = NetabaseConfig::default();
+        let config = DefaultNetabaseConfig::builder()
+            .swarm_config(NetabaseSwarmConfig::default())
+            .behaviour_config(DefaultBehaviourConfig::default())
+            .build()
+            .unwrap();
 
-        // Test swarm config defaults
         assert_eq!(
             config.swarm_config().connection_timeout(),
             Duration::from_secs(30)
@@ -430,15 +397,18 @@ mod tests {
         assert!(config.swarm_config().dns_enabled());
         assert!(config.swarm_config().quic_enabled());
         assert!(config.swarm_config().mdns_enabled());
+        assert!(!config.swarm_config().mdns_auto_connect());
         assert_eq!(config.swarm_config().user_agent(), "netabase/0.1.0");
 
-        // Test behaviour config defaults
         assert_eq!(
             config.behaviour_config().protocol_version(),
             "/p2p/newsnet/0.1.0"
         );
         assert_eq!(config.behaviour_config().agent_version(), "netabase/0.1.0");
-        assert_eq!(config.behaviour_config().database_path(), "./database");
+        match config.behaviour_config().store_config() {
+            KadStoreConfig::SledStore { path, .. } => assert_eq!(path, "./database"),
+            _ => panic!("Expected SledStore"),
+        }
     }
 
     #[test]
@@ -454,11 +424,11 @@ mod tests {
         let behaviour_config = BehaviourConfig::builder()
             .protocol_version("/test/1.0.0".to_string())
             .agent_version("TestAgent/1.0.0".to_string())
-            .database_path("./test_db".to_string())
+            .store_config(KadStoreConfig::sled_store("./test_db"))
             .build()
             .expect("Should build valid behaviour config");
 
-        let config = NetabaseConfig::builder()
+        let config = DefaultNetabaseConfig::builder()
             .swarm_config(swarm_config)
             .behaviour_config(behaviour_config)
             .build()
@@ -471,7 +441,10 @@ mod tests {
         assert!(!config.swarm_config().dns_enabled());
         assert_eq!(config.swarm_config().user_agent(), "test-agent/1.0.0");
         assert_eq!(config.behaviour_config().protocol_version(), "/test/1.0.0");
-        assert_eq!(config.behaviour_config().database_path(), "./test_db");
+        match config.behaviour_config().store_config() {
+            KadStoreConfig::SledStore { path, .. } => assert_eq!(path, "./test_db"),
+            _ => panic!("Expected SledStore"),
+        }
     }
 
     #[test]
@@ -552,7 +525,7 @@ mod tests {
                 "/dnsaddr/bootstrap.libp2p.io".parse().unwrap(),
             ),
             (
-                "QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa".to_string(),
+                "QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJB16u19uLTa".to_string(),
                 "/dnsaddr/bootstrap.libp2p.io".parse().unwrap(),
             ),
         ];
@@ -564,5 +537,73 @@ mod tests {
 
         assert_eq!(config.bootstrap_nodes().len(), 2);
         assert_eq!(config.bootstrap_nodes(), &bootstrap_nodes[..]);
+    }
+
+    #[test]
+    fn test_memory_store_config() {
+        let peer_id = PeerId::random();
+        let config = NetabaseConfig::with_memory_store(peer_id)
+            .swarm_config(NetabaseSwarmConfig::default())
+            .build()
+            .expect("Should build valid config with memory store");
+
+        match config.behaviour_config().store_config() {
+            KadStoreConfig::MemoryStore {
+                peer_id: store_peer_id,
+                config,
+            } => {
+                assert_eq!(store_peer_id, &peer_id);
+                assert!(config.is_none());
+            }
+            _ => panic!("Expected MemoryStore"),
+        }
+    }
+
+    #[test]
+    fn test_memory_store_with_custom_config() {
+        let peer_id = PeerId::random();
+        let memory_config = kad::store::MemoryStoreConfig::default();
+        let behaviour_config =
+            BehaviourConfig::with_memory_store_config(peer_id, memory_config.clone())
+                .build()
+                .expect("Should build valid behaviour config");
+
+        match behaviour_config.store_config() {
+            KadStoreConfig::MemoryStore {
+                peer_id: store_peer_id,
+                config,
+            } => {
+                assert_eq!(store_peer_id, &peer_id);
+                assert!(config.is_some());
+            }
+            _ => panic!("Expected MemoryStore"),
+        }
+    }
+
+    #[test]
+    fn test_sled_store_with_custom_config() {
+        let sled_config = crate::database::SledStoreConfig {
+            max_records: 2048,
+            max_value_bytes: 128 * 1024,
+            max_provided_keys: 2048,
+            max_providers_per_key: 20,
+        };
+
+        let behaviour_config =
+            BehaviourConfig::with_sled_store_config("./custom_db", sled_config.clone())
+                .build()
+                .expect("Should build valid behaviour config");
+
+        match behaviour_config.store_config() {
+            KadStoreConfig::SledStore { path, config } => {
+                assert_eq!(path, "./custom_db");
+                assert!(config.is_some());
+                if let Some(conf) = config {
+                    assert_eq!(conf.max_records, 2048);
+                    assert_eq!(conf.max_value_bytes, 128 * 1024);
+                }
+            }
+            _ => panic!("Expected SledStore"),
+        }
     }
 }
