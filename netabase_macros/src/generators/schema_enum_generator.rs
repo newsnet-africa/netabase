@@ -31,7 +31,7 @@ impl<'a> SchemaEnumGenerator<'a> {
 
         Ok(parse_quote! {
             #[derive(NetabaseSchema, Debug, Clone, ::macro_exports::__netabase_bincode::Encode, ::macro_exports::__netabase_bincode::Decode)]
-            #[__netabase_registery(#(#variants)*)]
+            #[__netabase_registery(#(#variants),*)]
             pub enum #enum_ident {
                 #(#variants),*
             }
@@ -70,7 +70,13 @@ impl<'a> SchemaEnumGenerator<'a> {
                                         let mut key_path = type_path.path.clone();
                                         // Replace the last segment (schema name) with key name
                                         if let Some(last_segment) = key_path.segments.last_mut() {
-                                            last_segment.ident = key_name.clone();
+                                            let mut key_name = key_name.to_string();
+                                            key_name.push_str("Key");
+                                            let new_key_name = Ident::new(
+                                                &key_name,
+                                                proc_macro2::Span::call_site(),
+                                            );
+                                            last_segment.ident = new_key_name.clone();
                                         }
                                         let new_variant = parse_quote! {
                                             #key_name(#key_path)
@@ -106,7 +112,7 @@ impl<'a> SchemaEnumGenerator<'a> {
                                 Ident::new(&key_name, proc_macro2::Span::call_site());
                             last_segment.ident = new_key_name.clone();
                         }
-                        let new_variant = parse_quote! {
+                        let new_variant: Variant = parse_quote! {
                             #key_name(#key_path)
                         };
                         variants.push(new_variant);
@@ -134,23 +140,8 @@ impl<'a> SchemaEnumGenerator<'a> {
     ) -> Result<TokenStream, GenerationError> {
         let schemas_enum = self.generate_schemas_enum(registry_enum_name)?;
 
-        let mut schema_name = registry_enum_name.to_string();
-        schema_name.push_str("Schema");
-        let mut schema_key_name = schema_name.clone();
-        schema_key_name.push_str("Key");
-        let schema_name = Ident::new(&schema_name, proc_macro2::Span::call_site());
-        let schema_key_name = Ident::new(&schema_key_name, proc_macro2::Span::call_site());
-
         Ok(quote! {
             #schemas_enum
-
-            #[derive(Encode, Decode, Debug, Clone)]
-            pub struct #registry_enum_name {
-                _schema: #schema_name,
-                _keys: #schema_key_name,
-            }
-
-            impl netabase::netabase_trait::NetabaseSchemaRegistry for #registry_enum_name {}
         })
     }
 

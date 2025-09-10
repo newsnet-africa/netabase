@@ -132,7 +132,7 @@ pub mod netabase_schema_key {
                 if let ReturnType::Type(_, boxed_type) = &sig.output {
                     let type_name = *boxed_type.clone();
                     Ok(KeyItemType::StructKey(parse_quote!(
-                        #[derive(NetabaseSchemaKey, Debug, Encode, Decode, Clone)]
+                        #[derive(NetabaseSchemaKey, Debug, ::macro_exports::__netabase_bincode::Encode, ::macro_exports::__netabase_bincode::Decode, Clone)]
                         pub struct #name(#type_name);
                     )))
                 } else {
@@ -144,7 +144,7 @@ pub mod netabase_schema_key {
             Key::StructInner { field, .. } => {
                 let type_name = &field.ty;
                 Ok(KeyItemType::StructKey(parse_quote!(
-                    #[derive(NetabaseSchemaKey, Debug, Encode, Decode, Clone)]
+                    #[derive(NetabaseSchemaKey, Debug, ::macro_exports::__netabase_bincode::Encode, ::macro_exports::__netabase_bincode::Decode, Clone)]
                     pub struct #name(#type_name);
                 )))
             }
@@ -158,7 +158,7 @@ pub mod netabase_schema_key {
                 });
 
                 Ok(KeyItemType::EnumKey(parse_quote!(
-                    #[derive(NetabaseSchemaKey, Debug, Encode, Decode, Clone)]
+                    #[derive(NetabaseSchemaKey, Debug, ::macro_exports::__netabase_bincode::Encode, ::macro_exports::__netabase_bincode::Decode, Clone)]
                     pub enum #name {
                         #(#variant_iter),*
                     }

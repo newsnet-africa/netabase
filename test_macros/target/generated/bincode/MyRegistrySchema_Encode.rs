@@ -6,12 +6,12 @@ impl :: bincode :: Encode for MyRegistrySchema
     {
         match self
         {
-            Self ::SimpleRecord(field_0)
+            Self ::UserRecord(field_0)
             =>{
                 < u32 as :: bincode :: Encode >:: encode(& (0u32), encoder) ?
                 ; :: bincode :: Encode :: encode(field_0, encoder) ?; core ::
                 result :: Result :: Ok(())
-            }, Self ::UserRecord(field_0)
+            }, Self ::SimpleRecord(field_0)
             =>{
                 < u32 as :: bincode :: Encode >:: encode(& (1u32), encoder) ?
                 ; :: bincode :: Encode :: encode(field_0, encoder) ?; core ::

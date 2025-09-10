@@ -86,13 +86,9 @@ pub enum SystemResponse {
 }
 
 /// Command with response channel for operations that need to return results
-pub struct CommandWithResponse<R: netabase_trait::NetabaseRegistery>
-where
-    <R as netabase_trait::NetabaseRegistery>::RegistrySchema: netabase_trait::NetabaseSchema,
-    <R as netabase_trait::NetabaseRegistery>::RegistryKey: netabase_trait::NetabaseSchemaKey,
-{
-    pub command: NetabaseCommand<R::RegistryKey, R::RegistrySchema>,
-    pub response_sender: oneshot::Sender<CommandResponse<R::RegistryKey, R::RegistrySchema>>,
+pub struct CommandWithResponse<K: NetabaseSchemaKey, V: NetabaseSchema> {
+    pub command: NetabaseCommand<K, V>,
+    pub response_sender: oneshot::Sender<CommandResponse<K, V>>,
 }
 
 pub mod database_commands {

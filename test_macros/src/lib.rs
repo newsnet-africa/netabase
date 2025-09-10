@@ -12,13 +12,6 @@ pub mod registry {
     use netabase_macros::NetabaseSchema;
     use netabase_macros::NetabaseSchemaKey;
     // Simple non-generic struct to test basic functionality
-    #[derive(NetabaseSchema, Encode, Decode, Clone, Debug)]
-    pub struct SimpleRecord {
-        #[key]
-        pub record_id: u64,
-        pub name: String,
-        pub description: Option<String>,
-    }
 
     // Another simple struct with string key
     #[derive(NetabaseSchema, Encode, Decode, Clone, Debug)]
@@ -28,6 +21,14 @@ pub mod registry {
         pub username: String,
         pub email: String,
         pub created_at: u64,
+    }
+
+    #[derive(NetabaseSchema, Encode, Decode, Clone, Debug)]
+    pub struct SimpleRecord {
+        #[key]
+        pub record_id: u64,
+        pub name: String,
+        pub description: Option<String>,
     }
 }
 

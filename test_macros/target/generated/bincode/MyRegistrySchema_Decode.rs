@@ -8,12 +8,12 @@ impl < __Context > :: bincode :: Decode < __Context > for MyRegistrySchema
         >>:: decode(decoder) ?; match variant_index
         {
             0u32 =>core :: result :: Result ::
-            Ok(Self ::SimpleRecord
+            Ok(Self ::UserRecord
             {
                 0 : :: bincode :: Decode ::< __D :: Context >::
                 decode(decoder) ?,
             }), 1u32 =>core :: result :: Result ::
-            Ok(Self ::UserRecord
+            Ok(Self ::SimpleRecord
             {
                 0 : :: bincode :: Decode ::< __D :: Context >::
                 decode(decoder) ?,
@@ -37,12 +37,12 @@ for MyRegistrySchema
         >>:: decode(decoder) ?; match variant_index
         {
             0u32 =>core :: result :: Result ::
-            Ok(Self ::SimpleRecord
+            Ok(Self ::UserRecord
             {
                 0 : :: bincode :: BorrowDecode ::< __D :: Context >::
                 borrow_decode(decoder) ?,
             }), 1u32 =>core :: result :: Result ::
-            Ok(Self ::UserRecord
+            Ok(Self ::SimpleRecord
             {
                 0 : :: bincode :: BorrowDecode ::< __D :: Context >::
                 borrow_decode(decoder) ?,
