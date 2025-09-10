@@ -4,9 +4,11 @@ use std::collections::HashMap;
 use tokio::sync::oneshot;
 
 use crate::{
-    netabase_trait::{NetabaseSchema, NetabaseSchemaKey},
-    network::behaviour::NetabaseBehaviour,
-    network::event_messages::command_messages::{CommandResponse, NetabaseCommand},
+    netabase_trait::{self, NetabaseRegistery, NetabaseSchema, NetabaseSchemaKey},
+    network::{
+        behaviour::NetabaseBehaviour,
+        event_messages::command_messages::{CommandResponse, NetabaseCommand},
+    },
 };
 
 pub mod configuration_commands;
@@ -19,16 +21,21 @@ use database_commands::{DatabaseOperationContext, handle_database_command};
 
 use system_commands::handle_system_command;
 
-pub fn handle_command<
-    K: NetabaseSchemaKey + std::fmt::Debug,
-    V: NetabaseSchema + std::fmt::Debug,
->(
-    command: NetabaseCommand<K, V>,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
-    query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<K, V>>>,
+pub fn handle_command<R: NetabaseRegistery>(
+    command: NetabaseCommand<R::RegistryKey, R::RegistrySchema>,
+    response_sender: Option<oneshot::Sender<CommandResponse<R::RegistryKey, R::RegistrySchema>>>,
+    query_queue: &mut HashMap<
+        QueryId,
+        oneshot::Sender<CommandResponse<R::RegistryKey, R::RegistrySchema>>,
+    >,
     database_context: &mut HashMap<QueryId, DatabaseOperationContext>,
     swarm: &mut Swarm<NetabaseBehaviour>,
-) {
+) where
+    <R as netabase_trait::NetabaseRegistery>::RegistrySchema:
+        netabase_trait::NetabaseSchema + std::fmt::Debug,
+    <R as netabase_trait::NetabaseRegistery>::RegistryKey:
+        netabase_trait::NetabaseSchemaKey + std::fmt::Debug,
+{
     match command {
         NetabaseCommand::System(system_command) => {
             handle_system_command(system_command, response_sender);

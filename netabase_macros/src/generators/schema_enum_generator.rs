@@ -149,6 +149,8 @@ impl<'a> SchemaEnumGenerator<'a> {
                 _schema: #schema_name,
                 _keys: #schema_key_name,
             }
+
+            impl netabase::netabase_trait::NetabaseSchemaRegistry for #registry_enum_name {}
         })
     }
 

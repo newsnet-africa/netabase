@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use bincode::{Decode, Encode};
 
 pub trait NetabaseSchema:
@@ -20,4 +22,9 @@ pub trait NetabaseSchemaKey:
     + Decode<()>
     + TryInto<::macro_exports::__netabase_libp2p_kad::RecordKey>
 {
+}
+
+pub trait NetabaseRegistery: Debug + Clone + Send {
+    type RegistrySchema: NetabaseSchema;
+    type RegistryKey: NetabaseSchemaKey;
 }

@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use tokio::sync::oneshot;
 
 use crate::config::DefaultNetabaseConfig;
-use crate::netabase_trait::{NetabaseSchema, NetabaseSchemaKey};
+use crate::netabase_trait::{self, NetabaseSchema, NetabaseSchemaKey};
 use crate::network::behaviour::NetabaseBehaviour;
 use crate::network::event_loop::handle_behaviour_events::handle_behaviour_event;
 use crate::network::event_loop::handle_commands::{
@@ -16,16 +16,21 @@ use crate::network::event_messages::swarm_messages::NetabaseEvent;
 pub mod handle_behaviour_events;
 pub mod handle_commands;
 
-pub async fn event_loop<
-    K: NetabaseSchemaKey + std::fmt::Debug,
-    V: NetabaseSchema + std::fmt::Debug,
->(
+pub async fn event_loop<R: netabase_trait::NetabaseRegistery>(
     swarm: &mut Swarm<NetabaseBehaviour>,
     mut event_sender: tokio::sync::broadcast::Sender<NetabaseEvent>,
-    mut command_receiver: tokio::sync::mpsc::UnboundedReceiver<CommandWithResponse<K, V>>,
+    mut command_receiver: tokio::sync::mpsc::UnboundedReceiver<CommandWithResponse<R>>,
     config: &DefaultNetabaseConfig,
-) {
-    let mut query_queue: HashMap<QueryId, oneshot::Sender<CommandResponse<K, V>>> = HashMap::new();
+) where
+    <R as netabase_trait::NetabaseRegistery>::RegistrySchema:
+        netabase_trait::NetabaseSchema + std::fmt::Debug,
+    <R as netabase_trait::NetabaseRegistery>::RegistryKey:
+        netabase_trait::NetabaseSchemaKey + std::fmt::Debug,
+{
+    let mut query_queue: HashMap<
+        QueryId,
+        oneshot::Sender<CommandResponse<R::RegistryKey, R::RegistrySchema>>,
+    > = HashMap::new();
     let mut database_context: HashMap<QueryId, DatabaseOperationContext> = HashMap::new();
     let auto_connect_enabled = config.swarm_config().mdns_auto_connect();
     loop {
@@ -55,7 +60,7 @@ pub async fn event_loop<
             command = command_receiver.recv() => {
                 match command {
                     Some(cmd_with_response) => {
-                        handle_command(
+                        handle_command::<R>(
                             cmd_with_response.command,
                             Some(cmd_with_response.response_sender),
                             &mut query_queue,

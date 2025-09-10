@@ -1,16 +1,19 @@
 use libp2p::{Multiaddr, identity::Keypair};
 use tokio::task::JoinHandle;
 
-use crate::network::{
-    event_loop::event_loop,
-    event_messages::{
-        command_messages::{
-            CommandResponse, CommandWithResponse, NetabaseCommand,
-            database_commands::DatabaseCommand,
+use crate::{
+    netabase_trait::NetabaseRegistery,
+    network::{
+        event_loop::event_loop,
+        event_messages::{
+            command_messages::{
+                CommandResponse, CommandWithResponse, NetabaseCommand,
+                database_commands::DatabaseCommand,
+            },
+            swarm_messages::NetabaseEvent,
         },
-        swarm_messages::NetabaseEvent,
+        generate_swarm, generate_swarm_with_config,
     },
-    generate_swarm, generate_swarm_with_config,
 };
 
 pub mod config;
@@ -25,10 +28,10 @@ pub use config::{
 };
 pub use netabase_trait::{NetabaseSchema, NetabaseSchemaKey};
 
-pub struct Netabase<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema + std::fmt::Debug> {
+pub struct Netabase<R: NetabaseRegistery> {
     swarm_thread: Option<JoinHandle<()>>,
     pub swarm_event_listener: tokio::sync::broadcast::Receiver<NetabaseEvent>,
-    pub swarm_command_sender: tokio::sync::mpsc::UnboundedSender<CommandWithResponse<K, V>>,
+    pub swarm_command_sender: tokio::sync::mpsc::UnboundedSender<CommandWithResponse<R>>,
     config: Option<DefaultNetabaseConfig>,
 }
 
@@ -44,11 +47,7 @@ pub enum NetabaseError {
     UnexpectedResponse,
 }
 
-impl<
-    K: NetabaseSchemaKey + std::fmt::Debug + 'static,
-    V: NetabaseSchema + std::fmt::Debug + 'static,
-> Netabase<K, V>
-{
+impl<R: netabase_trait::NetabaseRegistery> Netabase<R> {
     pub fn new_test(test_number: usize, server: bool) -> Self {
         let config = crate::config::DefaultNetabaseConfig::builder()
             .swarm_config(crate::config::NetabaseSwarmConfig::default())
@@ -64,8 +63,7 @@ impl<
             .build()
             .expect("Default NetabaseConfig should be valid");
 
-        let (command_sender, _) =
-            tokio::sync::mpsc::unbounded_channel::<CommandWithResponse<K, V>>();
+        let (command_sender, _) = tokio::sync::mpsc::unbounded_channel::<CommandWithResponse<R>>();
         let (_, event_receiver) = tokio::sync::broadcast::channel::<NetabaseEvent>(20);
 
         let mut instance = Self {
@@ -107,8 +105,7 @@ impl<
             .build()
             .expect("Default NetabaseConfig should be valid");
 
-        let (command_sender, _) =
-            tokio::sync::mpsc::unbounded_channel::<CommandWithResponse<K, V>>();
+        let (command_sender, _) = tokio::sync::mpsc::unbounded_channel::<CommandWithResponse<R>>();
         let (_, event_receiver) = tokio::sync::broadcast::channel::<NetabaseEvent>(20);
 
         let mut instance = Self {
@@ -134,7 +131,7 @@ impl<
         let config = self.config.clone().ok_or("No config available")?;
 
         let (command_sender, command_receiver) =
-            tokio::sync::mpsc::unbounded_channel::<CommandWithResponse<K, V>>();
+            tokio::sync::mpsc::unbounded_channel::<CommandWithResponse<R>>();
         let (event_sender, event_receiver) = tokio::sync::broadcast::channel::<NetabaseEvent>(20);
 
         self.swarm_command_sender = command_sender;
@@ -404,10 +401,12 @@ impl<
     }
 }
 
-impl<
-    K: NetabaseSchemaKey + std::fmt::Debug + 'static,
-    V: NetabaseSchema + std::fmt::Debug + 'static,
-> Default for Netabase<K, V>
+impl<R: NetabaseRegistery> Default for Netabase<R>
+where
+    <R as netabase_trait::NetabaseRegistery>::RegistrySchema:
+        netabase_trait::NetabaseSchemaKey + std::fmt::Debug,
+    <R as netabase_trait::NetabaseRegistery>::RegistryKey:
+        netabase_trait::NetabaseSchema + std::fmt::Debug,
 {
     fn default() -> Self {
         let config = DefaultNetabaseConfig::builder()
