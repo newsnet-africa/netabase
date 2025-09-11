@@ -26,7 +26,7 @@ pub trait NetabaseSchemaKey:
     + Decode<()>
     + TryInto<::macro_exports::__netabase_libp2p_kad::RecordKey>
 {
-    fn
+    fn get<>
 }
 
 pub trait NetabaseRegistery: Debug + Clone + Send {
