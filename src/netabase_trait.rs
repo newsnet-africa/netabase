@@ -2,6 +2,8 @@ use std::fmt::Debug;
 
 use bincode::{Decode, Encode};
 
+use crate::NetabaseError;
+
 pub trait NetabaseSchema:
     Clone
     + Send
@@ -12,6 +14,8 @@ pub trait NetabaseSchema:
 {
     type Key: NetabaseSchemaKey;
     fn key(&self) -> Self::Key;
+    fn put<R: TryInto<Self> + From<Self>>(value: Self) -> Result<(), NetabaseError>;
+
 }
 
 pub trait NetabaseSchemaKey:
@@ -22,9 +26,14 @@ pub trait NetabaseSchemaKey:
     + Decode<()>
     + TryInto<::macro_exports::__netabase_libp2p_kad::RecordKey>
 {
+    fn
 }
 
 pub trait NetabaseRegistery: Debug + Clone + Send {
-    type RegistrySchema: NetabaseSchema;
-    type RegistryKey: NetabaseSchemaKey;
+    type KeyRegistry: NetabaseRegistryKey;
+
+    fn unwrap<T: NetabaseSchema>(&self) -> T;
+}
+pub trait NetabaseRegistryKey: Debug + Clone + Send {
+    fn unwrap<T: NetabaseSchema>(&self) -> T;
 }

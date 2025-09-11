@@ -2,15 +2,17 @@ use libp2p::kad::{self, QueryId};
 use std::collections::HashMap;
 use tokio::sync::oneshot;
 
-use crate::netabase_trait::{NetabaseSchema, NetabaseSchemaKey};
+use crate::netabase_trait::{
+    NetabaseRegistery, NetabaseRegistryKey, NetabaseSchema, NetabaseSchemaKey,
+};
 use crate::network::event_loop::handle_commands::database_commands::{
     DatabaseOperationContext, process_database_dht_response,
 };
 use crate::network::event_messages::command_messages::{CommandResponse, NetworkResponse};
 
 pub fn handle_kad_event<
-    K: NetabaseSchemaKey + std::fmt::Debug,
-    V: NetabaseSchema + std::fmt::Debug,
+    K: NetabaseRegistryKey + std::fmt::Debug,
+    V: NetabaseRegistery + std::fmt::Debug,
 >(
     event: kad::Event,
     pending_queries: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<K, V>>>,

@@ -5,7 +5,9 @@ use std::collections::HashMap;
 use tokio::sync::oneshot;
 
 use crate::config::DefaultNetabaseConfig;
-use crate::netabase_trait::{self, NetabaseSchema, NetabaseSchemaKey};
+use crate::netabase_trait::{
+    self, NetabaseRegistery, NetabaseRegistryKey, NetabaseSchema, NetabaseSchemaKey,
+};
 use crate::network::behaviour::NetabaseBehaviour;
 use crate::network::event_loop::handle_behaviour_events::handle_behaviour_event;
 use crate::network::event_loop::handle_commands::{
@@ -17,8 +19,8 @@ pub mod handle_behaviour_events;
 pub mod handle_commands;
 
 pub async fn event_loop<
-    K: NetabaseSchemaKey + std::fmt::Debug,
-    V: NetabaseSchema + std::fmt::Debug,
+    K: NetabaseRegistryKey + std::fmt::Debug,
+    V: NetabaseRegistery + std::fmt::Debug,
 >(
     swarm: &mut Swarm<NetabaseBehaviour>,
     mut event_sender: tokio::sync::broadcast::Sender<NetabaseEvent>,

@@ -1,4 +1,6 @@
-use crate::netabase_trait::{NetabaseSchema, NetabaseSchemaKey};
+use crate::netabase_trait::{
+    NetabaseRegistery, NetabaseRegistryKey, NetabaseSchema, NetabaseSchemaKey,
+};
 use async_trait::async_trait;
 use libp2p::{Multiaddr, PeerId};
 
@@ -368,7 +370,7 @@ pub struct NetworkStats {
 
 /// Events that can occur in the network
 #[derive(Debug, Clone)]
-pub enum NetworkEvent<K: NetabaseSchemaKey, V: NetabaseSchema> {
+pub enum NetworkEvent<K: NetabaseRegistryKey, V: NetabaseRegistery> {
     /// A new peer has been discovered
     PeerDiscovered { peer_info: PeerInfo },
 
@@ -415,7 +417,7 @@ pub enum NetworkEvent<K: NetabaseSchemaKey, V: NetabaseSchema> {
 
 /// Types of messages that can be sent over the network
 #[derive(Debug, Clone)]
-pub enum NetworkMessage<K: NetabaseSchemaKey, V: NetabaseSchema> {
+pub enum NetworkMessage<K: NetabaseRegistryKey, V: NetabaseRegistery> {
     /// Request to store a value
     StoreRequest { key: K, value: V },
 
@@ -460,7 +462,7 @@ pub enum MessagePriority {
 
 /// Core network operations trait
 #[async_trait]
-pub trait NetabaseNetwork<K: NetabaseSchemaKey, V: NetabaseSchema>: Send + Sync {
+pub trait NetabaseNetwork<K: NetabaseRegistryKey, V: NetabaseRegistery>: Send + Sync {
     /// Initialize the network with the given configuration
     async fn initialize(&mut self, config: NetworkConfig) -> NetworkResult<()>;
 
@@ -563,7 +565,7 @@ pub trait NetabaseNetwork<K: NetabaseSchemaKey, V: NetabaseSchema>: Send + Sync 
 
 /// Extension trait for advanced network operations
 #[async_trait]
-pub trait NetabaseNetworkExt<K: NetabaseSchemaKey, V: NetabaseSchema>:
+pub trait NetabaseNetworkExt<K: NetabaseRegistryKey, V: NetabaseRegistery>:
     NetabaseNetwork<K, V>
 {
     /// Discover peers using mDNS
@@ -691,8 +693,8 @@ pub enum DhtStatus {
 /// Trait for handling network events
 #[async_trait]
 pub trait NetworkEventHandler<
-    K: NetabaseSchemaKey + Send + Sync + 'static,
-    V: NetabaseSchema + Send + Sync + 'static,
+    K: NetabaseRegistryKey + Send + Sync + 'static,
+    V: NetabaseRegistery + Send + Sync + 'static,
 >: Send + Sync
 {
     /// Handle a network event

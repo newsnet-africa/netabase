@@ -1,4 +1,4 @@
-use crate::netabase_trait::{NetabaseSchema, NetabaseSchemaKey};
+use crate::netabase_trait::{NetabaseRegistery, NetabaseRegistryKey, NetabaseSchema, NetabaseSchemaKey};
 use crate::traits::{
     configuration::{ConfigurationError, NetabaseConfiguration},
     database::{DatabaseError, DatabaseStats, NetabaseDatabase},
@@ -335,7 +335,7 @@ impl Default for NetabaseConfig {
 
 /// Core trait that provides the main Netabase interface
 #[async_trait]
-pub trait NetabaseCore<K, V, D, N, C>: Send + Sync
+pub trait NetabaseCore<K: NetabaseRegistryKey, V: NetabaseRegistery, D, N, C>: Send + Sync
 where
     K: NetabaseSchemaKey,
     V: NetabaseSchema,
@@ -581,7 +581,7 @@ pub trait NetabaseTransaction<K: NetabaseSchemaKey, V: NetabaseSchema>: Send + S
 
 /// Extension trait for advanced Netabase operations
 #[async_trait]
-pub trait NetabaseCoreExt<K, V, D, N, C>: NetabaseCore<K, V, D, N, C>
+pub trait NetabaseCoreExt<K: NetabaseRegistryKey, V: NetabaseRegistery, D, N, C>: NetabaseCore<K, V, D, N, C>
 where
     K: NetabaseSchemaKey,
     V: NetabaseSchema,

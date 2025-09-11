@@ -16,7 +16,7 @@ use crate::{
             netabase_schema_key::{generate_from_to_key_record, generate_key_impl},
         },
     },
-    visitors::{SchemaCounterVisitor, SchemaValidator},
+    visitors::{RegistryVisitor, SchemaCounterVisitor, SchemaValidator},
 };
 
 #[proc_macro_attribute]
@@ -47,6 +47,21 @@ pub fn netabase_schema_derive(input: TokenStream) -> TokenStream {
     match generate_netabase_macro(vi) {
         Ok(net_impl) => quote! {
             #net_impl
+        }
+        .into(),
+        Err(err) => err.into_compile_error().into(),
+    }
+}
+#[proc_macro_derive(NetabaseRegistry)]
+pub fn netabase_registry_derive(input: TokenStream) -> TokenStream {
+    let inp = parse_macro_input!(input as DeriveInput);
+    let mut vi = RegistryVisitor::default();
+    vi.visit_derive_input(&inp);
+
+    match vi.generate_keys_registry() {
+        Ok((net_impl, impl_item)) => quote! {
+            #net_impl
+            #impl_item
         }
         .into(),
         Err(err) => err.into_compile_error().into(),

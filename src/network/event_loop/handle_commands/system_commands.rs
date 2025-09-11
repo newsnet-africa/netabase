@@ -1,5 +1,5 @@
 use crate::{
-    netabase_trait::{NetabaseSchema, NetabaseSchemaKey},
+    netabase_trait::{NetabaseRegistery, NetabaseRegistryKey, NetabaseSchema, NetabaseSchemaKey},
     network::event_messages::command_messages::{
         CommandResponse, SystemResponse, system_commands::SystemCommand,
     },
@@ -10,7 +10,7 @@ use crate::{
 use std::time::Duration;
 use tokio::sync::oneshot;
 
-pub fn handle_system_command<K: NetabaseSchemaKey, V: NetabaseSchema>(
+pub fn handle_system_command<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     command: SystemCommand,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -87,7 +87,7 @@ pub fn handle_system_command<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_initialize<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_initialize<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     _config: NetabaseConfig,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -98,7 +98,7 @@ fn handle_initialize<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_start<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_start<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     log::info!("System start command received");
@@ -108,7 +108,7 @@ fn handle_start<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_stop<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_stop<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     log::info!("System stop command received");
@@ -118,7 +118,7 @@ fn handle_stop<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_shutdown<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_shutdown<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     log::info!("System shutdown command received");
@@ -128,7 +128,7 @@ fn handle_shutdown<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_get_state<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_get_state<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     log::info!("Get system state command received");
@@ -139,7 +139,7 @@ fn handle_get_state<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_is_initialized<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_is_initialized<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     log::info!("Is initialized check command received");
@@ -149,7 +149,7 @@ fn handle_is_initialized<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_is_running<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_is_running<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     log::info!("Is running check command received");
@@ -159,7 +159,7 @@ fn handle_is_running<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_health_check<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_health_check<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     log::info!("Health check command received");
@@ -194,7 +194,7 @@ fn handle_health_check<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_get_stats<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_get_stats<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     log::info!("Get system stats command received");
@@ -264,7 +264,7 @@ fn handle_get_stats<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_get_performance_metrics<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_get_performance_metrics<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     log::info!("Get performance metrics command received");
@@ -284,7 +284,7 @@ fn handle_get_performance_metrics<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_start_monitoring<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_start_monitoring<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     log::info!("Start monitoring command received");
@@ -294,7 +294,7 @@ fn handle_start_monitoring<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_stop_monitoring<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_stop_monitoring<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     log::info!("Stop monitoring command received");
@@ -304,7 +304,7 @@ fn handle_stop_monitoring<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_backup<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_backup<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     backup_path: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -315,7 +315,7 @@ fn handle_backup<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_restore<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_restore<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     backup_path: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -326,7 +326,7 @@ fn handle_restore<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_export<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_export<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     format: ExportFormat,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -337,7 +337,7 @@ fn handle_export<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_import<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_import<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     data: Vec<u8>,
     format: ExportFormat,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
@@ -353,7 +353,7 @@ fn handle_import<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_optimize<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_optimize<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     log::info!("Optimize command received");
@@ -363,7 +363,7 @@ fn handle_optimize<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_create_snapshot<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_create_snapshot<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     log::info!("Create snapshot command received");
@@ -373,7 +373,7 @@ fn handle_create_snapshot<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_register_event_handler<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_register_event_handler<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     handler_id: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -387,7 +387,7 @@ fn handle_register_event_handler<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_unregister_event_handler<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_unregister_event_handler<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     handler_id: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -401,7 +401,7 @@ fn handle_unregister_event_handler<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_sync_all<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_sync_all<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     log::info!("Sync all command received");
@@ -411,7 +411,7 @@ fn handle_sync_all<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_sync_key<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_sync_key<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     key: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -422,7 +422,7 @@ fn handle_sync_key<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_wait_for_condition<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_wait_for_condition<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     condition: String,
     timeout: Option<Duration>,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,

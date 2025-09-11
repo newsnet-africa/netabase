@@ -4,7 +4,9 @@ use std::collections::HashMap;
 use tokio::sync::oneshot;
 
 use crate::{
-    netabase_trait::{self, NetabaseRegistery, NetabaseSchema, NetabaseSchemaKey},
+    netabase_trait::{
+        self, NetabaseRegistery, NetabaseRegistryKey, NetabaseSchema, NetabaseSchemaKey,
+    },
     network::{
         behaviour::NetabaseBehaviour,
         event_messages::command_messages::{CommandResponse, NetabaseCommand},
@@ -21,7 +23,7 @@ use database_commands::{DatabaseOperationContext, handle_database_command};
 
 use system_commands::handle_system_command;
 
-pub fn handle_command<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+pub fn handle_command<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     command: NetabaseCommand<K, V>,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
     query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<K, V>>>,
@@ -58,7 +60,7 @@ pub fn handle_command<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>
     }
 }
 
-fn handle_close<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_close<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     log::info!("Close command received - shutting down");

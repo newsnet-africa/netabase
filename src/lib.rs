@@ -1,3 +1,4 @@
+use crate::netabase_trait::NetabaseRegistryKey;
 use libp2p::{Multiaddr, identity::Keypair};
 use tokio::task::JoinHandle;
 
@@ -28,7 +29,7 @@ pub use config::{
 };
 pub use netabase_trait::{NetabaseSchema, NetabaseSchemaKey};
 
-pub struct Netabase<K: NetabaseSchemaKey, V: NetabaseSchema> {
+pub struct Netabase<K: NetabaseRegistryKey, V: NetabaseRegistery> {
     swarm_thread: Option<JoinHandle<()>>,
     pub swarm_event_listener: tokio::sync::broadcast::Receiver<NetabaseEvent>,
     pub swarm_command_sender: tokio::sync::mpsc::UnboundedSender<CommandWithResponse<K, V>>,
@@ -48,8 +49,8 @@ pub enum NetabaseError {
 }
 
 impl<
-    K: NetabaseSchemaKey + std::fmt::Debug + 'static,
-    V: NetabaseSchema + std::fmt::Debug + 'static,
+    K: NetabaseRegistryKey + std::fmt::Debug + 'static,
+    V: NetabaseRegistery + std::fmt::Debug + 'static,
 > Netabase<K, V>
 {
     pub fn new_test(test_number: usize, server: bool) -> Self {
@@ -408,8 +409,8 @@ impl<
 }
 
 impl<
-    K: NetabaseSchemaKey + std::fmt::Debug + 'static,
-    V: NetabaseSchema + std::fmt::Debug + 'static,
+    K: NetabaseRegistryKey + std::fmt::Debug + 'static,
+    V: NetabaseRegistery + std::fmt::Debug + 'static,
 > Default for Netabase<K, V>
 {
     fn default() -> Self {

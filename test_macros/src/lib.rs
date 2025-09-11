@@ -1,4 +1,5 @@
 use netabase::netabase_trait::NetabaseSchema;
+use netabase_macros::NetabaseRegistry;
 use netabase_macros::NetabaseSchema;
 use netabase_macros::NetabaseSchemaKey;
 use netabase_macros::schema_module;

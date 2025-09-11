@@ -1,8 +1,10 @@
 use crate::{
-    netabase_trait::{NetabaseSchema, NetabaseSchemaKey},
-    network::behaviour::NetabaseBehaviour,
-    network::event_messages::command_messages::{
-        CommandResponse, DatabaseResponse, database_commands::DatabaseCommand,
+    netabase_trait::{NetabaseRegistery, NetabaseRegistryKey, NetabaseSchema, NetabaseSchemaKey},
+    network::{
+        behaviour::NetabaseBehaviour,
+        event_messages::command_messages::{
+            CommandResponse, DatabaseResponse, database_commands::DatabaseCommand,
+        },
     },
     traits::{
         database::{DatabaseConfig, QueryOptions},
@@ -24,7 +26,7 @@ pub enum DatabaseOperationContext {
     Delete,
 }
 
-pub fn handle_database_command<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+pub fn handle_database_command<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     command: DatabaseCommand<K, V>,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
     query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<K, V>>>,
@@ -147,19 +149,24 @@ pub fn handle_database_command<K: NetabaseSchemaKey + std::fmt::Debug, V: Netaba
 
 // Core CRUD operations
 
-fn handle_put<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_put<K, V, IV>(
     key: K,
     value: V,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
     query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<K, V>>>,
     database_context: &mut HashMap<QueryId, DatabaseOperationContext>,
     swarm: &mut Swarm<NetabaseBehaviour>,
-) {
+) where
+    <IV as std::convert::TryInto<libp2p::kad::Record>>::Error: std::fmt::Debug,
+    K: NetabaseRegistryKey + std::fmt::Debug + TryInto<IV>,
+    V: NetabaseRegistery + TryInto<IV>,
+    IV: NetabaseSchema,
+{
     log::info!("Database put operation for key: {:?}", key);
 
     // Use NetabaseSchema Into<Record> trait to convert value to DHT record
     let record: kad::Record = match value.try_into() {
-        Ok(record) => record,
+        Ok(record) => record.try_into().unwrap(),
         Err(_) => {
             log::error!("Failed to convert value to record");
             if let Some(sender) = response_sender {
@@ -198,7 +205,7 @@ fn handle_put<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
     }
 }
 
-fn handle_get<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_get<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     key: K,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
     query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<K, V>>>,
@@ -232,7 +239,7 @@ fn handle_get<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
     }
 }
 
-fn handle_delete<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_delete<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     key: K,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
     query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<K, V>>>,
@@ -289,8 +296,8 @@ fn handle_delete<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
 }
 
 pub fn convert_dht_get_to_database_response<
-    K: NetabaseSchemaKey + std::fmt::Debug,
-    V: NetabaseSchema,
+    K: NetabaseRegistryKey + std::fmt::Debug,
+    V: NetabaseRegistery,
 >(
     dht_result: Result<kad::GetRecordOk, kad::GetRecordError>,
 ) -> CommandResponse<K, V> {
@@ -326,8 +333,8 @@ pub fn convert_dht_get_to_database_response<
 }
 
 pub fn convert_dht_put_to_database_response<
-    K: NetabaseSchemaKey + std::fmt::Debug,
-    V: NetabaseSchema,
+    K: NetabaseRegistryKey + std::fmt::Debug,
+    V: NetabaseRegistery,
 >(
     dht_result: Result<kad::PutRecordOk, kad::PutRecordError>,
 ) -> CommandResponse<K, V> {
@@ -343,8 +350,8 @@ pub fn convert_dht_put_to_database_response<
 }
 
 pub fn convert_dht_put_to_delete_response<
-    K: NetabaseSchemaKey + std::fmt::Debug,
-    V: NetabaseSchema,
+    K: NetabaseRegistryKey + std::fmt::Debug,
+    V: NetabaseRegistery,
 >(
     dht_result: Result<kad::PutRecordOk, kad::PutRecordError>,
 ) -> CommandResponse<K, V> {
@@ -359,7 +366,7 @@ pub fn convert_dht_put_to_delete_response<
     }
 }
 
-fn handle_put_batch<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_put_batch<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     entries: Vec<(K, V)>,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -373,7 +380,7 @@ fn handle_put_batch<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
     }
 }
 
-fn handle_get_batch<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_get_batch<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     keys: Vec<K>,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -384,7 +391,7 @@ fn handle_get_batch<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
     }
 }
 
-fn handle_delete_batch<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_delete_batch<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     keys: Vec<K>,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -395,7 +402,7 @@ fn handle_delete_batch<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema
     }
 }
 
-fn handle_update<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_update<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     _key: K,
     _value: V,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
@@ -407,7 +414,7 @@ fn handle_update<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
     }
 }
 
-fn handle_upsert<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_upsert<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     _key: K,
     _value: V,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
@@ -419,7 +426,7 @@ fn handle_upsert<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
     }
 }
 
-fn handle_scan_prefix<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_scan_prefix<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     prefix: String,
     _options: Option<QueryOptions>,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
@@ -431,7 +438,7 @@ fn handle_scan_prefix<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>
     }
 }
 
-fn handle_scan_range<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_scan_range<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     _start: K,
     _end: K,
     _options: Option<QueryOptions>,
@@ -445,7 +452,7 @@ fn handle_scan_range<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
     }
 }
 
-fn handle_keys<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_keys<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     _options: Option<QueryOptions>,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -457,7 +464,7 @@ fn handle_keys<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
     }
 }
 
-fn handle_values<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_values<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     _options: Option<QueryOptions>,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -469,7 +476,7 @@ fn handle_values<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
     }
 }
 
-fn handle_entries<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_entries<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     _options: Option<QueryOptions>,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -481,7 +488,7 @@ fn handle_entries<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
     }
 }
 
-fn handle_len<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_len<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     // TODO: Implement distributed count operation
@@ -492,7 +499,7 @@ fn handle_len<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
     }
 }
 
-fn handle_is_empty<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_is_empty<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     // TODO: Implement distributed empty check
@@ -505,7 +512,7 @@ fn handle_is_empty<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
 
 // Transaction operations
 
-fn handle_begin_transaction<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_begin_transaction<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     // TODO: Implement distributed transaction begin
@@ -517,7 +524,7 @@ fn handle_begin_transaction<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseS
     }
 }
 
-fn handle_commit_transaction<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_commit_transaction<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     transaction_id: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -529,7 +536,7 @@ fn handle_commit_transaction<K: NetabaseSchemaKey + std::fmt::Debug, V: Netabase
     }
 }
 
-fn handle_rollback_transaction<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_rollback_transaction<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     transaction_id: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -543,7 +550,7 @@ fn handle_rollback_transaction<K: NetabaseSchemaKey + std::fmt::Debug, V: Netaba
 
 // Maintenance operations
 
-fn handle_compact<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_compact<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     // TODO: Implement database compaction
@@ -554,7 +561,7 @@ fn handle_compact<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
     }
 }
 
-fn handle_stats<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_stats<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     // TODO: Implement database statistics collection
@@ -577,7 +584,7 @@ fn handle_stats<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
 
 // Lifecycle operations
 
-fn handle_initialize<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_initialize<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     _config: DatabaseConfig,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -589,7 +596,7 @@ fn handle_initialize<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
     }
 }
 
-fn handle_close<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_close<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     // TODO: Implement database shutdown
@@ -602,7 +609,7 @@ fn handle_close<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
 
 // Replication and sync
 
-fn handle_sync_data<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_sync_data<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     peer_id: Option<libp2p::PeerId>,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -617,7 +624,7 @@ fn handle_sync_data<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
     }
 }
 
-fn handle_replicate_key<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_replicate_key<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     _key: K,
     target_peers: Vec<libp2p::PeerId>,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
@@ -632,7 +639,7 @@ fn handle_replicate_key<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchem
 
 // Data integrity
 
-fn handle_verify_integrity<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_verify_integrity<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     // TODO: Implement data integrity verification
@@ -643,7 +650,7 @@ fn handle_verify_integrity<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSc
     }
 }
 
-fn handle_repair_corruption<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_repair_corruption<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     keys: Vec<K>,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -657,7 +664,7 @@ fn handle_repair_corruption<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseS
 
 // Change monitoring
 
-fn handle_subscribe<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_subscribe<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     _key: K,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -669,7 +676,7 @@ fn handle_subscribe<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
     }
 }
 
-fn handle_unsubscribe<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+fn handle_unsubscribe<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
     _key: K,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -682,7 +689,10 @@ fn handle_unsubscribe<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>
 }
 
 /// Process a DHT response based on the database operation context
-pub fn process_database_dht_response<K: NetabaseSchemaKey + std::fmt::Debug, V: NetabaseSchema>(
+pub fn process_database_dht_response<
+    K: NetabaseRegistryKey + std::fmt::Debug,
+    V: NetabaseRegistery,
+>(
     query_id: QueryId,
     result: &kad::QueryResult,
     database_context: &mut HashMap<QueryId, DatabaseOperationContext>,

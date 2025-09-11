@@ -1,5 +1,7 @@
 use crate::{
-    netabase_trait::{self, NetabaseSchema, NetabaseSchemaKey},
+    netabase_trait::{
+        self, NetabaseRegistery, NetabaseRegistryKey, NetabaseSchema, NetabaseSchemaKey,
+    },
     network::event_messages::command_messages::{
         configuration_commands::ConfigurationCommand, database_commands::DatabaseCommand,
         network_commands::NetworkCommand, system_commands::SystemCommand,
@@ -10,7 +12,7 @@ use libp2p::{Multiaddr, PeerId, kad};
 
 use tokio::sync::oneshot;
 
-pub enum NetabaseCommand<K: NetabaseSchemaKey, V: NetabaseSchema> {
+pub enum NetabaseCommand<K: NetabaseRegistryKey, V: NetabaseRegistery> {
     System(SystemCommand),
     Database(DatabaseCommand<K, V>),
     Network(NetworkCommand<K, V>),
@@ -18,7 +20,7 @@ pub enum NetabaseCommand<K: NetabaseSchemaKey, V: NetabaseSchema> {
     Close,
 }
 
-pub enum CommandResponse<K: NetabaseSchemaKey, V: NetabaseSchema> {
+pub enum CommandResponse<K: NetabaseRegistryKey, V: NetabaseRegistery> {
     Database(DatabaseResponse<K, V>),
     Network(NetworkResponse<K, V>),
     Configuration(ConfigurationResponse),
@@ -27,7 +29,7 @@ pub enum CommandResponse<K: NetabaseSchemaKey, V: NetabaseSchema> {
     Error(String),
 }
 
-pub enum DatabaseResponse<K: NetabaseSchemaKey, V: NetabaseSchema> {
+pub enum DatabaseResponse<K: NetabaseRegistryKey, V: NetabaseRegistery> {
     GetResult(Option<V>),
     BatchGetResult(std::collections::HashMap<K, V>),
 
@@ -44,7 +46,7 @@ pub enum DatabaseResponse<K: NetabaseSchemaKey, V: NetabaseSchema> {
     SyncStatus(bool),        // Whether sync completed successfully
 }
 
-pub enum NetworkResponse<K: NetabaseSchemaKey, V: NetabaseSchema> {
+pub enum NetworkResponse<K: NetabaseRegistryKey, V: NetabaseRegistery> {
     _Phantom(std::marker::PhantomData<(K, V)>),
     PeerInfo(Vec<crate::traits::network::PeerInfo>),
     Stats(crate::traits::network::NetworkStats),
@@ -86,17 +88,19 @@ pub enum SystemResponse {
 }
 
 /// Command with response channel for operations that need to return results
-pub struct CommandWithResponse<K: NetabaseSchemaKey, V: NetabaseSchema> {
+pub struct CommandWithResponse<K: NetabaseRegistryKey, V: NetabaseRegistery> {
     pub command: NetabaseCommand<K, V>,
     pub response_sender: oneshot::Sender<CommandResponse<K, V>>,
 }
 
 pub mod database_commands {
-    use crate::netabase_trait::{NetabaseSchema, NetabaseSchemaKey};
+    use crate::netabase_trait::{
+        NetabaseRegistery, NetabaseRegistryKey, NetabaseSchema, NetabaseSchemaKey,
+    };
     use crate::traits::database::{DatabaseConfig, QueryOptions};
 
-    pub enum DatabaseCommand<K: NetabaseSchemaKey, V: NetabaseSchema> {
-        // Core CRUD operations on user data
+    pub enum DatabaseCommand<K: NetabaseRegistryKey, V: NetabaseRegistery> {
+        // Core CRUD operations o user data
         Put {
             key: K,
             value: V,
@@ -195,15 +199,17 @@ pub mod database_commands {
 }
 
 pub mod network_commands {
+    use crate::NetabaseRegistery;
+    use crate::NetabaseRegistryKey;
     use crate::netabase_trait::{NetabaseSchema, NetabaseSchemaKey};
     use crate::traits::network::{BroadcastOptions, NetworkConfig, NetworkMessage, ProtocolConfig};
     use libp2p::{Multiaddr, PeerId};
     use std::time::Duration;
 
-    pub enum NetworkCommand<K: NetabaseSchemaKey, V: NetabaseSchema> {
+    pub enum NetworkCommand<K: NetabaseRegistryKey, V: NetabaseRegistery> {
         // Lifecycle
         Initialize {
-            config: NetworkConfig,
+            cnfig: NetworkConfig,
         },
         Start,
         Stop,

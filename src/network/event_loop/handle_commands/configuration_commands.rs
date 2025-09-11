@@ -1,5 +1,5 @@
 use crate::{
-    netabase_trait::{NetabaseSchema, NetabaseSchemaKey},
+    netabase_trait::{NetabaseRegistery, NetabaseRegistryKey, NetabaseSchema, NetabaseSchemaKey},
     network::event_messages::command_messages::{
         CommandResponse, ConfigurationResponse, configuration_commands::ConfigurationCommand,
     },
@@ -8,7 +8,7 @@ use crate::{
 use std::collections::HashMap;
 use tokio::sync::oneshot;
 
-pub fn handle_configuration_command<K: NetabaseSchemaKey, V: NetabaseSchema>(
+pub fn handle_configuration_command<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     command: ConfigurationCommand,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -110,7 +110,7 @@ pub fn handle_configuration_command<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_load_from_file<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_load_from_file<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     path: String,
     format: FileFormat,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
@@ -126,7 +126,7 @@ fn handle_load_from_file<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_save_to_file<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_save_to_file<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     path: String,
     format: FileFormat,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
@@ -142,7 +142,7 @@ fn handle_save_to_file<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_reload_from_file<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_reload_from_file<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     log::info!("Configuration reload from file");
@@ -152,7 +152,7 @@ fn handle_reload_from_file<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_load<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_load<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     _options: ConfigurationOptions,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -163,7 +163,7 @@ fn handle_load<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_get_setting<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_get_setting<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     key: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -176,7 +176,7 @@ fn handle_get_setting<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_set_setting<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_set_setting<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     key: String,
     value: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
@@ -188,7 +188,7 @@ fn handle_set_setting<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_remove_setting<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_remove_setting<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     key: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -199,7 +199,7 @@ fn handle_remove_setting<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_has_setting<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_has_setting<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     key: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -212,7 +212,7 @@ fn handle_has_setting<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_get_all_settings<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_get_all_settings<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     log::info!("Configuration get all settings");
@@ -224,7 +224,7 @@ fn handle_get_all_settings<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_update_settings<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_update_settings<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     settings: HashMap<String, String>,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -235,7 +235,7 @@ fn handle_update_settings<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_clear_all_settings<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_clear_all_settings<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     log::info!("Configuration clear all settings");
@@ -245,7 +245,7 @@ fn handle_clear_all_settings<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_get_section<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_get_section<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     section: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -258,7 +258,7 @@ fn handle_get_section<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_set_section<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_set_section<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     section: String,
     values: HashMap<String, String>,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
@@ -274,7 +274,7 @@ fn handle_set_section<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_remove_section<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_remove_section<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     section: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -285,7 +285,7 @@ fn handle_remove_section<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_load_environment_overrides<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_load_environment_overrides<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     log::info!("Configuration load environment overrides");
@@ -295,7 +295,7 @@ fn handle_load_environment_overrides<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_apply_defaults<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_apply_defaults<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     log::info!("Configuration apply defaults");
@@ -305,7 +305,7 @@ fn handle_apply_defaults<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_set_default<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_set_default<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     key: String,
     value: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
@@ -317,7 +317,7 @@ fn handle_set_default<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_validate<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_validate<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     log::info!("Configuration validate all");
@@ -329,7 +329,7 @@ fn handle_validate<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_validate_section<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_validate_section<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     section: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -342,7 +342,7 @@ fn handle_validate_section<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_merge_configuration<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_merge_configuration<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     other_config: HashMap<String, String>,
     strategy: MergeStrategy,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
@@ -358,7 +358,7 @@ fn handle_merge_configuration<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_start_file_watcher<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_start_file_watcher<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     paths: Vec<String>,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -369,7 +369,7 @@ fn handle_start_file_watcher<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_stop_file_watcher<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_stop_file_watcher<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     log::info!("Configuration stop file watcher");
@@ -379,7 +379,7 @@ fn handle_stop_file_watcher<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_load_profile<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_load_profile<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     profile_name: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -390,7 +390,7 @@ fn handle_load_profile<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_save_profile<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_save_profile<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     profile_name: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -401,7 +401,7 @@ fn handle_save_profile<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_list_profiles<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_list_profiles<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
     log::info!("Configuration list profiles");
@@ -413,7 +413,7 @@ fn handle_list_profiles<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_backup_configuration<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_backup_configuration<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     backup_path: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {
@@ -424,7 +424,7 @@ fn handle_backup_configuration<K: NetabaseSchemaKey, V: NetabaseSchema>(
     }
 }
 
-fn handle_restore_configuration<K: NetabaseSchemaKey, V: NetabaseSchema>(
+fn handle_restore_configuration<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     backup_path: String,
     response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
 ) {

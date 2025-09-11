@@ -2,7 +2,9 @@ use crate::generators::GenerationError;
 use proc_macro::{Diagnostic, Span};
 use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
-use syn::{Attribute, Fields, Ident, ItemEnum, Meta, Path, Type, Variant, parse_quote};
+use syn::{
+    Attribute, Fields, Ident, ItemEnum, ItemImpl, ItemType, Meta, Path, Type, Variant, parse_quote,
+};
 
 /// Generator for creating schema-related enums from collected schema data
 #[derive(Default, Debug)]
@@ -19,24 +21,42 @@ impl<'a> SchemaEnumGenerator<'a> {
 
 impl<'a> SchemaEnumGenerator<'a> {
     /// Generate an enum containing all found schemas
-    pub fn generate_schemas_enum(&self, enum_ident: &Ident) -> Result<ItemEnum, GenerationError> {
+    pub fn generate_schemas_enum(
+        &self,
+        enum_ident: &Ident,
+    ) -> Result<(ItemEnum, ItemImpl, ItemType), GenerationError> {
         if self.schemas.is_empty() {
-            return Ok(self.generate_empty_enum(enum_ident, "No schemas found"));
+            return Err(GenerationError::CodeGeneration {
+                message: "Schemas are non-existent or not found".to_string(),
+            });
         }
 
         let mut schema_ident = enum_ident.to_string();
         schema_ident.push_str("Schema");
-        let enum_ident = Ident::new(&schema_ident, proc_macro2::Span::call_site());
+        let mut keys_ident = schema_ident.clone();
+        keys_ident.push_str("Key");
+        let new_enum_ident = Ident::new(&schema_ident, proc_macro2::Span::call_site());
+        let keys_ident = Ident::new(&keys_ident, proc_macro2::Span::call_site());
         let variants = self.generate_schema_variants();
 
-        Ok(parse_quote! {
-            #[derive(NetabaseSchema, Debug, Clone, ::macro_exports::__netabase_bincode::Encode, ::macro_exports::__netabase_bincode::Decode)]
-            #[__netabase_registery(#(#variants),*)]
-            pub enum #enum_ident {
-                #(#variants),*
-            }
+        Ok((
+            parse_quote! {
+                #[derive(NetabaseRegistry, Clone, Debug, ::macro_exports::__netabase_derive_more::From, ::macro_exports::__netabase_derive_more::TryInto)]
+                #[::macro_exports::__netabase_enum_unwrapper::unique_try_froms()]
+                pub enum #new_enum_ident {
+                    #(#variants),*
+                }
 
-        })
+            },
+            parse_quote! {
+                impl netabase::netabase_trait::NetabaseRegistery for #new_enum_ident {
+                    type KeyRegistry = #keys_ident;
+                }
+            },
+            parse_quote! {
+                type #enum_ident = (#new_enum_ident, #keys_ident);
+            },
+        ))
     }
 
     pub fn generate_schema_keys_enum_from_attr(
@@ -138,10 +158,13 @@ impl<'a> SchemaEnumGenerator<'a> {
         &self,
         registry_enum_name: &Ident,
     ) -> Result<TokenStream, GenerationError> {
-        let schemas_enum = self.generate_schemas_enum(registry_enum_name)?;
+        let (schemas_enum, schemas_impl, type_alias) =
+            self.generate_schemas_enum(registry_enum_name)?;
 
         Ok(quote! {
             #schemas_enum
+            #schemas_impl
+            #type_alias
         })
     }
 
