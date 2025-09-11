@@ -1,4 +1,6 @@
-/target
+**/target
 *tmp*
 /test_tmp
 test_macros/target
+macro_exports/target
+test_macros
