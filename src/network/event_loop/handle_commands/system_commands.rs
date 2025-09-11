@@ -10,9 +10,9 @@ use crate::{
 use std::time::Duration;
 use tokio::sync::oneshot;
 
-pub fn handle_system_command<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+pub fn handle_system_command<V: NetabaseRegistery>(
     command: SystemCommand,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     match command {
         SystemCommand::Initialize { config } => {
@@ -87,9 +87,9 @@ pub fn handle_system_command<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_initialize<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_initialize<V: NetabaseRegistery>(
     _config: NetabaseConfig,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("System initialize command received with config");
 
@@ -98,8 +98,8 @@ fn handle_initialize<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_start<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_start<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("System start command received");
 
@@ -108,9 +108,7 @@ fn handle_start<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_stop<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
-) {
+fn handle_stop<V: NetabaseRegistery>(response_sender: Option<oneshot::Sender<CommandResponse<V>>>) {
     log::info!("System stop command received");
 
     if let Some(sender) = response_sender {
@@ -118,8 +116,8 @@ fn handle_stop<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_shutdown<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_shutdown<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("System shutdown command received");
 
@@ -128,8 +126,8 @@ fn handle_shutdown<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_get_state<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_get_state<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Get system state command received");
 
@@ -139,8 +137,8 @@ fn handle_get_state<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_is_initialized<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_is_initialized<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Is initialized check command received");
 
@@ -149,8 +147,8 @@ fn handle_is_initialized<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_is_running<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_is_running<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Is running check command received");
 
@@ -159,8 +157,8 @@ fn handle_is_running<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_health_check<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_health_check<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Health check command received");
 
@@ -194,8 +192,8 @@ fn handle_health_check<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_get_stats<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_get_stats<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Get system stats command received");
 
@@ -264,8 +262,8 @@ fn handle_get_stats<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_get_performance_metrics<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_get_performance_metrics<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Get performance metrics command received");
 
@@ -284,8 +282,8 @@ fn handle_get_performance_metrics<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_start_monitoring<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_start_monitoring<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Start monitoring command received");
 
@@ -294,8 +292,8 @@ fn handle_start_monitoring<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_stop_monitoring<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_stop_monitoring<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Stop monitoring command received");
 
@@ -304,9 +302,9 @@ fn handle_stop_monitoring<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_backup<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_backup<V: NetabaseRegistery>(
     backup_path: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Backup command received for path: {}", backup_path);
 
@@ -315,9 +313,9 @@ fn handle_backup<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_restore<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_restore<V: NetabaseRegistery>(
     backup_path: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Restore command received from path: {}", backup_path);
 
@@ -326,9 +324,9 @@ fn handle_restore<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_export<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_export<V: NetabaseRegistery>(
     format: ExportFormat,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Export command received with format: {:?}", format);
 
@@ -337,10 +335,10 @@ fn handle_export<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_import<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_import<V: NetabaseRegistery>(
     data: Vec<u8>,
     format: ExportFormat,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!(
         "Import command received with {} bytes in format: {:?}",
@@ -353,8 +351,8 @@ fn handle_import<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_optimize<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_optimize<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Optimize command received");
 
@@ -363,8 +361,8 @@ fn handle_optimize<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_create_snapshot<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_create_snapshot<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Create snapshot command received");
 
@@ -373,9 +371,9 @@ fn handle_create_snapshot<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_register_event_handler<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_register_event_handler<V: NetabaseRegistery>(
     handler_id: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!(
         "Register event handler command received for handler: {}",
@@ -387,9 +385,9 @@ fn handle_register_event_handler<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_unregister_event_handler<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_unregister_event_handler<V: NetabaseRegistery>(
     handler_id: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!(
         "Unregister event handler command received for handler: {}",
@@ -401,8 +399,8 @@ fn handle_unregister_event_handler<K: NetabaseRegistryKey, V: NetabaseRegistery>
     }
 }
 
-fn handle_sync_all<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_sync_all<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Sync all command received");
 
@@ -411,9 +409,9 @@ fn handle_sync_all<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_sync_key<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_sync_key<V: NetabaseRegistery>(
     key: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Sync key command received for key: {}", key);
 
@@ -422,10 +420,10 @@ fn handle_sync_key<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_wait_for_condition<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_wait_for_condition<V: NetabaseRegistery>(
     condition: String,
     timeout: Option<Duration>,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!(
         "Wait for condition command received: {} with timeout: {:?}",

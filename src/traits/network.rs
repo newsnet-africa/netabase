@@ -370,7 +370,7 @@ pub struct NetworkStats {
 
 /// Events that can occur in the network
 #[derive(Debug, Clone)]
-pub enum NetworkEvent<K: NetabaseRegistryKey, V: NetabaseRegistery> {
+pub enum NetworkEvent<V: NetabaseRegistery> {
     /// A new peer has been discovered
     PeerDiscovered { peer_info: PeerInfo },
 
@@ -392,7 +392,7 @@ pub enum NetworkEvent<K: NetabaseRegistryKey, V: NetabaseRegistery> {
     /// A message has been received from a peer
     MessageReceived {
         peer_id: PeerId,
-        message: NetworkMessage<K, V>,
+        message: NetworkMessage<V>,
     },
 
     /// A message broadcast was successful
@@ -417,21 +417,21 @@ pub enum NetworkEvent<K: NetabaseRegistryKey, V: NetabaseRegistery> {
 
 /// Types of messages that can be sent over the network
 #[derive(Debug, Clone)]
-pub enum NetworkMessage<K: NetabaseRegistryKey, V: NetabaseRegistery> {
+pub enum NetworkMessage<V: NetabaseRegistery> {
     /// Request to store a value
-    StoreRequest { key: K, value: V },
+    StoreRequest { value: V },
 
     /// Response to a store request
     StoreResponse { success: bool, message: String },
 
     /// Request to retrieve a value
-    GetRequest { key: K },
+    GetRequest { key: V::KeyRegistry },
 
     /// Response to a get request
-    GetResponse { key: K, value: Option<V> },
+    GetResponse { value: Option<V> },
 
     /// Announcement of a new value
-    ValueAnnouncement { key: K, value: V },
+    ValueAnnouncement { value: V },
 
     /// Heartbeat message
     Heartbeat { timestamp: u64 },
@@ -462,7 +462,7 @@ pub enum MessagePriority {
 
 /// Core network operations trait
 #[async_trait]
-pub trait NetabaseNetwork<K: NetabaseRegistryKey, V: NetabaseRegistery>: Send + Sync {
+pub trait NetabaseNetwork<V: NetabaseRegistery>: Send + Sync {
     /// Initialize the network with the given configuration
     async fn initialize(&mut self, config: NetworkConfig) -> NetworkResult<()>;
 
@@ -506,13 +506,13 @@ pub trait NetabaseNetwork<K: NetabaseRegistryKey, V: NetabaseRegistery>: Send + 
     async fn send_message(
         &mut self,
         peer_id: &PeerId,
-        message: NetworkMessage<K, V>,
+        message: NetworkMessage<V>,
     ) -> NetworkResult<()>;
 
     /// Broadcast a message to all connected peers
     async fn broadcast_message(
         &mut self,
-        message: NetworkMessage<K, V>,
+        message: NetworkMessage<V>,
         options: BroadcastOptions,
     ) -> NetworkResult<()>;
 
@@ -559,15 +559,12 @@ pub trait NetabaseNetwork<K: NetabaseRegistryKey, V: NetabaseRegistery>: Send + 
     fn is_dht_client(&self) -> NetworkResult<bool>;
 
     /// Get network events receiver
-    fn event_receiver(&self)
-    -> NetworkResult<tokio::sync::broadcast::Receiver<NetworkEvent<K, V>>>;
+    fn event_receiver(&self) -> NetworkResult<tokio::sync::broadcast::Receiver<NetworkEvent<V>>>;
 }
 
 /// Extension trait for advanced network operations
 #[async_trait]
-pub trait NetabaseNetworkExt<K: NetabaseRegistryKey, V: NetabaseRegistery>:
-    NetabaseNetwork<K, V>
-{
+pub trait NetabaseNetworkExt<V: NetabaseRegistery>: NetabaseNetwork<V> {
     /// Discover peers using mDNS
     async fn discover_mdns_peers(&mut self) -> NetworkResult<Vec<PeerInfo>>;
 
@@ -692,13 +689,9 @@ pub enum DhtStatus {
 
 /// Trait for handling network events
 #[async_trait]
-pub trait NetworkEventHandler<
-    K: NetabaseRegistryKey + Send + Sync + 'static,
-    V: NetabaseRegistery + Send + Sync + 'static,
->: Send + Sync
-{
+pub trait NetworkEventHandler<V: NetabaseRegistery + Send + Sync + 'static>: Send + Sync {
     /// Handle a network event
-    async fn handle_event(&mut self, event: NetworkEvent<K, V>) -> NetworkResult<()>;
+    async fn handle_event(&mut self, event: NetworkEvent<V>) -> NetworkResult<()>;
 
     /// Handle peer connection
     async fn on_peer_connected(&mut self, peer_info: PeerInfo) -> NetworkResult<()> {
@@ -718,7 +711,7 @@ pub trait NetworkEventHandler<
     async fn on_message_received(
         &mut self,
         peer_id: PeerId,
-        message: NetworkMessage<K, V>,
+        message: NetworkMessage<V>,
     ) -> NetworkResult<()> {
         Ok(())
     }

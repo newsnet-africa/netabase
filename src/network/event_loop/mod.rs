@@ -18,16 +18,13 @@ use crate::network::event_messages::swarm_messages::NetabaseEvent;
 pub mod handle_behaviour_events;
 pub mod handle_commands;
 
-pub async fn event_loop<
-    K: NetabaseRegistryKey + std::fmt::Debug,
-    V: NetabaseRegistery + std::fmt::Debug,
->(
+pub async fn event_loop<V: NetabaseRegistery + std::fmt::Debug>(
     swarm: &mut Swarm<NetabaseBehaviour>,
     mut event_sender: tokio::sync::broadcast::Sender<NetabaseEvent>,
-    mut command_receiver: tokio::sync::mpsc::UnboundedReceiver<CommandWithResponse<K, V>>,
+    mut command_receiver: tokio::sync::mpsc::UnboundedReceiver<CommandWithResponse<V>>,
     config: &DefaultNetabaseConfig,
 ) {
-    let mut query_queue: HashMap<QueryId, oneshot::Sender<CommandResponse<K, V>>> = HashMap::new();
+    let mut query_queue: HashMap<QueryId, oneshot::Sender<CommandResponse<V>>> = HashMap::new();
     let mut database_context: HashMap<QueryId, DatabaseOperationContext> = HashMap::new();
     let auto_connect_enabled = config.swarm_config().mdns_auto_connect();
     loop {
@@ -57,7 +54,7 @@ pub async fn event_loop<
             command = command_receiver.recv() => {
                 match command {
                     Some(cmd_with_response) => {
-                        handle_command::<K, V>(
+                        handle_command::< V>(
                             cmd_with_response.command,
                             Some(cmd_with_response.response_sender),
                             &mut query_queue,

@@ -23,10 +23,10 @@ use database_commands::{DatabaseOperationContext, handle_database_command};
 
 use system_commands::handle_system_command;
 
-pub fn handle_command<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
-    command: NetabaseCommand<K, V>,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
-    query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<K, V>>>,
+pub fn handle_command<V: NetabaseRegistery>(
+    command: NetabaseCommand<V>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
+    query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<V>>>,
     database_context: &mut HashMap<QueryId, DatabaseOperationContext>,
     swarm: &mut Swarm<NetabaseBehaviour>,
 ) {
@@ -60,8 +60,8 @@ pub fn handle_command<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegis
     }
 }
 
-fn handle_close<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_close<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Close command received - shutting down");
 

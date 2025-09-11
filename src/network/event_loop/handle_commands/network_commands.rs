@@ -14,10 +14,10 @@ use libp2p::{Multiaddr, PeerId, Swarm, kad::QueryId};
 use std::{collections::HashMap, time::Duration};
 use tokio::sync::oneshot;
 
-pub fn handle_network_command<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    command: NetworkCommand<K, V>,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
-    query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<K, V>>>,
+pub fn handle_network_command<V: NetabaseRegistery>(
+    command: NetworkCommand<V>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
+    query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<V>>>,
     swarm: &mut Swarm<NetabaseBehaviour>,
 ) {
     match command {
@@ -159,9 +159,9 @@ pub fn handle_network_command<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_initialize<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_initialize<V: NetabaseRegistery>(
     config: NetworkConfig,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Network initialize command received");
 
@@ -170,8 +170,8 @@ fn handle_initialize<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_start<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_start<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Network start command received");
 
@@ -180,9 +180,7 @@ fn handle_start<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_stop<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
-) {
+fn handle_stop<V: NetabaseRegistery>(response_sender: Option<oneshot::Sender<CommandResponse<V>>>) {
     log::info!("Network stop command received");
 
     if let Some(sender) = response_sender {
@@ -190,10 +188,10 @@ fn handle_stop<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_connect_peer<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_connect_peer<V: NetabaseRegistery>(
     peer_id: PeerId,
     address: Multiaddr,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!(
         "Connect peer command received for peer: {} at {}",
@@ -206,9 +204,9 @@ fn handle_connect_peer<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_disconnect_peer<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_disconnect_peer<V: NetabaseRegistery>(
     peer_id: PeerId,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Disconnect peer command received for peer: {}", peer_id);
 
@@ -217,9 +215,9 @@ fn handle_disconnect_peer<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_add_listening_address<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_add_listening_address<V: NetabaseRegistery>(
     address: Multiaddr,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Add listening address command received for: {}", address);
 
@@ -228,9 +226,9 @@ fn handle_add_listening_address<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_remove_listening_address<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_remove_listening_address<V: NetabaseRegistery>(
     address: Multiaddr,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Remove listening address command received for: {}", address);
 
@@ -239,10 +237,10 @@ fn handle_remove_listening_address<K: NetabaseRegistryKey, V: NetabaseRegistery>
     }
 }
 
-fn handle_send_message<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_send_message<V: NetabaseRegistery>(
     peer_id: PeerId,
-    message: NetworkMessage<K, V>,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    message: NetworkMessage<V>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Send message command received for peer: {}", peer_id);
 
@@ -251,10 +249,10 @@ fn handle_send_message<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_broadcast_message<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    message: NetworkMessage<K, V>,
+fn handle_broadcast_message<V: NetabaseRegistery>(
+    message: NetworkMessage<V>,
     options: BroadcastOptions,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Broadcast message command received");
 
@@ -263,9 +261,9 @@ fn handle_broadcast_message<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_subscribe_topic<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_subscribe_topic<V: NetabaseRegistery>(
     topic: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Subscribe topic command received for: {}", topic);
 
@@ -274,9 +272,9 @@ fn handle_subscribe_topic<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_unsubscribe_topic<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_unsubscribe_topic<V: NetabaseRegistery>(
     topic: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Unsubscribe topic command received for: {}", topic);
 
@@ -285,10 +283,10 @@ fn handle_unsubscribe_topic<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_publish_topic<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_publish_topic<V: NetabaseRegistery>(
     topic: String,
     data: Vec<u8>,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!(
         "Publish topic command received for: {} with {} bytes",
@@ -301,8 +299,8 @@ fn handle_publish_topic<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_get_subscribed_topics<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_get_subscribed_topics<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Get subscribed topics command received");
 
@@ -313,11 +311,11 @@ fn handle_get_subscribed_topics<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_dht_put<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_dht_put<V: NetabaseRegistery>(
     key: String,
     value: Vec<u8>,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
-    query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
+    query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<V>>>,
     swarm: &mut Swarm<NetabaseBehaviour>,
 ) {
     log::info!(
@@ -363,10 +361,10 @@ fn handle_dht_put<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_dht_get<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_dht_get<V: NetabaseRegistery>(
     key: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
-    query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
+    query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<V>>>,
     swarm: &mut Swarm<NetabaseBehaviour>,
 ) {
     log::info!("DHT get command received for key: {}", key);
@@ -385,10 +383,10 @@ fn handle_dht_get<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_dht_add_address<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_dht_add_address<V: NetabaseRegistery>(
     peer_id: PeerId,
     address: Multiaddr,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
     swarm: &mut Swarm<NetabaseBehaviour>,
 ) {
     log::info!(
@@ -404,9 +402,9 @@ fn handle_dht_add_address<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_dht_get_addresses<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_dht_get_addresses<V: NetabaseRegistery>(
     peer_id: PeerId,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
     swarm: &mut Swarm<NetabaseBehaviour>,
 ) {
     log::info!("DHT get addresses command received for peer: {}", peer_id);
@@ -419,10 +417,10 @@ fn handle_dht_get_addresses<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_dht_get_closest_peers<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_dht_get_closest_peers<V: NetabaseRegistery>(
     key: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
-    query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
+    query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<V>>>,
     swarm: &mut Swarm<NetabaseBehaviour>,
 ) {
     log::info!("DHT get closest peers command received for key: {}", key);
@@ -442,10 +440,10 @@ fn handle_dht_get_closest_peers<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_dht_get_providers<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_dht_get_providers<V: NetabaseRegistery>(
     key: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
-    query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
+    query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<V>>>,
     swarm: &mut Swarm<NetabaseBehaviour>,
 ) {
     log::info!("DHT get providers command received for key: {}", key);
@@ -464,10 +462,10 @@ fn handle_dht_get_providers<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_dht_start_providing<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_dht_start_providing<V: NetabaseRegistery>(
     key: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
-    query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
+    query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<V>>>,
     swarm: &mut Swarm<NetabaseBehaviour>,
 ) {
     log::info!("DHT start providing command received for key: {}", key);
@@ -497,9 +495,9 @@ fn handle_dht_start_providing<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_dht_stop_providing<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_dht_stop_providing<V: NetabaseRegistery>(
     key: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
     swarm: &mut Swarm<NetabaseBehaviour>,
 ) {
     log::info!("DHT stop providing command received for key: {}", key);
@@ -514,9 +512,9 @@ fn handle_dht_stop_providing<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_bootstrap<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
-    query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_bootstrap<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
+    query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<V>>>,
     swarm: &mut Swarm<NetabaseBehaviour>,
 ) {
     log::info!("Bootstrap command received");
@@ -539,8 +537,8 @@ fn handle_bootstrap<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_discover_mdns_peers<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_discover_mdns_peers<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     // TODO: Implement discover mDNS peers logic
     log::info!("Discover mDNS peers command received");
@@ -550,8 +548,8 @@ fn handle_discover_mdns_peers<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_get_local_peer_id<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_get_local_peer_id<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     // TODO: Implement get local peer ID logic
     log::info!("Get local peer ID command received");
@@ -565,8 +563,8 @@ fn handle_get_local_peer_id<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_get_listening_addresses<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_get_listening_addresses<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     // TODO: Implement get listening addresses logic
     log::info!("Get listening addresses command received");
@@ -578,8 +576,8 @@ fn handle_get_listening_addresses<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_get_connected_peers<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_get_connected_peers<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     // TODO: Implement get connected peers logic
     log::info!("Get connected peers command received");
@@ -589,9 +587,9 @@ fn handle_get_connected_peers<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_get_peer_info<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_get_peer_info<V: NetabaseRegistery>(
     peer_id: PeerId,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     // TODO: Implement get peer info logic
     log::info!("Get peer info command received for peer: {}", peer_id);
@@ -601,8 +599,8 @@ fn handle_get_peer_info<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_get_stats<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_get_stats<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     // TODO: Implement get network stats logic
     log::info!("Get network stats command received");
@@ -627,8 +625,8 @@ fn handle_get_stats<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_health_check<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_health_check<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     // TODO: Implement network health check logic
     log::info!("Network health check command received");
@@ -638,10 +636,10 @@ fn handle_health_check<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_ban_peer<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_ban_peer<V: NetabaseRegistery>(
     peer_id: PeerId,
     duration: Duration,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     // TODO: Implement ban peer logic
     log::info!(
@@ -655,9 +653,9 @@ fn handle_ban_peer<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_unban_peer<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_unban_peer<V: NetabaseRegistery>(
     peer_id: PeerId,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     // TODO: Implement unban peer logic
     log::info!("Unban peer command received for peer: {}", peer_id);
@@ -667,8 +665,8 @@ fn handle_unban_peer<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_get_banned_peers<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_get_banned_peers<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     // TODO: Implement get banned peers logic
     log::info!("Get banned peers command received");
@@ -678,10 +676,10 @@ fn handle_get_banned_peers<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_set_connection_limits<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_set_connection_limits<V: NetabaseRegistery>(
     max_connections: Option<u32>,
     max_pending: Option<u32>,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     // TODO: Implement set connection limits logic
     log::info!(
@@ -695,8 +693,8 @@ fn handle_set_connection_limits<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_get_connection_limits<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_get_connection_limits<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     // TODO: Implement get connection limits logic
     log::info!("Get connection limits command received");
@@ -706,9 +704,9 @@ fn handle_get_connection_limits<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_configure_protocols<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_configure_protocols<V: NetabaseRegistery>(
     config: ProtocolConfig,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     // TODO: Implement configure protocols logic
     log::info!("Configure protocols command received");
@@ -718,9 +716,9 @@ fn handle_configure_protocols<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_set_custom_protocols<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_set_custom_protocols<V: NetabaseRegistery>(
     protocols: Vec<String>,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     // TODO: Implement set custom protocols logic
     log::info!(
@@ -733,9 +731,9 @@ fn handle_set_custom_protocols<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_set_dht_mode<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_set_dht_mode<V: NetabaseRegistery>(
     mode: KademliaDhtMode,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     // TODO: Implement set DHT mode logic
     log::info!("Set DHT mode command received: {:?}", mode);
@@ -745,8 +743,8 @@ fn handle_set_dht_mode<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_get_dht_mode<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_get_dht_mode<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     // TODO: Implement get DHT mode logic
     log::info!("Get DHT mode command received");
@@ -758,8 +756,8 @@ fn handle_get_dht_mode<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_is_dht_server<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_is_dht_server<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Is DHT server command received");
 
@@ -770,8 +768,8 @@ fn handle_is_dht_server<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_is_dht_client<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_is_dht_client<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Is DHT client command received");
 
@@ -780,8 +778,8 @@ fn handle_is_dht_client<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_toggle_dht_mode_auto<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_toggle_dht_mode_auto<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Toggle DHT mode auto command received");
 
@@ -792,8 +790,8 @@ fn handle_toggle_dht_mode_auto<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_force_dht_server_mode<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_force_dht_server_mode<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Force DHT server mode command received");
 
@@ -802,8 +800,8 @@ fn handle_force_dht_server_mode<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_force_dht_client_mode<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_force_dht_client_mode<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Force DHT client mode command received");
 
@@ -812,8 +810,8 @@ fn handle_force_dht_client_mode<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_get_dht_mode_stats<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_get_dht_mode_stats<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Get DHT mode stats command received");
 

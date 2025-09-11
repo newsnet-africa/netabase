@@ -14,8 +14,8 @@ use tokio::sync::oneshot;
 
 pub enum NetabaseCommand<V: NetabaseRegistery> {
     System(SystemCommand),
-    Database(DatabaseCommand<V::KeyRegistry, V>),
-    Network(NetworkCommand<V::KeyRegistry, V>),
+    Database(DatabaseCommand<V>),
+    Network(NetworkCommand<V>),
     Configuration(ConfigurationCommand),
     Close,
 }
@@ -99,35 +99,36 @@ pub mod database_commands {
     };
     use crate::traits::database::{DatabaseConfig, QueryOptions};
 
-    pub enum DatabaseCommand<K: NetabaseRegistryKey, V: NetabaseRegistery> {
+    pub enum DatabaseCommand<V: NetabaseRegistery>
+    where
+        V::KeyRegistry: NetabaseRegistryKey,
+    {
         // Core CRUD operations o user data
         Put {
             value: V,
         },
         Get {
-            key: K,
+            key: V::KeyRegistry,
         },
         Delete {
-            key: K,
+            key: V::KeyRegistry,
         },
         // Batch operations for efficiency
         PutBatch {
-            entries: Vec<(K, V)>,
+            entries: Vec<V>,
         },
         GetBatch {
-            keys: Vec<K>,
+            keys: Vec<V::KeyRegistry>,
         },
         DeleteBatch {
-            keys: Vec<K>,
+            keys: Vec<V::KeyRegistry>,
         },
 
         // Advanced data operations
         Update {
-            key: K,
             value: V,
         },
         Upsert {
-            key: K,
             value: V,
         },
 
@@ -137,8 +138,8 @@ pub mod database_commands {
             options: Option<QueryOptions>,
         },
         ScanRange {
-            start: K,
-            end: K,
+            start: V::KeyRegistry,
+            end: V::KeyRegistry,
             options: Option<QueryOptions>,
         },
         Keys {
@@ -177,22 +178,22 @@ pub mod database_commands {
             peer_id: Option<libp2p::PeerId>,
         },
         ReplicateKey {
-            key: K,
+            key: V::KeyRegistry,
             target_peers: Vec<libp2p::PeerId>,
         },
 
         // Data integrity
         VerifyIntegrity,
         RepairCorruption {
-            keys: Vec<K>,
+            keys: Vec<V::KeyRegistry>,
         },
 
         // Change monitoring
         Subscribe {
-            key: K,
+            key: V::KeyRegistry,
         },
         Unsubscribe {
-            key: K,
+            key: V::KeyRegistry,
         },
     }
 }
@@ -205,10 +206,10 @@ pub mod network_commands {
     use libp2p::{Multiaddr, PeerId};
     use std::time::Duration;
 
-    pub enum NetworkCommand<K: NetabaseRegistryKey, V: NetabaseRegistery> {
+    pub enum NetworkCommand<V: NetabaseRegistery> {
         // Lifecycle
         Initialize {
-            cnfig: NetworkConfig,
+            config: NetworkConfig,
         },
         Start,
         Stop,
@@ -231,10 +232,10 @@ pub mod network_commands {
         // Messaging
         SendMessage {
             peer_id: PeerId,
-            message: NetworkMessage<K, V>,
+            message: NetworkMessage<V>,
         },
         BroadcastMessage {
-            message: NetworkMessage<K, V>,
+            message: NetworkMessage<V>,
             options: BroadcastOptions,
         },
 

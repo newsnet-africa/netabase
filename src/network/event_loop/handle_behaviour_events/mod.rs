@@ -21,12 +21,9 @@ pub mod handle_identify_events;
 pub mod handle_kad_events;
 pub mod handle_mdns_events;
 
-pub fn handle_behaviour_event<
-    K: NetabaseRegistryKey + std::fmt::Debug,
-    V: NetabaseRegistery + std::fmt::Debug,
->(
+pub fn handle_behaviour_event<V: NetabaseRegistery + std::fmt::Debug>(
     event: NetabaseBehaviourEvent,
-    query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<K, V>>>,
+    query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<V>>>,
     database_context: &mut HashMap<QueryId, DatabaseOperationContext>,
     swarm: &mut Swarm<NetabaseBehaviour>,
     auto_connect_enabled: bool,

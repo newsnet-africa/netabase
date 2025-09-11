@@ -8,9 +8,9 @@ use crate::{
 use std::collections::HashMap;
 use tokio::sync::oneshot;
 
-pub fn handle_configuration_command<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+pub fn handle_configuration_command<V: NetabaseRegistery>(
     command: ConfigurationCommand,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     match command {
         ConfigurationCommand::LoadFromFile { path, format } => {
@@ -110,10 +110,10 @@ pub fn handle_configuration_command<K: NetabaseRegistryKey, V: NetabaseRegistery
     }
 }
 
-fn handle_load_from_file<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_load_from_file<V: NetabaseRegistery>(
     path: String,
     format: FileFormat,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!(
         "Configuration load from file: {} with format: {:?}",
@@ -126,10 +126,10 @@ fn handle_load_from_file<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_save_to_file<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_save_to_file<V: NetabaseRegistery>(
     path: String,
     format: FileFormat,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!(
         "Configuration save to file: {} with format: {:?}",
@@ -142,8 +142,8 @@ fn handle_save_to_file<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_reload_from_file<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_reload_from_file<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Configuration reload from file");
 
@@ -152,9 +152,9 @@ fn handle_reload_from_file<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_load<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_load<V: NetabaseRegistery>(
     _options: ConfigurationOptions,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Configuration load with options");
 
@@ -163,9 +163,9 @@ fn handle_load<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_get_setting<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_get_setting<V: NetabaseRegistery>(
     key: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Configuration get setting: {}", key);
 
@@ -176,10 +176,10 @@ fn handle_get_setting<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_set_setting<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_set_setting<V: NetabaseRegistery>(
     key: String,
     value: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Configuration set setting: {} = {}", key, value);
 
@@ -188,9 +188,9 @@ fn handle_set_setting<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_remove_setting<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_remove_setting<V: NetabaseRegistery>(
     key: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Configuration remove setting: {}", key);
 
@@ -199,9 +199,9 @@ fn handle_remove_setting<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_has_setting<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_has_setting<V: NetabaseRegistery>(
     key: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Configuration check setting exists: {}", key);
 
@@ -212,8 +212,8 @@ fn handle_has_setting<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_get_all_settings<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_get_all_settings<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Configuration get all settings");
 
@@ -224,9 +224,9 @@ fn handle_get_all_settings<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_update_settings<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_update_settings<V: NetabaseRegistery>(
     settings: HashMap<String, String>,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Configuration update {} settings", settings.len());
 
@@ -235,8 +235,8 @@ fn handle_update_settings<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_clear_all_settings<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_clear_all_settings<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Configuration clear all settings");
 
@@ -245,9 +245,9 @@ fn handle_clear_all_settings<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_get_section<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_get_section<V: NetabaseRegistery>(
     section: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Configuration get section: {}", section);
 
@@ -258,10 +258,10 @@ fn handle_get_section<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_set_section<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_set_section<V: NetabaseRegistery>(
     section: String,
     values: HashMap<String, String>,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!(
         "Configuration set section: {} with {} values",
@@ -274,9 +274,9 @@ fn handle_set_section<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_remove_section<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_remove_section<V: NetabaseRegistery>(
     section: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Configuration remove section: {}", section);
 
@@ -285,8 +285,8 @@ fn handle_remove_section<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_load_environment_overrides<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_load_environment_overrides<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Configuration load environment overrides");
 
@@ -295,8 +295,8 @@ fn handle_load_environment_overrides<K: NetabaseRegistryKey, V: NetabaseRegister
     }
 }
 
-fn handle_apply_defaults<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_apply_defaults<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Configuration apply defaults");
 
@@ -305,10 +305,10 @@ fn handle_apply_defaults<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_set_default<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_set_default<V: NetabaseRegistery>(
     key: String,
     value: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Configuration set default: {} = {}", key, value);
 
@@ -317,8 +317,8 @@ fn handle_set_default<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_validate<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_validate<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Configuration validate all");
 
@@ -329,9 +329,9 @@ fn handle_validate<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_validate_section<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_validate_section<V: NetabaseRegistery>(
     section: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Configuration validate section: {}", section);
 
@@ -342,10 +342,10 @@ fn handle_validate_section<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_merge_configuration<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_merge_configuration<V: NetabaseRegistery>(
     other_config: HashMap<String, String>,
     strategy: MergeStrategy,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!(
         "Configuration merge {} settings with strategy: {:?}",
@@ -358,9 +358,9 @@ fn handle_merge_configuration<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_start_file_watcher<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_start_file_watcher<V: NetabaseRegistery>(
     paths: Vec<String>,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Configuration start file watcher for {} paths", paths.len());
 
@@ -369,8 +369,8 @@ fn handle_start_file_watcher<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_stop_file_watcher<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_stop_file_watcher<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Configuration stop file watcher");
 
@@ -379,9 +379,9 @@ fn handle_stop_file_watcher<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_load_profile<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_load_profile<V: NetabaseRegistery>(
     profile_name: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Configuration load profile: {}", profile_name);
 
@@ -390,9 +390,9 @@ fn handle_load_profile<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_save_profile<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_save_profile<V: NetabaseRegistery>(
     profile_name: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Configuration save profile: {}", profile_name);
 
@@ -401,8 +401,8 @@ fn handle_save_profile<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_list_profiles<K: NetabaseRegistryKey, V: NetabaseRegistery>(
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+fn handle_list_profiles<V: NetabaseRegistery>(
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Configuration list profiles");
 
@@ -413,9 +413,9 @@ fn handle_list_profiles<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_backup_configuration<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_backup_configuration<V: NetabaseRegistery>(
     backup_path: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Configuration backup to: {}", backup_path);
 
@@ -424,9 +424,9 @@ fn handle_backup_configuration<K: NetabaseRegistryKey, V: NetabaseRegistery>(
     }
 }
 
-fn handle_restore_configuration<K: NetabaseRegistryKey, V: NetabaseRegistery>(
+fn handle_restore_configuration<V: NetabaseRegistery>(
     backup_path: String,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
 ) {
     log::info!("Configuration restore from: {}", backup_path);
 

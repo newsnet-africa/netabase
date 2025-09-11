@@ -29,10 +29,10 @@ pub use config::{
 };
 pub use netabase_trait::{NetabaseSchema, NetabaseSchemaKey};
 
-pub struct Netabase<K: NetabaseRegistryKey, V: NetabaseRegistery> {
+pub struct Netabase<V: NetabaseRegistery> {
     swarm_thread: Option<JoinHandle<()>>,
     pub swarm_event_listener: tokio::sync::broadcast::Receiver<NetabaseEvent>,
-    pub swarm_command_sender: tokio::sync::mpsc::UnboundedSender<CommandWithResponse<K, V>>,
+    pub swarm_command_sender: tokio::sync::mpsc::UnboundedSender<CommandWithResponse<V>>,
     config: Option<DefaultNetabaseConfig>,
 }
 
@@ -48,11 +48,7 @@ pub enum NetabaseError {
     UnexpectedResponse,
 }
 
-impl<
-    K: NetabaseRegistryKey + std::fmt::Debug + 'static,
-    V: NetabaseRegistery + std::fmt::Debug + 'static,
-> Netabase<K, V>
-{
+impl<V: NetabaseRegistery + std::fmt::Debug + 'static> Netabase<V> {
     pub fn new_test(test_number: usize, server: bool) -> Self {
         let config = crate::config::DefaultNetabaseConfig::builder()
             .swarm_config(crate::config::NetabaseSwarmConfig::default())
@@ -68,8 +64,7 @@ impl<
             .build()
             .expect("Default NetabaseConfig should be valid");
 
-        let (command_sender, _) =
-            tokio::sync::mpsc::unbounded_channel::<CommandWithResponse<K, V>>();
+        let (command_sender, _) = tokio::sync::mpsc::unbounded_channel::<CommandWithResponse<V>>();
         let (_, event_receiver) = tokio::sync::broadcast::channel::<NetabaseEvent>(20);
 
         let mut instance = Self {
@@ -111,8 +106,7 @@ impl<
             .build()
             .expect("Default NetabaseConfig should be valid");
 
-        let (command_sender, _) =
-            tokio::sync::mpsc::unbounded_channel::<CommandWithResponse<K, V>>();
+        let (command_sender, _) = tokio::sync::mpsc::unbounded_channel::<CommandWithResponse<V>>();
         let (_, event_receiver) = tokio::sync::broadcast::channel::<NetabaseEvent>(20);
 
         let mut instance = Self {
@@ -138,7 +132,7 @@ impl<
         let config = self.config.clone().ok_or("No config available")?;
 
         let (command_sender, command_receiver) =
-            tokio::sync::mpsc::unbounded_channel::<CommandWithResponse<K, V>>();
+            tokio::sync::mpsc::unbounded_channel::<CommandWithResponse<V>>();
         let (event_sender, event_receiver) = tokio::sync::broadcast::channel::<NetabaseEvent>(20);
 
         self.swarm_command_sender = command_sender;
@@ -184,8 +178,7 @@ impl<
         Ok(())
     }
     pub fn new(config: DefaultNetabaseConfig) -> Self {
-        let (command_sender, _) =
-            tokio::sync::mpsc::unbounded_channel::<CommandWithResponse<K, V>>();
+        let (command_sender, _) = tokio::sync::mpsc::unbounded_channel::<CommandWithResponse<V>>();
         let (_, event_receiver) = tokio::sync::broadcast::channel::<NetabaseEvent>(20);
 
         Self {
@@ -210,7 +203,7 @@ impl<
         let config = self.config.clone().ok_or("No config available")?;
 
         let (command_sender, command_receiver) =
-            tokio::sync::mpsc::unbounded_channel::<CommandWithResponse<K, V>>();
+            tokio::sync::mpsc::unbounded_channel::<CommandWithResponse<V>>();
         let (event_sender, event_receiver) = tokio::sync::broadcast::channel::<NetabaseEvent>(20);
 
         self.swarm_command_sender = command_sender;
@@ -328,10 +321,10 @@ impl<
         }
     }
 
-    pub async fn put(&self, key: K, value: V) -> Result<(), NetabaseError> {
+    pub async fn put(&self, value: V) -> Result<(), NetabaseError> {
         let (response_sender, response_receiver) = tokio::sync::oneshot::channel();
 
-        let command = NetabaseCommand::Database(DatabaseCommand::Put { key, value });
+        let command = NetabaseCommand::Database(DatabaseCommand::Put { value });
 
         let command_with_response = CommandWithResponse {
             command,
@@ -349,7 +342,7 @@ impl<
         self.handle_response(response)
     }
 
-    pub async fn get(&self, key: K) -> Result<Option<V>, NetabaseError> {
+    pub async fn get(&self, key: V::KeyRegistry) -> Result<Option<V>, NetabaseError> {
         let (response_sender, response_receiver) = tokio::sync::oneshot::channel();
 
         let command = NetabaseCommand::Database(DatabaseCommand::Get { key });
@@ -378,7 +371,7 @@ impl<
         }
     }
 
-    pub async fn delete(&self, key: K) -> Result<(), NetabaseError> {
+    pub async fn delete(&self, key: V::KeyRegistry) -> Result<(), NetabaseError> {
         let (response_sender, response_receiver) = tokio::sync::oneshot::channel();
 
         let command = NetabaseCommand::Database(DatabaseCommand::Delete { key });
@@ -399,7 +392,7 @@ impl<
         self.handle_response(response)
     }
 
-    fn handle_response(&self, response: CommandResponse<K, V>) -> Result<(), NetabaseError> {
+    fn handle_response(&self, response: CommandResponse<V>) -> Result<(), NetabaseError> {
         match response {
             CommandResponse::Success => Ok(()),
             CommandResponse::Error(msg) => Err(NetabaseError::OperationError(msg)),
@@ -408,11 +401,7 @@ impl<
     }
 }
 
-impl<
-    K: NetabaseRegistryKey + std::fmt::Debug + 'static,
-    V: NetabaseRegistery + std::fmt::Debug + 'static,
-> Default for Netabase<K, V>
-{
+impl<V: NetabaseRegistery + std::fmt::Debug + 'static> Default for Netabase<V> {
     fn default() -> Self {
         let config = DefaultNetabaseConfig::builder()
             .swarm_config(NetabaseSwarmConfig::default())
