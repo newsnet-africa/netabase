@@ -12,42 +12,42 @@ use libp2p::{Multiaddr, PeerId, kad};
 
 use tokio::sync::oneshot;
 
-pub enum NetabaseCommand<K: NetabaseRegistryKey, V: NetabaseRegistery> {
+pub enum NetabaseCommand<V: NetabaseRegistery> {
     System(SystemCommand),
-    Database(DatabaseCommand<K, V>),
-    Network(NetworkCommand<K, V>),
+    Database(DatabaseCommand<V::KeyRegistry, V>),
+    Network(NetworkCommand<V::KeyRegistry, V>),
     Configuration(ConfigurationCommand),
     Close,
 }
 
-pub enum CommandResponse<K: NetabaseRegistryKey, V: NetabaseRegistery> {
-    Database(DatabaseResponse<K, V>),
-    Network(NetworkResponse<K, V>),
+pub enum CommandResponse<V: NetabaseRegistery> {
+    Database(DatabaseResponse<V>),
+    Network(NetworkResponse<V>),
     Configuration(ConfigurationResponse),
     System(SystemResponse),
     Success,
     Error(String),
 }
 
-pub enum DatabaseResponse<K: NetabaseRegistryKey, V: NetabaseRegistery> {
+pub enum DatabaseResponse<V: NetabaseRegistery> {
     GetResult(Option<V>),
-    BatchGetResult(std::collections::HashMap<K, V>),
+    BatchGetResult(std::collections::HashMap<V::KeyRegistry, V>),
 
     DeleteResult(bool),
-    BatchDeleteResult(Vec<K>),
-    KeysResult(Vec<K>),
+    BatchDeleteResult(Vec<V::KeyRegistry>),
+    KeysResult(Vec<V::KeyRegistry>),
     ValuesResult(Vec<V>),
-    EntriesResult(Vec<(K, V)>),
+    EntriesResult(Vec<(V::KeyRegistry, V)>),
     LenResult(usize),
     IsEmptyResult(bool),
     Stats(crate::traits::database::DatabaseStats),
     TransactionId(String),
-    IntegrityReport(Vec<K>), // Keys that failed integrity check
-    SyncStatus(bool),        // Whether sync completed successfully
+    IntegrityReport(Vec<V::KeyRegistry>), // Keys that failed integrity check
+    SyncStatus(bool),                     // Whether sync completed successfully
 }
 
-pub enum NetworkResponse<K: NetabaseRegistryKey, V: NetabaseRegistery> {
-    _Phantom(std::marker::PhantomData<(K, V)>),
+pub enum NetworkResponse<V: NetabaseRegistery> {
+    _Phantom(std::marker::PhantomData<(V::KeyRegistry, V)>),
     PeerInfo(Vec<crate::traits::network::PeerInfo>),
     Stats(crate::traits::network::NetworkStats),
     LocalPeerId(PeerId),
@@ -88,9 +88,9 @@ pub enum SystemResponse {
 }
 
 /// Command with response channel for operations that need to return results
-pub struct CommandWithResponse<K: NetabaseRegistryKey, V: NetabaseRegistery> {
-    pub command: NetabaseCommand<K, V>,
-    pub response_sender: oneshot::Sender<CommandResponse<K, V>>,
+pub struct CommandWithResponse<V: NetabaseRegistery> {
+    pub command: NetabaseCommand<V>,
+    pub response_sender: oneshot::Sender<CommandResponse<V>>,
 }
 
 pub mod database_commands {
@@ -102,7 +102,6 @@ pub mod database_commands {
     pub enum DatabaseCommand<K: NetabaseRegistryKey, V: NetabaseRegistery> {
         // Core CRUD operations o user data
         Put {
-            key: K,
             value: V,
         },
         Get {

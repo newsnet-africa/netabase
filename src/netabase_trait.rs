@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use bincode::{Decode, Encode};
 
-use crate::NetabaseError;
+use crate::{Netabase, NetabaseError};
 
 pub trait NetabaseSchema:
     Clone
@@ -14,8 +14,10 @@ pub trait NetabaseSchema:
 {
     type Key: NetabaseSchemaKey;
     fn key(&self) -> Self::Key;
-    fn put<R: TryInto<Self> + From<Self>>(value: Self) -> Result<(), NetabaseError>;
 
+    fn put<R>(&self, netabase: Netabase<R::KeyRegistry, R>) -> Result<(), NetabaseError>
+    where
+        R: NetabaseRegistery + TryInto<Self> + From<Self>;
 }
 
 pub trait NetabaseSchemaKey:
@@ -26,14 +28,28 @@ pub trait NetabaseSchemaKey:
     + Decode<()>
     + TryInto<::macro_exports::__netabase_libp2p_kad::RecordKey>
 {
-    fn get<>
+    fn get<R, T>(&self, netabase: Netabase<R::KeyRegistry, R>) -> Result<Option<T>, NetabaseError>
+    where
+        R: NetabaseRegistery,
+        T: NetabaseSchema + TryFrom<R> + Into<R>;
+
+    fn delete<R, T>(&self, netabase: Netabase<R::KeyRegistry, R>)
+    where
+        R: NetabaseRegistery,
+        T: NetabaseSchema + TryFrom<R> + Into<R>;
 }
 
 pub trait NetabaseRegistery: Debug + Clone + Send {
     type KeyRegistry: NetabaseRegistryKey;
 
-    fn unwrap<T: NetabaseSchema>(&self) -> T;
+    fn unwrap<T>(&self) -> T
+    where
+        T: NetabaseSchema + TryFrom<Self> + From<Self>;
 }
+
 pub trait NetabaseRegistryKey: Debug + Clone + Send {
-    fn unwrap<T: NetabaseSchema>(&self) -> T;
+    fn unwrap<T>(&self) -> T::Key
+    where
+        T: NetabaseSchema,
+        T::Key: Into<Self> + TryFrom<Self>;
 }

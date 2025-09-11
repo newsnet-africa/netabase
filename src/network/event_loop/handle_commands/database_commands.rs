@@ -26,17 +26,18 @@ pub enum DatabaseOperationContext {
     Delete,
 }
 
-pub fn handle_database_command<K: NetabaseRegistryKey + std::fmt::Debug, V: NetabaseRegistery>(
-    command: DatabaseCommand<K, V>,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
-    query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<K, V>>>,
+pub fn handle_database_command<V: NetabaseRegistery>(
+    command: DatabaseCommand<V::KeyRegistry, V>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V::KeyRegistry, V>>>,
+    query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<V::KeyRegistry, V>>>,
     database_context: &mut HashMap<QueryId, DatabaseOperationContext>,
     swarm: &mut Swarm<NetabaseBehaviour>,
 ) {
     match command {
-        DatabaseCommand::Put { key, value } => {
+        DatabaseCommand::Put { value } => {
+            let value = value.unwrap();
             handle_put(
-                key,
+                value.key(),
                 value,
                 response_sender,
                 query_queue,
@@ -149,18 +150,14 @@ pub fn handle_database_command<K: NetabaseRegistryKey + std::fmt::Debug, V: Neta
 
 // Core CRUD operations
 
-fn handle_put<K, V, IV>(
-    key: K,
+fn handle_put<V>(
     value: V,
-    response_sender: Option<oneshot::Sender<CommandResponse<K, V>>>,
+    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
     query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<K, V>>>,
     database_context: &mut HashMap<QueryId, DatabaseOperationContext>,
     swarm: &mut Swarm<NetabaseBehaviour>,
 ) where
-    <IV as std::convert::TryInto<libp2p::kad::Record>>::Error: std::fmt::Debug,
-    K: NetabaseRegistryKey + std::fmt::Debug + TryInto<IV>,
-    V: NetabaseRegistery + TryInto<IV>,
-    IV: NetabaseSchema,
+    V: NetabaseSchema,
 {
     log::info!("Database put operation for key: {:?}", key);
 
