@@ -20,9 +20,9 @@ use std::collections::HashMap;
 use tokio::sync::oneshot;
 
 #[derive(Debug, Clone)]
-pub enum DatabaseOperationContext {
+pub enum DatabaseOperationContext<K: NetabaseRegistryKey> {
     Put,
-    Get,
+    Get(K),
     Delete,
 }
 
@@ -30,64 +30,41 @@ pub fn handle_database_command<R: NetabaseRegistery>(
     command: DatabaseCommand<R>,
     response_sender: Option<oneshot::Sender<CommandResponse<R>>>,
     query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<R>>>,
-    database_context: &mut HashMap<QueryId, DatabaseOperationContext>,
+    database_context: &mut HashMap<QueryId, DatabaseOperationContext<R::KeyRegistry>>,
     swarm: &mut Swarm<NetabaseBehaviour>,
 ) {
     match command {
         DatabaseCommand::Put { value } => {
-            handle_put(
-                value.unwrap(),
-                response_sender,
-                query_queue,
-                database_context,
-                swarm,
-            );
+            handle_put(value, response_sender, query_queue, database_context, swarm);
         }
         DatabaseCommand::Get { key } => {
-            handle_get(
-                key.unwrap(),
-                response_sender,
-                query_queue,
-                database_context,
-                swarm,
-            );
+            handle_get::<R>(key, response_sender, query_queue, database_context, swarm);
         }
         DatabaseCommand::Delete { key } => {
-            handle_delete(
-                key.unwrap(),
-                response_sender,
-                query_queue,
-                database_context,
-                swarm,
-            );
+            handle_delete(key, response_sender, query_queue, database_context, swarm);
         }
 
         DatabaseCommand::PutBatch { entries } => {
-            handle_put_batch(
-                entries.into_iter().map(|regist: R| regist.unwrap()),
-                response_sender,
-            );
+            handle_put_batch(entries.into_iter().map(|regist: R| regist), response_sender);
         }
         DatabaseCommand::GetBatch { keys } => {
             handle_get_batch(
-                keys.into_iter()
-                    .map(|regkey: R::KeyRegistry| regkey.unwrap()),
+                keys.into_iter().map(|regkey: R::KeyRegistry| regkey),
                 response_sender,
             );
         }
         DatabaseCommand::DeleteBatch { keys } => {
             handle_delete_batch(
-                keys.into_iter()
-                    .map(|regkey: R::KeyRegistry| regkey.unwrap()),
+                keys.into_iter().map(|regkey: R::KeyRegistry| regkey),
                 response_sender,
             );
         }
 
         DatabaseCommand::Update { value } => {
-            handle_update(value.unwrap(), response_sender);
+            handle_update(value, response_sender);
         }
         DatabaseCommand::Upsert { value } => {
-            handle_upsert(value.unwrap(), response_sender);
+            handle_upsert(value, response_sender);
         }
 
         DatabaseCommand::ScanPrefix { prefix, options } => {
@@ -148,7 +125,7 @@ pub fn handle_database_command<R: NetabaseRegistery>(
             handle_sync_data(peer_id, response_sender);
         }
         DatabaseCommand::ReplicateKey { key, target_peers } => {
-            handle_replicate_key(key.unwrap(), target_peers, response_sender);
+            handle_replicate_key(key, target_peers, response_sender);
         }
 
         // Data integrity
@@ -161,10 +138,10 @@ pub fn handle_database_command<R: NetabaseRegistery>(
 
         // Change monitoring
         DatabaseCommand::Subscribe { key } => {
-            handle_subscribe(key.unwrap(), response_sender);
+            handle_subscribe(key, response_sender);
         }
         DatabaseCommand::Unsubscribe { key } => {
-            handle_unsubscribe(key.unwrap(), response_sender);
+            handle_unsubscribe(key, response_sender);
         }
     }
 }
@@ -175,7 +152,7 @@ fn handle_put<V: NetabaseSchema<R>, R: NetabaseRegistery>(
     value: V,
     response_sender: Option<oneshot::Sender<CommandResponse<R>>>,
     query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<R>>>,
-    database_context: &mut HashMap<QueryId, DatabaseOperationContext>,
+    database_context: &mut HashMap<QueryId, DatabaseOperationContext<R::KeyRegistry>>,
     swarm: &mut Swarm<NetabaseBehaviour>,
 ) {
     log::info!("Database put operation for key: {:?}", value);
@@ -221,17 +198,17 @@ fn handle_put<V: NetabaseSchema<R>, R: NetabaseRegistery>(
     }
 }
 
-fn handle_get<K: NetabaseSchemaKey<R::KeyRegistry>, R: NetabaseRegistery>(
-    key: K,
+fn handle_get<R: NetabaseRegistery>(
+    key: R::KeyRegistry,
     response_sender: Option<oneshot::Sender<CommandResponse<R>>>,
     query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<R>>>,
-    database_context: &mut HashMap<QueryId, DatabaseOperationContext>,
+    database_context: &mut HashMap<QueryId, DatabaseOperationContext<R::KeyRegistry>>,
     swarm: &mut Swarm<NetabaseBehaviour>,
 ) {
     log::info!("Database get operation for key: {:?}", key);
 
     // Use NetabaseSchemaKey Into<RecordKey> trait to convert key
-    let record_key: kad::RecordKey = match key.try_into() {
+    let record_key: kad::RecordKey = match key.clone().try_into() {
         Ok(record_key) => record_key,
         Err(_) => {
             log::error!("Failed to convert key to record key");
@@ -249,17 +226,17 @@ fn handle_get<K: NetabaseSchemaKey<R::KeyRegistry>, R: NetabaseRegistery>(
 
         log::debug!("Started DHT get operation with query ID: {:?}", query_id);
         query_queue.insert(query_id, sender);
-        database_context.insert(query_id, DatabaseOperationContext::Get);
+        database_context.insert(query_id, DatabaseOperationContext::Get(key));
     } else {
         swarm.behaviour_mut().kad.get_record(record_key);
     }
 }
 
-fn handle_delete<K: NetabaseSchemaKey<R::KeyRegistry>, R: NetabaseRegistery>(
-    key: K,
+fn handle_delete<R: NetabaseRegistery>(
+    key: R::KeyRegistry,
     response_sender: Option<oneshot::Sender<CommandResponse<R>>>,
     query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<R>>>,
-    database_context: &mut HashMap<QueryId, DatabaseOperationContext>,
+    database_context: &mut HashMap<QueryId, DatabaseOperationContext<R::KeyRegistry>>,
     swarm: &mut Swarm<NetabaseBehaviour>,
 ) {
     log::info!("Database delete operation for key: {:?}", key);
@@ -311,7 +288,7 @@ fn handle_delete<K: NetabaseSchemaKey<R::KeyRegistry>, R: NetabaseRegistery>(
     }
 }
 
-pub fn convert_dht_get_to_database_response<V: NetabaseSchema<R>, R: NetabaseRegistery>(
+pub fn convert_dht_get_to_database_response<R: NetabaseRegistery>(
     dht_result: Result<kad::GetRecordOk, kad::GetRecordError>,
 ) -> CommandResponse<R> {
     match dht_result {
@@ -319,14 +296,13 @@ pub fn convert_dht_get_to_database_response<V: NetabaseSchema<R>, R: NetabaseReg
             if peer_record.record.value.is_empty() {
                 CommandResponse::Database(DatabaseResponse::GetResult(None))
             } else {
-                match bincode::decode_from_slice::<V, bincode::config::Configuration>(
-                    &peer_record.record.value,
-                    bincode::config::standard(),
-                ) {
-                    Ok(value) => CommandResponse::Database(DatabaseResponse::GetResult(
-                        value.0.try_into().ok(),
+                match R::try_from(peer_record.record) {
+                    Ok(value) => {
+                        CommandResponse::Database(DatabaseResponse::GetResult(Some(value)))
+                    }
+                    Err(e) => CommandResponse::Error(format!(
+                        "Failed to decode value in convert_dht_get_to_database"
                     )),
-                    Err(e) => CommandResponse::Error(format!("Failed to decode value: {:?}", e)),
                 }
             }
         }
@@ -692,11 +668,11 @@ fn handle_unsubscribe<K: NetabaseSchemaKey<R::KeyRegistry>, R: NetabaseRegistery
 }
 
 /// Process a DHT response based on the database operation context
-pub fn process_database_dht_response<V: NetabaseRegistery>(
+pub fn process_database_dht_response<R: NetabaseRegistery>(
     query_id: QueryId,
     result: &kad::QueryResult,
-    database_context: &mut HashMap<QueryId, DatabaseOperationContext>,
-) -> Option<CommandResponse<V>> {
+    database_context: &mut HashMap<QueryId, DatabaseOperationContext<R::KeyRegistry>>,
+) -> Option<CommandResponse<R>> {
     if let Some(operation_context) = database_context.remove(&query_id) {
         match result {
             kad::QueryResult::PutRecord(put_result) => match operation_context {
@@ -706,9 +682,9 @@ pub fn process_database_dht_response<V: NetabaseRegistery>(
                 _ => None,
             },
             kad::QueryResult::GetRecord(get_result) => match operation_context {
-                DatabaseOperationContext::Get => {
-                    Some(convert_dht_get_to_database_response(get_result.clone()))
-                }
+                DatabaseOperationContext::Get(key) => Some(
+                    convert_dht_get_to_database_response::<R>(get_result.clone()),
+                ),
                 _ => None,
             },
             _ => None,

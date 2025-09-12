@@ -462,7 +462,7 @@ pub enum MessagePriority {
 
 /// Core network operations trait
 #[async_trait]
-pub trait NetabaseNetwork<V: NetabaseRegistery>: Send + Sync {
+pub trait NetabaseNetwork<V: NetabaseSchema<R>, R: NetabaseRegistery>: Send + Sync {
     /// Initialize the network with the given configuration
     async fn initialize(&mut self, config: NetworkConfig) -> NetworkResult<()>;
 
@@ -506,13 +506,13 @@ pub trait NetabaseNetwork<V: NetabaseRegistery>: Send + Sync {
     async fn send_message(
         &mut self,
         peer_id: &PeerId,
-        message: NetworkMessage<V>,
+        message: NetworkMessage<R>,
     ) -> NetworkResult<()>;
 
     /// Broadcast a message to all connected peers
     async fn broadcast_message(
         &mut self,
-        message: NetworkMessage<V>,
+        message: NetworkMessage<R>,
         options: BroadcastOptions,
     ) -> NetworkResult<()>;
 
@@ -559,12 +559,14 @@ pub trait NetabaseNetwork<V: NetabaseRegistery>: Send + Sync {
     fn is_dht_client(&self) -> NetworkResult<bool>;
 
     /// Get network events receiver
-    fn event_receiver(&self) -> NetworkResult<tokio::sync::broadcast::Receiver<NetworkEvent<V>>>;
+    fn event_receiver(&self) -> NetworkResult<tokio::sync::broadcast::Receiver<NetworkEvent<R>>>;
 }
 
 /// Extension trait for advanced network operations
 #[async_trait]
-pub trait NetabaseNetworkExt<V: NetabaseRegistery>: NetabaseNetwork<V> {
+pub trait NetabaseNetworkExt<V: NetabaseSchema<R>, R: NetabaseRegistery>:
+    NetabaseNetwork<V, R>
+{
     /// Discover peers using mDNS
     async fn discover_mdns_peers(&mut self) -> NetworkResult<Vec<PeerInfo>>;
 

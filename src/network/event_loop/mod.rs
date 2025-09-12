@@ -18,14 +18,15 @@ use crate::network::event_messages::swarm_messages::NetabaseEvent;
 pub mod handle_behaviour_events;
 pub mod handle_commands;
 
-pub async fn event_loop<V: NetabaseRegistery + std::fmt::Debug>(
+pub async fn event_loop<R: NetabaseRegistery>(
     swarm: &mut Swarm<NetabaseBehaviour>,
     mut event_sender: tokio::sync::broadcast::Sender<NetabaseEvent>,
-    mut command_receiver: tokio::sync::mpsc::UnboundedReceiver<CommandWithResponse<V>>,
+    mut command_receiver: tokio::sync::mpsc::UnboundedReceiver<CommandWithResponse<R>>,
     config: &DefaultNetabaseConfig,
 ) {
-    let mut query_queue: HashMap<QueryId, oneshot::Sender<CommandResponse<V>>> = HashMap::new();
-    let mut database_context: HashMap<QueryId, DatabaseOperationContext> = HashMap::new();
+    let mut query_queue: HashMap<QueryId, oneshot::Sender<CommandResponse<R>>> = HashMap::new();
+    let mut database_context: HashMap<QueryId, DatabaseOperationContext<R::KeyRegistry>> =
+        HashMap::new();
     let auto_connect_enabled = config.swarm_config().mdns_auto_connect();
     loop {
         tokio::select! {
@@ -33,7 +34,7 @@ pub async fn event_loop<V: NetabaseRegistery + std::fmt::Debug>(
                 let sent_event = NetabaseEvent(event);
                 let _ = event_sender.send(sent_event.clone());
                 match sent_event.0 {
-                    libp2p::swarm::SwarmEvent::Behaviour(event) => handle_behaviour_event(event, &mut query_queue, &mut database_context, swarm, auto_connect_enabled),
+                    libp2p::swarm::SwarmEvent::Behaviour(event) => handle_behaviour_event::<R>(event, &mut query_queue, &mut database_context, swarm, auto_connect_enabled),
                     libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id: _, connection_id: _, endpoint: _, num_established: _, concurrent_dial_errors: _, established_in: _ } => {},
                     libp2p::swarm::SwarmEvent::ConnectionClosed { peer_id: _, connection_id: _, endpoint: _, num_established: _, cause: _ } => {},
                     libp2p::swarm::SwarmEvent::IncomingConnection { connection_id: _, local_addr: _, send_back_addr: _ } => {},
@@ -54,7 +55,7 @@ pub async fn event_loop<V: NetabaseRegistery + std::fmt::Debug>(
             command = command_receiver.recv() => {
                 match command {
                     Some(cmd_with_response) => {
-                        handle_command::< V>(
+                        handle_command::< R>(
                             cmd_with_response.command,
                             Some(cmd_with_response.response_sender),
                             &mut query_queue,

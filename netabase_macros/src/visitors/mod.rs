@@ -200,10 +200,13 @@ impl<'ast> RegistryVisitor<'ast> {
             })
             .collect::<Vec<TokenStream>>();
 
+        let id = self.ident.unwrap();
+
         Ok((
             parse_quote! {
-                #[derive(Clone, Debug, ::macro_exports::__netabase_derive_more::From, ::macro_exports::__netabase_derive_more::TryInto)]
+                #[derive(NetabaseSchemaKey, Clone, Debug, ::macro_exports::__netabase_derive_more::From, ::macro_exports::__netabase_derive_more::TryInto)]
                 #[::macro_exports::__netabase_enum_unwrapper::unique_try_froms()]
+                #[schema_name(#id)]
                 pub enum #new_name {
                     #(#new_variants),*
                 }

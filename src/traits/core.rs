@@ -1,4 +1,6 @@
-use crate::netabase_trait::{NetabaseRegistery, NetabaseRegistryKey, NetabaseSchema, NetabaseSchemaKey};
+use crate::netabase_trait::{
+    NetabaseRegistery, NetabaseRegistryKey, NetabaseSchema, NetabaseSchemaKey,
+};
 use crate::traits::{
     configuration::{ConfigurationError, NetabaseConfiguration},
     database::{DatabaseError, DatabaseStats, NetabaseDatabase},
@@ -7,6 +9,7 @@ use crate::traits::{
 use async_trait::async_trait;
 use libp2p::PeerId;
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::time::Duration;
 
 /// Main result type for all Netabase operations
@@ -197,7 +200,7 @@ pub struct ErrorCounts {
 
 /// Events that can occur in the Netabase system
 #[derive(Debug, Clone)]
-pub enum NetabaseEvent<K: NetabaseSchemaKey, V: NetabaseSchema> {
+pub enum NetabaseEvent<V: NetabaseSchema<R>, R: NetabaseRegistery> {
     /// System state changed
     StateChanged {
         old_state: SystemState,
@@ -206,7 +209,7 @@ pub enum NetabaseEvent<K: NetabaseSchemaKey, V: NetabaseSchema> {
 
     /// Data operation completed
     DataOperation {
-        operation: DataOperationType<K, V>,
+        operation: DataOperationType<V, R>,
         success: bool,
         duration: Duration,
     },
@@ -247,27 +250,26 @@ pub enum NetabaseEvent<K: NetabaseSchemaKey, V: NetabaseSchema> {
 
     /// Synchronization event
     SyncEvent {
-        key: K,
-        sync_type: SyncEventType<V>,
+        key: V::Key,
+        sync_type: SyncEventType<V, R>,
         peer_id: Option<PeerId>,
     },
 }
 
 /// Types of data operations
 #[derive(Debug, Clone)]
-pub enum DataOperationType<K: NetabaseSchemaKey, V: NetabaseSchema> {
+pub enum DataOperationType<V: NetabaseSchema<R>, R: NetabaseRegistery> {
     Put {
-        key: K,
         value: V,
     },
     Get {
-        key: K,
+        key: V::Key,
     },
     Delete {
-        key: K,
+        key: V::Key,
     },
     Batch {
-        operations: Vec<DataOperationType<K, V>>,
+        operations: Vec<DataOperationType<V, R>>,
     },
 }
 
@@ -283,11 +285,25 @@ pub enum PeerActivityType {
 
 /// Types of synchronization events
 #[derive(Debug, Clone)]
-pub enum SyncEventType<V: NetabaseSchema> {
-    LocalUpdate { new_value: V },
-    RemoteUpdate { new_value: V, source: PeerId },
-    Conflict { local_value: V, remote_value: V },
-    Resolution { resolved_value: V },
+pub enum SyncEventType<V: NetabaseSchema<R>, R: NetabaseRegistery> {
+    LocalUpdate {
+        new_value: V,
+        _marker: PhantomData<R>,
+    },
+    RemoteUpdate {
+        new_value: V,
+        _marker: PhantomData<R>,
+        source: PeerId,
+    },
+    Conflict {
+        local_value: V,
+        _marker: PhantomData<R>,
+        remote_value: V,
+    },
+    Resolution {
+        resolved_value: V,
+        _marker: PhantomData<R>,
+    },
 }
 
 /// Configuration for the entire Netabase system
@@ -335,12 +351,11 @@ impl Default for NetabaseConfig {
 
 /// Core trait that provides the main Netabase interface
 #[async_trait]
-pub trait NetabaseCore<K: NetabaseRegistryKey, V: NetabaseRegistery, D, N, C>: Send + Sync
+pub trait NetabaseCore<V: NetabaseSchema<R>, R: NetabaseRegistery, D, N, C>: Send + Sync
 where
-    K: NetabaseSchemaKey,
-    V: NetabaseSchema,
-    D: NetabaseDatabase<K, V>,
-    N: NetabaseNetwork<K, V>,
+    V: NetabaseSchema<R>,
+    D: NetabaseDatabase<V, R>,
+    N: NetabaseNetwork<V, R>,
     C: NetabaseConfiguration,
 {
     // === Lifecycle Management ===
@@ -369,30 +384,30 @@ where
     // === High-Level Data Operations ===
 
     /// Store a value locally and optionally sync with the network
-    async fn put(&mut self, key: K, value: V) -> NetabaseResult<()>;
+    async fn put(&mut self, key: V::Key, value: V) -> NetabaseResult<()>;
 
     /// Store a value with specific sync behavior
     async fn put_with_sync(
         &mut self,
-        key: K,
+        key: V::Key,
         value: V,
         sync_immediately: bool,
     ) -> NetabaseResult<()>;
 
     /// Retrieve a value, checking local storage first then network if needed
-    async fn get(&self, key: &K) -> NetabaseResult<Option<V>>;
+    async fn get(&self, key: &V::Key) -> NetabaseResult<Option<V>>;
 
     /// Retrieve a value with timeout
-    async fn get_with_timeout(&self, key: &K, timeout: Duration) -> NetabaseResult<Option<V>>;
+    async fn get_with_timeout(&self, key: &V::Key, timeout: Duration) -> NetabaseResult<Option<V>>;
 
     /// Delete a value locally and propagate to network
-    async fn delete(&mut self, key: &K) -> NetabaseResult<bool>;
+    async fn delete(&mut self, key: &V::Key) -> NetabaseResult<bool>;
 
     /// Check if a key exists (local first, then network)
-    async fn contains_key(&self, key: &K) -> NetabaseResult<bool>;
+    async fn contains_key(&self, key: &V::Key) -> NetabaseResult<bool>;
 
     /// Get all keys (local only for performance)
-    async fn keys(&self) -> NetabaseResult<Vec<K>>;
+    async fn keys(&self) -> NetabaseResult<Vec<V::Key>>;
 
     /// Get the number of entries in local storage
     async fn len(&self) -> NetabaseResult<usize>;
@@ -403,30 +418,33 @@ where
     // === Batch Operations ===
 
     /// Perform multiple operations as a batch
-    async fn batch(&mut self, operations: Vec<DataOperationType<K, V>>) -> NetabaseResult<()>;
+    async fn batch(&mut self, operations: Vec<DataOperationType<V, R>>) -> NetabaseResult<()>;
 
     /// Store multiple key-value pairs
-    async fn put_batch(&mut self, entries: Vec<(K, V)>) -> NetabaseResult<()>;
+    async fn put_batch(&mut self, entries: Vec<(V, R)>) -> NetabaseResult<()>;
 
     /// Retrieve multiple values
-    async fn get_batch(&self, keys: &[K]) -> NetabaseResult<HashMap<K, V>>;
+    async fn get_batch(&self, keys: &[V::Key]) -> NetabaseResult<HashMap<V, R>>;
 
     /// Delete multiple keys
-    async fn delete_batch(&mut self, keys: &[K]) -> NetabaseResult<Vec<K>>;
+    async fn delete_batch(&mut self, keys: &[V::Key]) -> NetabaseResult<Vec<V::Key>>;
 
     // === Network-Aware Operations ===
 
     /// Publish a value to the network (gossip)
-    async fn publish(&mut self, key: K, value: V) -> NetabaseResult<()>;
+    async fn publish(&mut self, key: V::Key, value: V) -> NetabaseResult<()>;
 
     /// Subscribe to updates for a specific key
-    async fn subscribe(&mut self, key: &K) -> NetabaseResult<tokio::sync::broadcast::Receiver<V>>;
+    async fn subscribe(
+        &mut self,
+        key: &V::Key,
+    ) -> NetabaseResult<tokio::sync::broadcast::Receiver<V>>;
 
     /// Unsubscribe from updates for a key
-    async fn unsubscribe(&mut self, key: &K) -> NetabaseResult<()>;
+    async fn unsubscribe(&mut self, key: &V::Key) -> NetabaseResult<()>;
 
     /// Force synchronization of a specific key with the network
-    async fn sync_key(&mut self, key: &K) -> NetabaseResult<()>;
+    async fn sync_key(&mut self, key: &V::Key) -> NetabaseResult<()>;
 
     /// Force synchronization of all local data with the network
     async fn sync_all(&mut self) -> NetabaseResult<()>;
@@ -464,12 +482,12 @@ where
     // === Event Handling ===
 
     /// Get a receiver for system events
-    fn event_receiver(&self) -> tokio::sync::broadcast::Receiver<NetabaseEvent<K, V>>;
+    fn event_receiver(&self) -> tokio::sync::broadcast::Receiver<NetabaseEvent<V, R>>;
 
     /// Register an event handler
     async fn register_event_handler(
         &mut self,
-        handler: Box<dyn NetabaseEventHandler<K, V>>,
+        handler: Box<dyn NetabaseEventHandler<V, R>>,
     ) -> NetabaseResult<()>;
 
     /// Unregister an event handler
@@ -512,7 +530,7 @@ where
     // === Advanced Operations ===
 
     /// Create a transaction for atomic operations
-    async fn begin_transaction(&mut self) -> NetabaseResult<Box<dyn NetabaseTransaction<K, V>>>;
+    async fn begin_transaction(&mut self) -> NetabaseResult<Box<dyn NetabaseTransaction<V, R>>>;
 
     /// Execute a closure with automatic retry on failure
     async fn with_retry<F, T>(&mut self, operation: F, max_retries: usize) -> NetabaseResult<T>
@@ -541,30 +559,30 @@ pub enum ExportFormat {
 
 /// Trait for handling system events
 #[async_trait]
-pub trait NetabaseEventHandler<K: NetabaseSchemaKey, V: NetabaseSchema>: Send + Sync {
+pub trait NetabaseEventHandler<V: NetabaseSchema<R>, R: NetabaseRegistery>: Send + Sync {
     /// Get the unique identifier for this handler
     fn id(&self) -> &str;
 
     /// Handle a system event
-    async fn handle_event(&mut self, event: NetabaseEvent<K, V>) -> NetabaseResult<()>;
+    async fn handle_event(&mut self, event: NetabaseEvent<V, R>) -> NetabaseResult<()>;
 
     /// Get the event types this handler is interested in
     fn interested_events(&self) -> Vec<String>;
 
     /// Check if this handler should receive a specific event
-    fn should_handle(&self, event: &NetabaseEvent<K, V>) -> bool {
+    fn should_handle(&self, event: &NetabaseEvent<V, R>) -> bool {
         true // Default: handle all events
     }
 }
 
 /// Trait for atomic transactions
 #[async_trait]
-pub trait NetabaseTransaction<K: NetabaseSchemaKey, V: NetabaseSchema>: Send + Sync {
+pub trait NetabaseTransaction<V: NetabaseSchema<R>, R: NetabaseRegistery>: Send + Sync {
     /// Add a put operation to the transaction
-    fn put(&mut self, key: K, value: V) -> NetabaseResult<()>;
+    fn put(&mut self, key: V::Key, value: V) -> NetabaseResult<()>;
 
     /// Add a delete operation to the transaction
-    fn delete(&mut self, key: &K) -> NetabaseResult<()>;
+    fn delete(&mut self, key: &V::Key) -> NetabaseResult<()>;
 
     /// Commit all operations in the transaction
     async fn commit(self: Box<Self>) -> NetabaseResult<()>;
@@ -576,55 +594,55 @@ pub trait NetabaseTransaction<K: NetabaseSchemaKey, V: NetabaseSchema>: Send + S
     fn is_valid(&self) -> bool;
 
     /// Get the operations in this transaction
-    fn operations(&self) -> &[DataOperationType<K, V>];
+    fn operations(&self) -> &[DataOperationType<V, R>];
 }
 
 /// Extension trait for advanced Netabase operations
 #[async_trait]
-pub trait NetabaseCoreExt<K: NetabaseRegistryKey, V: NetabaseRegistery, D, N, C>: NetabaseCore<K, V, D, N, C>
+pub trait NetabaseCoreExt<V: NetabaseSchema<R>, R: NetabaseRegistery, D, N, C>:
+    NetabaseCore<V, R, D, N, C>
 where
-    K: NetabaseSchemaKey,
-    V: NetabaseSchema,
-    D: NetabaseDatabase<K, V>,
-    N: NetabaseNetwork<K, V>,
+    V: NetabaseSchema<R>,
+    D: NetabaseDatabase<V, R>,
+    N: NetabaseNetwork<V, R>,
     C: NetabaseConfiguration,
 {
     /// Update a value using a closure
-    async fn update<F>(&mut self, key: &K, updater: F) -> NetabaseResult<bool>
+    async fn update<F>(&mut self, key: &V::Key, updater: F) -> NetabaseResult<bool>
     where
         F: FnOnce(V) -> V + Send + Sync;
 
     /// Insert a value only if the key doesn't exist
-    async fn insert(&mut self, key: K, value: V) -> NetabaseResult<bool>;
+    async fn insert(&mut self, key: V::Key, value: V) -> NetabaseResult<bool>;
 
     /// Update if exists, insert if not
-    async fn upsert(&mut self, key: K, value: V) -> NetabaseResult<()>;
+    async fn upsert(&mut self, key: V::Key, value: V) -> NetabaseResult<()>;
 
     /// Get and remove a value atomically
-    async fn take(&mut self, key: &K) -> NetabaseResult<Option<V>>;
+    async fn take(&mut self, key: &V::Key) -> NetabaseResult<Option<V>>;
 
     /// Compare and swap operation
     async fn compare_and_swap(
         &mut self,
-        key: &K,
+        key: &V::Key,
         expected: Option<V>,
         new_value: V,
     ) -> NetabaseResult<bool>;
 
     /// Watch for changes to a key
-    async fn watch(&mut self, key: &K) -> NetabaseResult<tokio::sync::broadcast::Receiver<V>>;
+    async fn watch(&mut self, key: &V::Key) -> NetabaseResult<tokio::sync::broadcast::Receiver<V>>;
 
     /// Scan keys with a prefix
-    async fn scan_prefix(&self, prefix: &str) -> NetabaseResult<Vec<K>>;
+    async fn scan_prefix(&self, prefix: &str) -> NetabaseResult<Vec<V::Key>>;
 
     /// Get statistics for a specific key
-    async fn key_stats(&self, key: &K) -> NetabaseResult<KeyStats>;
+    async fn key_stats(&self, key: &V::Key) -> NetabaseResult<KeyStats>;
 
     /// Optimize storage (compact, defragment, etc.)
     async fn optimize(&mut self) -> NetabaseResult<()>;
 
     /// Create a consistent snapshot
-    async fn snapshot(&self) -> NetabaseResult<Box<dyn NetabaseSnapshot<K, V>>>;
+    async fn snapshot(&self) -> NetabaseResult<Box<dyn NetabaseSnapshot<V, R>>>;
 }
 
 /// Statistics for a specific key
@@ -640,12 +658,12 @@ pub struct KeyStats {
 }
 
 /// Trait for database snapshots
-pub trait NetabaseSnapshot<K: NetabaseSchemaKey, V: NetabaseSchema>: Send + Sync {
+pub trait NetabaseSnapshot<V: NetabaseSchema<R>, R: NetabaseRegistery>: Send + Sync {
     /// Get a value from the snapshot
-    fn get(&self, key: &K) -> NetabaseResult<Option<V>>;
+    fn get(&self, key: &V::Key) -> NetabaseResult<Option<V>>;
 
     /// Get all keys in the snapshot
-    fn keys(&self) -> NetabaseResult<Vec<K>>;
+    fn keys(&self) -> NetabaseResult<Vec<V::Key>>;
 
     /// Get the timestamp when this snapshot was created
     fn created_at(&self) -> chrono::DateTime<chrono::Utc>;

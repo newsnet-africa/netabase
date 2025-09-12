@@ -12,42 +12,42 @@ use libp2p::{Multiaddr, PeerId, kad};
 
 use tokio::sync::oneshot;
 
-pub enum NetabaseCommand<V: NetabaseRegistery> {
+pub enum NetabaseCommand<R: NetabaseRegistery> {
     System(SystemCommand),
-    Database(DatabaseCommand<V>),
-    Network(NetworkCommand<V>),
+    Database(DatabaseCommand<R>),
+    Network(NetworkCommand<R>),
     Configuration(ConfigurationCommand),
     Close,
 }
 
-pub enum CommandResponse<V: NetabaseRegistery> {
-    Database(DatabaseResponse<V>),
-    Network(NetworkResponse<V>),
+pub enum CommandResponse<R: NetabaseRegistery> {
+    Database(DatabaseResponse<R>),
+    Network(NetworkResponse<R>),
     Configuration(ConfigurationResponse),
     System(SystemResponse),
     Success,
     Error(String),
 }
 
-pub enum DatabaseResponse<V: NetabaseRegistery> {
-    GetResult(Option<V>),
-    BatchGetResult(std::collections::HashMap<V::KeyRegistry, V>),
+pub enum DatabaseResponse<R: NetabaseRegistery> {
+    GetResult(Option<R>),
+    BatchGetResult(std::collections::HashMap<R::KeyRegistry, R>),
 
     DeleteResult(bool),
-    BatchDeleteResult(Vec<V::KeyRegistry>),
-    KeysResult(Vec<V::KeyRegistry>),
-    ValuesResult(Vec<V>),
-    EntriesResult(Vec<(V::KeyRegistry, V)>),
+    BatchDeleteResult(Vec<R::KeyRegistry>),
+    KeysResult(Vec<R::KeyRegistry>),
+    ValuesResult(Vec<R>),
+    EntriesResult(Vec<(R::KeyRegistry, R)>),
     LenResult(usize),
     IsEmptyResult(bool),
     Stats(crate::traits::database::DatabaseStats),
     TransactionId(String),
-    IntegrityReport(Vec<V::KeyRegistry>), // Keys that failed integrity check
+    IntegrityReport(Vec<R::KeyRegistry>), // Keys that failed integrity check
     SyncStatus(bool),                     // Whether sync completed successfully
 }
 
-pub enum NetworkResponse<V: NetabaseRegistery> {
-    _Phantom(std::marker::PhantomData<(V::KeyRegistry, V)>),
+pub enum NetworkResponse<R: NetabaseRegistery> {
+    _Phantom(std::marker::PhantomData<(R::KeyRegistry, R)>),
     PeerInfo(Vec<crate::traits::network::PeerInfo>),
     Stats(crate::traits::network::NetworkStats),
     LocalPeerId(PeerId),
@@ -88,9 +88,9 @@ pub enum SystemResponse {
 }
 
 /// Command with response channel for operations that need to return results
-pub struct CommandWithResponse<V: NetabaseRegistery> {
-    pub command: NetabaseCommand<V>,
-    pub response_sender: oneshot::Sender<CommandResponse<V>>,
+pub struct CommandWithResponse<R: NetabaseRegistery> {
+    pub command: NetabaseCommand<R>,
+    pub response_sender: oneshot::Sender<CommandResponse<R>>,
 }
 
 pub mod database_commands {
@@ -99,37 +99,37 @@ pub mod database_commands {
     };
     use crate::traits::database::{DatabaseConfig, QueryOptions};
 
-    pub enum DatabaseCommand<V: NetabaseRegistery>
+    pub enum DatabaseCommand<R: NetabaseRegistery>
     where
-        V::KeyRegistry: NetabaseRegistryKey,
+        R::KeyRegistry: NetabaseRegistryKey,
     {
         // Core CRUD operations o user data
         Put {
-            value: V,
+            value: R,
         },
         Get {
-            key: V::KeyRegistry,
+            key: R::KeyRegistry,
         },
         Delete {
-            key: V::KeyRegistry,
+            key: R::KeyRegistry,
         },
         // Batch operations for efficiency
         PutBatch {
-            entries: Vec<V>,
+            entries: Vec<R>,
         },
         GetBatch {
-            keys: Vec<V::KeyRegistry>,
+            keys: Vec<R::KeyRegistry>,
         },
         DeleteBatch {
-            keys: Vec<V::KeyRegistry>,
+            keys: Vec<R::KeyRegistry>,
         },
 
         // Advanced data operations
         Update {
-            value: V,
+            value: R,
         },
         Upsert {
-            value: V,
+            value: R,
         },
 
         // Querying and scanning user data
@@ -138,8 +138,8 @@ pub mod database_commands {
             options: Option<QueryOptions>,
         },
         ScanRange {
-            start: V::KeyRegistry,
-            end: V::KeyRegistry,
+            start: R::KeyRegistry,
+            end: R::KeyRegistry,
             options: Option<QueryOptions>,
         },
         Keys {
@@ -178,22 +178,22 @@ pub mod database_commands {
             peer_id: Option<libp2p::PeerId>,
         },
         ReplicateKey {
-            key: V::KeyRegistry,
+            key: R::KeyRegistry,
             target_peers: Vec<libp2p::PeerId>,
         },
 
         // Data integrity
         VerifyIntegrity,
         RepairCorruption {
-            keys: Vec<V::KeyRegistry>,
+            keys: Vec<R::KeyRegistry>,
         },
 
         // Change monitoring
         Subscribe {
-            key: V::KeyRegistry,
+            key: R::KeyRegistry,
         },
         Unsubscribe {
-            key: V::KeyRegistry,
+            key: R::KeyRegistry,
         },
     }
 }
@@ -206,7 +206,7 @@ pub mod network_commands {
     use libp2p::{Multiaddr, PeerId};
     use std::time::Duration;
 
-    pub enum NetworkCommand<V: NetabaseRegistery> {
+    pub enum NetworkCommand<R: NetabaseRegistery> {
         // Lifecycle
         Initialize {
             config: NetworkConfig,
@@ -232,10 +232,10 @@ pub mod network_commands {
         // Messaging
         SendMessage {
             peer_id: PeerId,
-            message: NetworkMessage<V>,
+            message: NetworkMessage<R>,
         },
         BroadcastMessage {
-            message: NetworkMessage<V>,
+            message: NetworkMessage<R>,
             options: BroadcastOptions,
         },
 

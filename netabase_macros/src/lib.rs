@@ -6,7 +6,7 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 
 use quote::quote;
-use syn::{DeriveInput, Ident, ItemMod, parse_macro_input, visit::Visit};
+use syn::{DeriveInput, Ident, ItemMod, Meta, parse_macro_input, parse_quote, visit::Visit};
 
 use crate::{
     generators::{
@@ -67,13 +67,29 @@ pub fn netabase_registry_derive(input: TokenStream) -> TokenStream {
         Err(err) => err.into_compile_error().into(),
     }
 }
-#[proc_macro_derive(NetabaseSchemaKey)]
+#[proc_macro_derive(NetabaseSchemaKey, attributes(schema_name))]
 pub fn netabase_schema_key_derive(input: TokenStream) -> TokenStream {
     let inp = parse_macro_input!(input as DeriveInput);
     let name = inp.ident;
 
+    let schema_name: Ident = match inp.attrs.iter().find_map(|att| {
+        if let Meta::List(meta_list) = &att.meta
+            && meta_list.path.is_ident("schema_name")
+        {
+            let toks = &meta_list.tokens;
+            Some(parse_quote! {
+                #toks
+            })
+        } else {
+            None
+        }
+    }) {
+        Some(id) => id,
+        None => panic!("SchemaKey needs Schema"),
+    };
+
     match (|| -> Result<_, crate::generators::GenerationError> {
-        let net_impl = generate_key_impl(&name);
+        let net_impl = generate_key_impl(&name, &schema_name);
         let conversions = generate_from_to_key_record(&name);
         Ok(quote! {
             #net_impl

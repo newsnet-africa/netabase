@@ -10,13 +10,10 @@ use crate::network::event_loop::handle_commands::database_commands::{
 };
 use crate::network::event_messages::command_messages::{CommandResponse, NetworkResponse};
 
-pub fn handle_kad_event<
-    K: NetabaseRegistryKey + std::fmt::Debug,
-    V: NetabaseRegistery + std::fmt::Debug,
->(
+pub fn handle_kad_event<R: NetabaseRegistery>(
     event: kad::Event,
-    pending_queries: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<K, V>>>,
-    database_context: &mut HashMap<QueryId, DatabaseOperationContext>,
+    pending_queries: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<R>>>,
+    database_context: &mut HashMap<QueryId, DatabaseOperationContext<R::KeyRegistry>>,
 ) {
     println!("Kademlia Event: {event:?}");
     match event {
@@ -31,7 +28,7 @@ pub fn handle_kad_event<
             if let Some(sender) = pending_queries.remove(&id) {
                 // First check if this is a database operation
                 if let Some(db_response) =
-                    process_database_dht_response::<K, V>(id, &result, database_context)
+                    process_database_dht_response::<R>(id, &result, database_context)
                 {
                     let _ = sender.send(db_response);
                     return;

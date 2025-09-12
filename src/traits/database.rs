@@ -1,4 +1,4 @@
-use crate::netabase_trait::{NetabaseSchema, NetabaseSchemaKey};
+use crate::netabase_trait::{NetabaseRegistery, NetabaseSchema, NetabaseSchemaKey};
 use async_trait::async_trait;
 use macro_exports::__netabase_libp2p_kad::{Record, RecordKey as KadKey};
 use std::collections::HashMap;
@@ -320,13 +320,13 @@ pub struct QueryOptions {
 }
 
 /// Transaction handle for batch operations
-pub struct DatabaseTransaction<'a, K: NetabaseSchemaKey, V: NetabaseSchema> {
-    _phantom: std::marker::PhantomData<(&'a (), K, V)>,
+pub struct DatabaseTransaction<'a, V: NetabaseSchema<R>, R: NetabaseRegistery> {
+    _phantom: std::marker::PhantomData<(&'a (), V::Key, V)>,
 }
 
 /// Core database operations trait
 #[async_trait]
-pub trait NetabaseDatabase<K: NetabaseSchemaKey, V: NetabaseSchema>: Send + Sync {
+pub trait NetabaseDatabase<V: NetabaseSchema<R>, R: NetabaseRegistery>: Send + Sync {
     /// Initialize the database with the given configuration
     async fn initialize(&mut self, config: DatabaseConfig) -> DatabaseResult<()>;
 
@@ -337,34 +337,34 @@ pub trait NetabaseDatabase<K: NetabaseSchemaKey, V: NetabaseSchema>: Send + Sync
     async fn close(&mut self) -> DatabaseResult<()>;
 
     /// Store a key-value pair in the database
-    async fn put(&mut self, key: K, value: V) -> DatabaseResult<()>;
+    async fn put(&mut self, key: V::Key, value: V) -> DatabaseResult<()>;
 
     /// Store multiple key-value pairs in a single operation
-    async fn put_batch(&mut self, entries: Vec<(K, V)>) -> DatabaseResult<()>;
+    async fn put_batch(&mut self, entries: Vec<(V::Key, V)>) -> DatabaseResult<()>;
 
     /// Retrieve a value by its key
-    async fn get(&self, key: &K) -> DatabaseResult<Option<V>>;
+    async fn get(&self, key: &V::Key) -> DatabaseResult<Option<V>>;
 
     /// Retrieve multiple values by their keys
-    async fn get_batch(&self, keys: &[K]) -> DatabaseResult<HashMap<K, V>>;
+    async fn get_batch(&self, keys: &[V::Key]) -> DatabaseResult<HashMap<V::Key, V>>;
 
     /// Check if a key exists in the database
-    async fn contains_key(&self, key: &K) -> DatabaseResult<bool>;
+    async fn contains_key(&self, key: &V::Key) -> DatabaseResult<bool>;
 
     /// Remove a key-value pair from the database
-    async fn delete(&mut self, key: &K) -> DatabaseResult<bool>;
+    async fn delete(&mut self, key: &V::Key) -> DatabaseResult<bool>;
 
     /// Remove multiple keys in a single operation
-    async fn delete_batch(&mut self, keys: &[K]) -> DatabaseResult<Vec<K>>;
+    async fn delete_batch(&mut self, keys: &[V::Key]) -> DatabaseResult<Vec<V::Key>>;
 
     /// Get all keys in the database
-    async fn keys(&self, options: Option<QueryOptions>) -> DatabaseResult<Vec<K>>;
+    async fn keys(&self, options: Option<QueryOptions>) -> DatabaseResult<Vec<V::Key>>;
 
     /// Get all values in the database
     async fn values(&self, options: Option<QueryOptions>) -> DatabaseResult<Vec<V>>;
 
     /// Get all key-value pairs in the database
-    async fn entries(&self, options: Option<QueryOptions>) -> DatabaseResult<Vec<(K, V)>>;
+    async fn entries(&self, options: Option<QueryOptions>) -> DatabaseResult<Vec<(V::Key, V)>>;
 
     /// Get the number of entries in the database
     async fn len(&self) -> DatabaseResult<usize>;
@@ -376,18 +376,18 @@ pub trait NetabaseDatabase<K: NetabaseSchemaKey, V: NetabaseSchema>: Send + Sync
     async fn clear(&mut self) -> DatabaseResult<()>;
 
     /// Create a transaction for batch operations
-    async fn begin_transaction(&mut self) -> DatabaseResult<DatabaseTransaction<'_, K, V>>;
+    async fn begin_transaction(&mut self) -> DatabaseResult<DatabaseTransaction<'_, V, R>>;
 
     /// Commit a transaction
     async fn commit_transaction(
         &mut self,
-        transaction: DatabaseTransaction<'_, K, V>,
+        transaction: DatabaseTransaction<'_, V, R>,
     ) -> DatabaseResult<()>;
 
     /// Rollback a transaction
     async fn rollback_transaction(
         &mut self,
-        transaction: DatabaseTransaction<'_, K, V>,
+        transaction: DatabaseTransaction<'_, V, R>,
     ) -> DatabaseResult<()>;
 
     /// Compact the database to reclaim space
@@ -400,7 +400,7 @@ pub trait NetabaseDatabase<K: NetabaseSchemaKey, V: NetabaseSchema>: Send + Sync
     async fn put_record(&mut self, record: Record) -> DatabaseResult<()>;
 
     /// Retrieve a kad::Record directly (for network integration)
-    async fn get_record(&self, key: &KadKey) -> DatabaseResult<Option<Record>>;
+    async fn get_record(&self, key: &V::Key) -> DatabaseResult<Option<Record>>;
 
     /// Convert a value to a kad::Record using auto-generated TryInto trait
     fn to_record(&self, value: V) -> Result<Record, DatabaseError> {
@@ -430,7 +430,7 @@ pub trait NetabaseDatabase<K: NetabaseSchemaKey, V: NetabaseSchema>: Send + Sync
     async fn get_republish_records(&self) -> DatabaseResult<Vec<Record>>;
 
     /// Mark records as needing republish after network events
-    async fn mark_for_republish(&mut self, keys: &[K]) -> DatabaseResult<()>;
+    async fn mark_for_republish(&mut self, keys: &[V::Key]) -> DatabaseResult<()>;
 
     /// Get records that are about to expire in the DHT
     async fn get_expiring_records(
@@ -441,12 +441,12 @@ pub trait NetabaseDatabase<K: NetabaseSchemaKey, V: NetabaseSchema>: Send + Sync
     /// Update record expiration time based on DHT feedback
     async fn update_record_expiry(
         &mut self,
-        key: &K,
+        key: &V::Key,
         expires: Option<std::time::Instant>,
     ) -> DatabaseResult<()>;
 
     /// Convert NetabaseSchemaKey to kad::record::Key using auto-generated TryInto trait
-    fn schema_key_to_kad_key(&self, key: K) -> Result<KadKey, DatabaseError> {
+    fn schema_key_to_kad_key(&self, key: V::Key) -> Result<KadKey, DatabaseError> {
         key.try_into()
             .map_err(|e| DatabaseError::SerializationError {
                 source: Box::new(std::io::Error::new(
@@ -457,7 +457,7 @@ pub trait NetabaseDatabase<K: NetabaseSchemaKey, V: NetabaseSchema>: Send + Sync
     }
 
     /// Convert kad::record::Key to NetabaseSchemaKey using auto-generated TryInto trait
-    fn kad_key_to_schema_key(&self, key: KadKey) -> Result<K, DatabaseError> {
+    fn kad_key_to_schema_key(&self, key: KadKey) -> Result<V::Key, DatabaseError> {
         key.try_into()
             .map_err(|e| DatabaseError::SerializationError {
                 source: Box::new(std::io::Error::new(
@@ -489,23 +489,23 @@ pub struct DatabaseStats {
 
 /// Extension trait for advanced database operations
 #[async_trait]
-pub trait NetabaseDatabaseExt<K: NetabaseSchemaKey, V: NetabaseSchema>:
-    NetabaseDatabase<K, V>
+pub trait NetabaseDatabaseExt<V: NetabaseSchema<R>, R: NetabaseRegistery>:
+    NetabaseDatabase<V, R>
 {
     /// Update a value if the key exists
-    async fn update(&mut self, key: &K, value: V) -> DatabaseResult<bool>;
+    async fn update(&mut self, key: &V::Key, value: V) -> DatabaseResult<bool>;
 
     /// Insert a value only if the key doesn't exist
-    async fn insert(&mut self, key: K, value: V) -> DatabaseResult<bool>;
+    async fn insert(&mut self, key: V::Key, value: V) -> DatabaseResult<bool>;
 
     /// Update a value if it exists, or insert it if it doesn't
-    async fn upsert(&mut self, key: K, value: V) -> DatabaseResult<()>;
+    async fn upsert(&mut self, key: V::Key, value: V) -> DatabaseResult<()>;
 
     /// Get and remove a value in a single operation
-    async fn take(&mut self, key: &K) -> DatabaseResult<Option<V>>;
+    async fn take(&mut self, key: &V::Key) -> DatabaseResult<Option<V>>;
 
     /// Update a value using a closure
-    async fn update_with<F>(&mut self, key: &K, updater: F) -> DatabaseResult<bool>
+    async fn update_with<F>(&mut self, key: &V::Key, updater: F) -> DatabaseResult<bool>
     where
         F: FnOnce(V) -> V + Send + Sync;
 
@@ -514,26 +514,26 @@ pub trait NetabaseDatabaseExt<K: NetabaseSchemaKey, V: NetabaseSchema>:
         &self,
         prefix: &str,
         options: Option<QueryOptions>,
-    ) -> DatabaseResult<Vec<K>>;
+    ) -> DatabaseResult<Vec<V::Key>>;
 
     /// Scan keys within a range
     async fn scan_range(
         &self,
-        start: &K,
-        end: &K,
+        start: &V::Key,
+        end: &V::Key,
         options: Option<QueryOptions>,
-    ) -> DatabaseResult<Vec<K>>;
+    ) -> DatabaseResult<Vec<V::Key>>;
 
     /// Subscribe to changes for a specific key
     async fn subscribe_key(
         &self,
-        key: &K,
-    ) -> DatabaseResult<tokio::sync::broadcast::Receiver<DatabaseEvent<K, V>>>;
+        key: &V::Key,
+    ) -> DatabaseResult<tokio::sync::broadcast::Receiver<DatabaseEvent<V, R>>>;
 
     /// Subscribe to all database changes
     async fn subscribe_all(
         &self,
-    ) -> DatabaseResult<tokio::sync::broadcast::Receiver<DatabaseEvent<K, V>>>;
+    ) -> DatabaseResult<tokio::sync::broadcast::Receiver<DatabaseEvent<V, R>>>;
 
     /// Sync with network - put local records to DHT
     async fn sync_to_network(&mut self) -> DatabaseResult<Vec<Record>>;
@@ -570,7 +570,7 @@ pub trait NetabaseDatabaseExt<K: NetabaseSchemaKey, V: NetabaseSchema>:
     async fn remove_expired_records(&mut self) -> DatabaseResult<usize>;
 
     /// Get the closest records to a given key (useful for DHT operations)
-    async fn get_closest_records(&self, key: &KadKey, limit: usize) -> DatabaseResult<Vec<Record>>;
+    async fn get_closest_records(&self, key: &V::Key, limit: usize) -> DatabaseResult<Vec<Record>>;
 
     /// Check if the store has reached its capacity limit
     async fn is_at_capacity(&self) -> DatabaseResult<bool>;
@@ -604,18 +604,18 @@ pub struct StoreMaintenanceResult {
 
 /// Events that can occur in the database
 #[derive(Debug, Clone)]
-pub enum DatabaseEvent<K: NetabaseSchemaKey, V: NetabaseSchema> {
+pub enum DatabaseEvent<V: NetabaseSchema<R>, R: NetabaseRegistery> {
     Inserted {
-        key: K,
+        key: V::Key,
         value: V,
     },
     Updated {
-        key: K,
+        key: V::Key,
         old_value: V,
         new_value: V,
     },
     Deleted {
-        key: K,
+        key: V::Key,
         value: V,
     },
     Cleared,
@@ -637,9 +637,9 @@ pub enum DatabaseEvent<K: NetabaseSchemaKey, V: NetabaseSchema> {
 }
 
 /// Iterator trait for streaming large datasets
-pub trait DatabaseIterator<K: NetabaseSchemaKey, V: NetabaseSchema>: Send + Sync {
+pub trait DatabaseIterator<V: NetabaseSchema<R>, R: NetabaseRegistery>: Send + Sync {
     /// Get the next batch of entries
-    async fn next_batch(&mut self, batch_size: usize) -> DatabaseResult<Vec<(K, V)>>;
+    async fn next_batch(&mut self, batch_size: usize) -> DatabaseResult<Vec<(V::Key, V)>>;
 
     /// Check if there are more entries available
     fn has_more(&self) -> bool;
@@ -650,10 +650,10 @@ pub trait DatabaseIterator<K: NetabaseSchemaKey, V: NetabaseSchema>: Send + Sync
 
 /// Trait for creating database iterators
 #[async_trait]
-pub trait NetabaseDatabaseIterator<K: NetabaseSchemaKey, V: NetabaseSchema>:
-    NetabaseDatabase<K, V>
+pub trait NetabaseDatabaseIterator<V: NetabaseSchema<R>, R: NetabaseRegistery>:
+    NetabaseDatabase<V, R>
 {
-    type Iterator: DatabaseIterator<K, V>;
+    type Iterator: DatabaseIterator<V, R>;
 
     /// Create an iterator over all entries
     async fn iter(&self) -> DatabaseResult<Self::Iterator>;
@@ -662,5 +662,5 @@ pub trait NetabaseDatabaseIterator<K: NetabaseSchemaKey, V: NetabaseSchema>:
     async fn iter_prefix(&self, prefix: &str) -> DatabaseResult<Self::Iterator>;
 
     /// Create an iterator over entries in a key range
-    async fn iter_range(&self, start: &K, end: &K) -> DatabaseResult<Self::Iterator>;
+    async fn iter_range(&self, start: &V::Key, end: &V::Key) -> DatabaseResult<Self::Iterator>;
 }

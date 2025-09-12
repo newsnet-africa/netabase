@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 netabase_macros = {path = "../netabase_macros"}
-netabase = {path = "../"}
+netabase = { path = ".." }
 bincode = { version = "*", features = ["derive"] }
 macro_exports = { version = "0.1.0", path = "../macro_exports" }
 serde = { version = "*", features = ["derive"] }

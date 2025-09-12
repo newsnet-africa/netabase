@@ -23,11 +23,11 @@ use database_commands::{DatabaseOperationContext, handle_database_command};
 
 use system_commands::handle_system_command;
 
-pub fn handle_command<V: NetabaseRegistery>(
-    command: NetabaseCommand<V>,
-    response_sender: Option<oneshot::Sender<CommandResponse<V>>>,
-    query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<V>>>,
-    database_context: &mut HashMap<QueryId, DatabaseOperationContext>,
+pub fn handle_command<R: NetabaseRegistery>(
+    command: NetabaseCommand<R>,
+    response_sender: Option<oneshot::Sender<CommandResponse<R>>>,
+    query_queue: &mut HashMap<QueryId, oneshot::Sender<CommandResponse<R>>>,
+    database_context: &mut HashMap<QueryId, DatabaseOperationContext<R::KeyRegistry>>,
     swarm: &mut Swarm<NetabaseBehaviour>,
 ) {
     match command {

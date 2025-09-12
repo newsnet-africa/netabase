@@ -27,12 +27,17 @@ pub fn generate_netabase_macro(input: SchemaValidator) -> Result<TokenStream, Ge
     let k_fun = generate_key_getter(&key_item, key)?;
     let impl_item = generate_netabase_impl(&input, k_fun)?;
     let from_to_record = generate_from_to_record(&input)?;
-
-    Ok(quote! {
-        #key_item
-        #impl_item
-        #from_to_record
-    })
+    match key {
+        Key::Registry(attribute) => Ok(quote! {
+            #impl_item
+            #from_to_record
+        }),
+        _ => Ok(quote! {
+            #key_item
+            #impl_item
+            #from_to_record
+        }),
+    }
 }
 
 pub fn generate_netabase_impl(
@@ -46,7 +51,7 @@ pub fn generate_netabase_impl(
 
     let key_ident = Key::ident(ident);
     Ok(parse_quote! {
-        impl netabase::netabase_trait::NetabaseSchema for #ident {
+        impl<R: netabase::netabase_trait::NetabaseRegistery> netabase::netabase_trait::NetabaseSchema<R> for #ident {
             type Key = #key_ident;
             #key
         }
@@ -74,6 +79,20 @@ pub fn generate_from_to_record(
         impl TryFrom<#ident> for ::macro_exports::__netabase_libp2p_kad::Record {
             type Error = ::macro_exports::__netabase_anyhow::Error;
             fn try_from(value: #ident) -> Result<Self, ::macro_exports::__netabase_anyhow::Error> {
+                let key = ::macro_exports::__netabase_libp2p_kad::RecordKey::try_from(value.key())?;
+                let bytes = ::macro_exports::__netabase_bincode::encode_to_vec(value, ::macro_exports::__netabase_bincode_config::standard())?;
+                Ok(::macro_exports::__netabase_libp2p_kad::Record {
+                    key,
+                    value: bytes,
+                    publisher: None,
+                    expires: None
+                })
+            }
+        }
+
+        impl TryFrom<&#ident> for ::macro_exports::__netabase_libp2p_kad::Record {
+            type Error = ::macro_exports::__netabase_anyhow::Error;
+            fn try_from(value: &#ident) -> Result<Self, ::macro_exports::__netabase_anyhow::Error> {
                 let key = ::macro_exports::__netabase_libp2p_kad::RecordKey::try_from(value.key())?;
                 let bytes = ::macro_exports::__netabase_bincode::encode_to_vec(value, ::macro_exports::__netabase_bincode_config::standard())?;
                 Ok(::macro_exports::__netabase_libp2p_kad::Record {
@@ -133,6 +152,7 @@ pub mod netabase_schema_key {
                     let type_name = *boxed_type.clone();
                     Ok(KeyItemType::StructKey(parse_quote!(
                         #[derive(NetabaseSchemaKey, Debug, ::macro_exports::__netabase_bincode::Encode, ::macro_exports::__netabase_bincode::Decode, Clone)]
+                        #[schema_name(#schema_name)]
                         pub struct #name(#type_name);
                     )))
                 } else {
@@ -145,6 +165,7 @@ pub mod netabase_schema_key {
                 let type_name = &field.ty;
                 Ok(KeyItemType::StructKey(parse_quote!(
                     #[derive(NetabaseSchemaKey, Debug, ::macro_exports::__netabase_bincode::Encode, ::macro_exports::__netabase_bincode::Decode, Clone)]
+                    #[schema_name(#schema_name)]
                     pub struct #name(#type_name);
                 )))
             }
@@ -159,6 +180,7 @@ pub mod netabase_schema_key {
 
                 Ok(KeyItemType::EnumKey(parse_quote!(
                     #[derive(NetabaseSchemaKey, Debug, ::macro_exports::__netabase_bincode::Encode, ::macro_exports::__netabase_bincode::Decode, Clone)]
+                    #[schema_name(#schema_name)]
                     pub enum #name {
                         #(#variant_iter),*
                     }
@@ -174,9 +196,10 @@ pub mod netabase_schema_key {
             }
         }
     }
-    pub fn generate_key_impl(key_ident: &Ident) -> ItemImpl {
+    pub fn generate_key_impl(key_ident: &Ident, schema_name: &Ident) -> ItemImpl {
         parse_quote!(
-            impl netabase::netabase_trait::NetabaseSchemaKey for #key_ident {
+            impl<K: netabase::netabase_trait::NetabaseRegistryKey> netabase::netabase_trait::NetabaseSchemaKey<K> for #key_ident {
+            type Schema = #schema_name;
             }
         )
     }
@@ -193,6 +216,13 @@ pub mod netabase_schema_key {
             impl TryFrom<#input> for ::macro_exports::__netabase_libp2p_kad::RecordKey {
                 type Error = ::macro_exports::__netabase_anyhow::Error;
                 fn try_from(value: #input) -> Result<Self, ::macro_exports::__netabase_anyhow::Error> {
+                    let bytes = ::macro_exports::__netabase_bincode::encode_to_vec(value, ::macro_exports::__netabase_bincode_config::standard())?;
+                    Ok(::macro_exports::__netabase_libp2p_kad::RecordKey::new(&bytes))
+                }
+            }
+            impl TryFrom<&#input> for ::macro_exports::__netabase_libp2p_kad::RecordKey {
+                type Error = ::macro_exports::__netabase_anyhow::Error;
+                fn try_from(value: &#input) -> Result<Self, ::macro_exports::__netabase_anyhow::Error> {
                     let bytes = ::macro_exports::__netabase_bincode::encode_to_vec(value, ::macro_exports::__netabase_bincode_config::standard())?;
                     Ok(::macro_exports::__netabase_libp2p_kad::RecordKey::new(&bytes))
                 }

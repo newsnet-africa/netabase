@@ -1,10 +1,12 @@
 use std::fmt::Debug;
 
+use async_trait::async_trait;
 use bincode::{Decode, Encode};
 
 use crate::{Netabase, NetabaseError};
 
-pub trait NetabaseSchema<R: NetabaseRegistery>:
+#[async_trait]
+pub trait NetabaseSchema<R: 'static + NetabaseRegistery>:
     Clone
     + Debug
     + Send
@@ -14,16 +16,22 @@ pub trait NetabaseSchema<R: NetabaseRegistery>:
     + TryInto<::macro_exports::__netabase_libp2p_kad::Record>
     + TryInto<R>
     + From<R>
+where
+    R::KeyRegistry: NetabaseRegistryKey,
 {
-    type Key: NetabaseSchemaKey<R::KeyRegistry>;
+    type Key: NetabaseSchemaKey<R::KeyRegistry, Schema = Self>;
     fn key(&self) -> Self::Key;
 
-    fn put(&self, netabase: Netabase<R>) -> Result<(), NetabaseError>
+    async fn put(self, netabase: Netabase<R>) -> Result<(), NetabaseError>
     where
-        R: NetabaseRegistery + TryInto<Self> + From<Self>;
+        R: NetabaseRegistery + TryInto<Self> + From<Self>,
+    {
+        netabase.put(self.into()).await
+    }
 }
 
-pub trait NetabaseSchemaKey<K: NetabaseRegistryKey>:
+#[async_trait]
+pub trait NetabaseSchemaKey<K: 'static + NetabaseRegistryKey>:
     Clone
     + Debug
     + Send
@@ -34,22 +42,31 @@ pub trait NetabaseSchemaKey<K: NetabaseRegistryKey>:
     + TryInto<K>
     + From<K>
 {
+    type Schema: NetabaseSchema<K::SchemaRegistry, Key = Self>;
+}
+
+pub trait NetabaseRegistery: NetabaseSchema<Self>
+where
+    Self: 'static,
+{
+    type KeyRegistry: NetabaseRegistryKey<SchemaRegistry = Self>;
+}
+
+#[async_trait]
+pub trait NetabaseRegistryKey: NetabaseSchemaKey<Self>
+where
+    Self: 'static,
+{
+    type SchemaRegistry: NetabaseRegistery<KeyRegistry = Self>;
     fn get<T, R>(&self, netabase: Netabase<R>) -> Result<Option<T>, NetabaseError>
     where
         R: NetabaseRegistery,
         T: NetabaseSchema<R> + TryFrom<R> + Into<R>;
 
-    fn delete<R>(&self, netabase: Netabase<R>)
+    async fn delete<R>(self, netabase: Netabase<R>) -> Result<(), NetabaseError>
     where
-        R: NetabaseRegistery;
-}
-
-pub trait NetabaseRegistery: Debug + Clone + Send {
-    type KeyRegistry: NetabaseRegistryKey;
-
-    fn unwrap(self) -> impl NetabaseSchema<Self> + TryFrom<Self> + From<Self>;
-}
-
-pub trait NetabaseRegistryKey: Debug + Clone + Send {
-    fn unwrap(self) -> impl NetabaseSchemaKey<Self> + TryFrom<Self> + From<Self>;
+        R: NetabaseRegistery<KeyRegistry = Self>,
+    {
+        netabase.delete(self).await
+    }
 }

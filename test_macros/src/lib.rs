@@ -7,6 +7,7 @@ use std::fmt::Debug;
 
 #[schema_module(MyRegistry)]
 pub mod registry {
+    // use super::netabase;
     use bincode::Decode;
     use bincode::Encode;
     use netabase::netabase_trait::NetabaseSchema;
@@ -35,7 +36,7 @@ pub mod registry {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    // use super::*;
 
     #[test]
     fn test_simple_record() {

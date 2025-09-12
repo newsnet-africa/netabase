@@ -3,7 +3,8 @@ use proc_macro::{Diagnostic, Span};
 use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
 use syn::{
-    Attribute, Fields, Ident, ItemEnum, ItemImpl, ItemType, Meta, Path, Type, Variant, parse_quote,
+    Arm, Attribute, Fields, Ident, ItemEnum, ItemImpl, ItemType, Meta, Path, Type, Variant,
+    parse_quote,
 };
 
 /// Generator for creating schema-related enums from collected schema data
@@ -24,7 +25,7 @@ impl<'a> SchemaEnumGenerator<'a> {
     pub fn generate_schemas_enum(
         &self,
         enum_ident: &Ident,
-    ) -> Result<(ItemEnum, ItemImpl, ItemType), GenerationError> {
+    ) -> Result<(ItemEnum, ItemImpl, ItemImpl), GenerationError> {
         if self.schemas.is_empty() {
             return Err(GenerationError::CodeGeneration {
                 message: "Schemas are non-existent or not found".to_string(),
@@ -37,12 +38,23 @@ impl<'a> SchemaEnumGenerator<'a> {
         keys_ident.push_str("Key");
         let new_enum_ident = Ident::new(&schema_ident, proc_macro2::Span::call_site());
         let keys_ident = Ident::new(&keys_ident, proc_macro2::Span::call_site());
+        let key_variants = self.generate_key_variants();
+        let arms: Vec<Arm> = self
+            .schemas
+            .iter()
+            .map(|(path, schemas, _)| {
+                parse_quote! {
+                    Self::#schemas(__v) => __v.try_into()
+                }
+            })
+            .collect();
         let variants = self.generate_schema_variants();
 
         Ok((
             parse_quote! {
-                #[derive(NetabaseRegistry, Clone, Debug, ::macro_exports::__netabase_derive_more::From, ::macro_exports::__netabase_derive_more::TryInto)]
+                #[derive(NetabaseRegistry, NetabaseSchema, Clone, Debug, ::macro_exports::__netabase_derive_more::From, ::macro_exports::__netabase_derive_more::TryInto)]
                 #[::macro_exports::__netabase_enum_unwrapper::unique_try_froms()]
+                #[__netabase_registery(#(#key_variants),*)]
                 pub enum #new_enum_ident {
                     #(#variants),*
                 }
@@ -51,10 +63,21 @@ impl<'a> SchemaEnumGenerator<'a> {
             parse_quote! {
                 impl netabase::netabase_trait::NetabaseRegistery for #new_enum_ident {
                     type KeyRegistry = #keys_ident;
+
+
                 }
             },
             parse_quote! {
-                type #enum_ident = (#new_enum_ident, #keys_ident);
+                impl TryFrom<&#new_enum_ident> for ::macro_exports::__netabase_libp2p_kad::Record {
+                    type Error = ::macro_exports::__netabase_anyhow::Error;
+                    fn try_from(value: &#new_enum_ident) -> Result<Self, ::macro_exports::__netabase_anyhow::Error> {
+                        Ok(
+                            match value {
+                                #(#arms),*
+                            }
+                        )
+                    }
+                }
             },
         ))
     }
