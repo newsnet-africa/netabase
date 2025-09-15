@@ -3,46 +3,12 @@ name = "netabase"
 version = "0.1.0"
 edition = "2024"
 
-
-[lib]
-crate-type = ["cdylib", "rlib"]
+[workspace]
+members = [
+  "netabase_macros"
+, "test_macros"]
 
 [dependencies]
-anyhow = "*"
-netabase_macros = { path = "netabase_macros" }
-bincode = "2.0.0-rc.3"
-chrono = { version = "0.4", features = ["serde"] }
-
-env_logger = "*"
-envy = "*"
-futures = "*"
-libp2p = { version = "*", features = [
-    "identify",
-    "kad",
-    "metrics",
-    "quic",
-    "macros",
-    "tokio",
-    "tcp",
-    "mdns",
-    "tls",
-    "yamux",
-    "noise",
-    "dns",
-    "serde",
-] }
-log = "*"
-rand = "*"
-serde = { version = "*", features = ["derive"] }
-serde_json = "*"
-sled = "*"
-smallvec = { version = "*", features = ["bincode", "impl_bincode"] }
-tokio = { version = "*", features = ["full"] }
-derive_builder = "*"
-tracing = "0.1.41"
-macro_exports = { version = "0.1.0", path = "macro_exports" }
-async-trait = "0.1"
-thiserror = "1.0"
-regex = "1.0"
-uuid = { version = "1.0", features = ["v4"] }
-
+libp2p = { version = "0.56.0", features = ["kad"] }
+native_db = { version = "*", features = ["tokio"] }
+native_model = "0.4.20"

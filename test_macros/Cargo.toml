@@ -4,10 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-netabase_macros = {path = "../netabase_macros"}
-netabase = {path = "../"}
-bincode = { version = "*", features = ["derive"] }
-macro_exports = { version = "0.1.0", path = "../macro_exports" }
-serde = { version = "*", features = ["derive"] }
-serde_json = "*"
-tokio = { version = "*", features = ["full"] }
+native_db = "*"
+native_model = "0.4.20"
+netabase_macros = { version = "0.1.0", path = "../netabase_macros" }
+serde = { version = "1.0.224", features = ["derive"] }

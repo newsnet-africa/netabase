@@ -1,17 +1,12 @@
 [package]
 name = "netabase_macros"
-version = "0.0.0"
-authors = ["nzuma"]
-description = "A `cargo generate` template for quick-starting a procedural macro crate"
-keywords = ["template", "proc_macro", "procmacro"]
+version = "0.1.0"
 edition = "2024"
 
 [lib]
 proc-macro = true
 
 [dependencies]
-quote = "*"
-proc-macro2 = "*"
-syn = { version = "*", features = ["full", "visit", "derive"]}
-macro_exports = { path = "../macro_exports" }
-thiserror = "1.0"
+proc-macro2 = { version = "1.0.101", features = ["nightly"] }
+quote = "1.0.40"
+syn = { version = "2.0.106", features = ["visit"] }
