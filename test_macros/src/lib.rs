@@ -1,3 +1,6 @@
+use crate::data::v1;
+use netabase::NetabaseCatalog;
+use netabase_macros::NetabaseCatalog;
 use netabase_macros::netabase_schema;
 
 #[netabase_schema(MySchema)]
@@ -35,6 +38,13 @@ pub mod data {
         }
 
         pub mod third {
+
+            use crate::data::Deserialize;
+            use crate::data::Serialize;
+            use crate::data::native_db;
+            use crate::data::native_model;
+            use native_db::ToKey;
+            use native_model::Model;
 
             #[derive(Serialize, Deserialize, Debug)]
             #[native_model(id = 1, version = 1)]

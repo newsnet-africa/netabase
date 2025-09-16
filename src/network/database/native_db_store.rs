@@ -1,19 +1,30 @@
-use libp2p::{kad::store::RecordStore, PeerId};
-use native_db::{transaction::query::PrimaryScanIterator, Database};
+use core::slice;
+use std::{borrow::Cow, iter::Map};
+
+use libp2p::{
+    PeerId,
+    kad::{ProviderRecord, Record, store::RecordStore},
+};
+use native_db::{Database, ToInput, transaction::query::PrimaryScanIterator};
+
+use crate::NetabaseCatalog;
 
 pub struct NativeDBStore<'a> {
     local_key: PeerId,
     database: Database<'a>,
 }
 
-impl<'a, Registry> RecordStore for NativeDBStore<'a> {
-    type RecordsIter<'a>
+impl<'a> RecordStore for NativeDBStore<'a> {
+    // Not a fan of what is happening here, but converting the granular types seems like a pain
+    type RecordsIter<'iter>
+        = Map<slice::Iter<'iter, Record>, fn(&Record) -> Cow<'iter, Record>>
     where
-        Self: 'a = PrimaryScanIterator<'a, >
+        Self: 'iter;
 
-    type ProvidedIter<'a>
+    type ProvidedIter<'iter>
+        = Map<slice::Iter<'iter, ProviderRecord>, fn(&ProviderRecord) -> Cow<'iter, ProviderRecord>>
     where
-        Self: 'a;
+        Self: 'iter;
 
     fn get(&self, k: &libp2p::kad::RecordKey) -> Option<std::borrow::Cow<'_, libp2p::kad::Record>> {
         todo!()
@@ -31,7 +42,10 @@ impl<'a, Registry> RecordStore for NativeDBStore<'a> {
         todo!()
     }
 
-    fn add_provider(&mut self, record: libp2p::kad::ProviderRecord) -> libp2p::kad::store::Result<()> {
+    fn add_provider(
+        &mut self,
+        record: libp2p::kad::ProviderRecord,
+    ) -> libp2p::kad::store::Result<()> {
         todo!()
     }
 

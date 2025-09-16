@@ -1,9 +1,10 @@
 use proc_macro2::Span;
 
 use syn::{
-    Ident, Item, ItemStruct, PathSegment, Token,
+    Ident, Item, ItemStruct, PathSegment, Token, parse_quote,
     punctuated::{Pair, Punctuated},
     visit::Visit,
+    visit_mut::VisitMut,
 };
 
 pub struct NativeModel<'ast> {
@@ -85,6 +86,19 @@ impl<'ast> Visit<'ast> for SchemaVisitor<'ast> {
                     _ => {}
                 }
             }
+        }
+    }
+}
+
+pub struct CatalogVisitor;
+
+impl VisitMut for CatalogVisitor {
+    fn visit_derive_input_mut(&mut self, i: &mut syn::DeriveInput) {
+        i.attrs.push(parse_quote!(#[derive(derive_more::TryInto)]));
+        i.attrs.push(parse_quote!(#[derive(derive_more::From)]));
+
+        if !i.generics.params.is_empty() {
+            i.attrs.push(parse_quote!(#[netabase_ref_catalog]));
         }
     }
 }

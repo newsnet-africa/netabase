@@ -1547,6 +1547,7 @@ version = "0.1.0"
 dependencies = [
  "native_db",
  "native_model",
+ "netabase",
  "netabase_macros",
  "serde",
 ]
