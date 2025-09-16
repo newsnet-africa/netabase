@@ -1,9 +1,4 @@
-use proc_macro2::Span;
-use quote::ToTokens;
-use syn::{
-    Field, Ident, ItemEnum, ItemStruct, PathSegment, Token, Variant, parse_quote,
-    punctuated::Punctuated,
-};
+use syn::{Field, Fields, FieldsUnnamed, Ident, ItemEnum, Type, TypePath, Variant};
 
 use crate::SchemaVisitor;
 
@@ -11,17 +6,74 @@ pub fn generate_variants<'ast>(
     schema: &SchemaVisitor<'ast>,
 ) -> (Vec<syn::Variant>, Vec<syn::Variant>) {
     let (mut model_variants, mut key_variants): (Vec<Variant>, Vec<Variant>) = (vec![], vec![]);
-    schema.items.iter().map(|nm| {
+    schema.items.iter().for_each(|nm| {
         let variant_name = &nm.model.ident;
         let variant_type = &nm.model_path();
-        let key_name = &nm.key.ident;
+        let key_name = &nm.key_name();
         let key_type = &nm.key_path();
-        model_variants.push(parse_quote! {
-            #variant_name(#variant_type),
+
+        // Build model variant directly
+        let model_path = syn::Path {
+            leading_colon: None,
+            segments: variant_type.clone(),
+        };
+        let model_type = Type::Path(TypePath {
+            qself: None,
+            path: model_path,
         });
-        key_variants.push(parse_quote! {
-            #key_name(#key_type),
+        let model_variant = Variant {
+            attrs: vec![],
+            ident: variant_name.clone(),
+            fields: Fields::Unnamed(FieldsUnnamed {
+                paren_token: syn::token::Paren::default(),
+                unnamed: {
+                    let mut punctuated = syn::punctuated::Punctuated::new();
+                    punctuated.push(Field {
+                        attrs: vec![],
+                        vis: syn::Visibility::Inherited,
+                        mutability: syn::FieldMutability::None,
+                        ident: None,
+                        colon_token: None,
+                        ty: model_type,
+                    });
+                    punctuated
+                },
+            }),
+            discriminant: None,
+        };
+
+        // Build key variant directly
+        let key_path = syn::Path {
+            leading_colon: None,
+            segments: key_type.clone(),
+        };
+        let key_type_path = Type::Path(TypePath {
+            qself: None,
+            path: key_path,
         });
+        let key_variant = Variant {
+            attrs: vec![],
+            ident: key_name.clone(),
+            fields: Fields::Unnamed(FieldsUnnamed {
+                paren_token: syn::token::Paren::default(),
+                unnamed: {
+                    let mut punctuated = syn::punctuated::Punctuated::new();
+                    punctuated.push(Field {
+                        attrs: vec![],
+                        vis: syn::Visibility::Inherited,
+                        mutability: syn::FieldMutability::None,
+                        ident: None,
+                        colon_token: None,
+                        ty: key_type_path,
+                    });
+                    punctuated
+                },
+            }),
+            discriminant: None,
+        };
+
+        model_variants.push(model_variant);
+        key_variants.push(key_variant);
     });
 
     (model_variants, key_variants)
@@ -37,16 +89,37 @@ pub fn generate_enums<'ast>(
         temp_name.push_str("Key");
         Ident::new(&temp_name, proc_macro2::Span::call_site())
     };
-    let model_enum: ItemEnum = parse_quote! {
-        pub enum #db_name {
-            #(#model_variants),*
-        }
-    };
-    let key_enum: ItemEnum = parse_quote! {
 
-        pub enum #keys_name {
-            #(#key_variants),*
-        }
+    let model_enum = ItemEnum {
+        attrs: vec![],
+        vis: syn::Visibility::Public(syn::token::Pub::default()),
+        enum_token: syn::token::Enum::default(),
+        ident: db_name.clone(),
+        generics: syn::Generics::default(),
+        brace_token: syn::token::Brace::default(),
+        variants: {
+            let mut variants = syn::punctuated::Punctuated::new();
+            for variant in model_variants {
+                variants.push(variant);
+            }
+            variants
+        },
+    };
+
+    let key_enum = ItemEnum {
+        attrs: vec![],
+        vis: syn::Visibility::Public(syn::token::Pub::default()),
+        enum_token: syn::token::Enum::default(),
+        ident: keys_name,
+        generics: syn::Generics::default(),
+        brace_token: syn::token::Brace::default(),
+        variants: {
+            let mut variants = syn::punctuated::Punctuated::new();
+            for variant in key_variants {
+                variants.push(variant);
+            }
+            variants
+        },
     };
 
     (model_enum, key_enum)
