@@ -9,6 +9,10 @@ members = [
 , "test_macros"]
 
 [dependencies]
+bincode = { version = "2.0", features = ["derive", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+derive_more = { version = "2.0.1", features = ["from", "try_into"] }
 libp2p = { version = "0.56.0", features = ["kad"] }
 native_db = { version = "*", features = ["tokio"] }
 native_model = "0.4.20"
+serde = { version = "1.0", features = ["derive"] }

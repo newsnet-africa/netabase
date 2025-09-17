@@ -4,8 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+bincode = { version = "2.0", features = ["derive"] }
+derive_more = { version = "2.0.1", features = ["from", "try_into"] }
+libp2p = { version = "0.56.0", features = ["kad"] }
 native_db = "*"
 native_model = "0.4.20"
 netabase = { version = "0.1.0", path = ".." }
 netabase_macros = { version = "0.1.0", path = "../netabase_macros" }
 serde = { version = "1.0.224", features = ["derive"] }
+serde_json = "1.0.145"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }

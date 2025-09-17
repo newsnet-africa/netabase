@@ -7,20 +7,20 @@ pub trait NetabaseCatalog {
     type RefCatalog<'a>: NetabaseRefCatalog<'a>;
 }
 
-use bincode::{Decode, Encode};
-use chrono::{DateTime, Duration, Utc};
 pub use libp2p::kad::{Record as KadRecord, RecordKey};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
+// Re-exports for easier access
+
 /// Serializable wrapper for native_db::db_type::Key
 /// This allows keys to be sent over the network and stored in records
-#[derive(Debug, Clone, PartialEq, Encode, Decode)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SerializableKey {
     /// The key data as bytes (from native_db key's debug representation)
-    pub key_bytes: Vec<u8>,
+    key_bytes: Vec<u8>,
     /// Optional type hint for better deserialization
-    pub type_hint: Option<String>,
+    type_hint: Option<String>,
 }
 
 impl SerializableKey {
@@ -65,12 +65,11 @@ impl SerializableKey {
 ///
 /// The Record acts as a metadata envelope around the data before it gets
 /// serialized with bincode and transmitted over the network via libp2p kad.
-#[derive(Debug, Clone, bincode::Encode, bincode::Decode, Serialize, Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Record<T> {
     pub key: Vec<u8>,
     pub data: T,
-    #[bincode(with_serde)]
-    pub expiry: Option<DateTime<Utc>>,
+    pub expiry: Option<u64>,
     pub creator: Option<String>,
 }
 
@@ -84,7 +83,7 @@ impl<T> Record<T> {
         }
     }
 
-    pub fn with_expiry(mut self, expiry: DateTime<Utc>) -> Self {
+    pub fn with_expiry(mut self, expiry: u64) -> Self {
         self.expiry = Some(expiry);
         self
     }
@@ -127,31 +126,20 @@ impl<T> Record<T> {
 // Direct conversion from Record<T> to libp2p_kad::Record using bincode
 impl<T> From<Record<T>> for KadRecord
 where
-    T: bincode::Encode,
+    T: serde::Serialize,
 {
     fn from(record: Record<T>) -> Self {
         // Serialize the entire Record (including metadata) with bincode
-        let serialized_record = bincode::encode_to_vec(&record, bincode::config::standard())
-            .expect("Failed to serialize record with bincode");
+        let serialized_record =
+            bincode::serialize(&record).expect("Failed to serialize record with bincode");
 
         KadRecord {
             key: RecordKey::new(&record.key),
             value: serialized_record,
             publisher: None,
-            expires: record.expiry.and_then(|expiry_time| {
-                let now = std::time::SystemTime::now();
-                let duration_until_expiry = expiry_time.signed_duration_since(Utc::now());
-                if duration_until_expiry > Duration::zero() {
-                    Some(
-                        std::time::Instant::now()
-                            + std::time::Duration::from_secs(
-                                duration_until_expiry.num_seconds() as u64
-                            ),
-                    )
-                } else {
-                    None
-                }
-            }),
+            expires: record
+                .expiry
+                .map(|t| std::time::Instant::now() + std::time::Duration::from_secs(t)),
         }
     }
 }
@@ -159,15 +147,14 @@ where
 // Direct conversion from libp2p_kad::Record to Record<T> using bincode
 impl<T> TryFrom<KadRecord> for Record<T>
 where
-    T: bincode::Decode<()>,
+    T: for<'de> serde::Deserialize<'de>,
 {
     type Error = Box<dyn std::error::Error>;
 
     fn try_from(kad_record: KadRecord) -> Result<Self, Self::Error> {
         // Try to deserialize the entire Record from the value using bincode
-        let (record, _): (Record<T>, usize) =
-            bincode::decode_from_slice(&kad_record.value, bincode::config::standard())
-                .map_err(|e| format!("Failed to deserialize record with bincode: {}", e))?;
+        let record: Record<T> = bincode::deserialize(&kad_record.value)
+            .map_err(|e| format!("Failed to deserialize record with bincode: {}", e))?;
 
         Ok(record)
     }
@@ -186,7 +173,7 @@ impl AsKadRecord for KadRecord {
 
 impl<T> AsKadRecord for Record<T>
 where
-    T: bincode::Encode + Clone,
+    T: serde::Serialize + Clone,
 {
     fn as_kad_record(&self) -> Cow<'_, KadRecord> {
         let record = self.clone();
@@ -221,12 +208,11 @@ pub trait CatalogKey {
 }
 
 // Main trait for Catalog objects to integrate with the record system
-pub trait NetabaseRecordExt: bincode::Encode + bincode::Decode<()> + CatalogKey + Clone {
+pub trait NetabaseRecordExt:
+    serde::Serialize + for<'de> serde::Deserialize<'de> + CatalogKey + Clone
+{
     /// Convert to KadRecord for network transmission using bincode
-    fn to_kad_record(&self) -> KadRecord
-    where
-        Self: bincode::Encode,
-    {
+    fn to_kad_record(&self) -> KadRecord {
         let key = self.catalog_key();
         let serializable_key = Self::key_to_serializable(&key);
         let record = Record::from_serializable_key(serializable_key, self.clone());
@@ -234,10 +220,7 @@ pub trait NetabaseRecordExt: bincode::Encode + bincode::Decode<()> + CatalogKey 
     }
 
     /// Convert to KadRecord with type hint for better deserialization
-    fn to_kad_record_with_hint(&self, type_hint: &str) -> KadRecord
-    where
-        Self: bincode::Encode,
-    {
+    fn to_kad_record_with_hint(&self, type_hint: &str) -> KadRecord {
         let key = self.catalog_key();
         let mut serializable_key = Self::key_to_serializable(&key);
         serializable_key.type_hint = Some(type_hint.to_string());
@@ -246,10 +229,7 @@ pub trait NetabaseRecordExt: bincode::Encode + bincode::Decode<()> + CatalogKey 
     }
 
     /// Convert from KadRecord received from network using bincode
-    fn from_kad_record(kad_record: KadRecord) -> Result<Self, Box<dyn std::error::Error>>
-    where
-        Self: bincode::Decode<()>,
-    {
+    fn from_kad_record(kad_record: KadRecord) -> Result<Self, Box<dyn std::error::Error>> {
         let record: Record<Self> = kad_record.try_into()?;
         Ok(record.data)
     }
@@ -298,13 +278,13 @@ mod tests {
     use super::*;
     use native_db::ToKey;
 
-    #[derive(Debug, Clone, PartialEq, bincode::Encode, bincode::Decode)]
+    #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
     struct TestData {
         name: String,
         value: u32,
     }
 
-    #[derive(Debug, Clone, PartialEq, bincode::Encode, bincode::Decode)]
+    #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
     struct TestKey {
         composite_key: String,
     }
@@ -352,8 +332,8 @@ mod tests {
         assert!(serializable_key.type_hint().is_none());
 
         let recovered_key = serializable_key.to_native_db_key();
-        // Keys should be functionally equivalent for the debug format approach
-        assert!(!serializable_key.key_bytes.is_empty());
+        // Keys should be functionally equivalent
+        assert_eq!(native_key.as_slice(), recovered_key.as_slice());
     }
 
     #[test]
@@ -366,7 +346,7 @@ mod tests {
         assert_eq!(serializable_key.type_hint(), Some("TestType"));
 
         let recovered_key = serializable_key.to_native_db_key();
-        assert!(!serializable_key.key_bytes.is_empty());
+        assert_eq!(native_key.as_slice(), recovered_key.as_slice());
     }
 
     #[test]
@@ -449,16 +429,15 @@ mod tests {
             value: 999,
         };
 
-        let expiry_time = Utc::now() + Duration::seconds(3600);
         let record = Record::new(b"meta_key".to_vec(), test_data.clone())
-            .with_expiry(expiry_time)
+            .with_expiry(3600)
             .with_creator("test_creator".to_string());
 
         // Convert to KadRecord and back using bincode
         let kad_record: KadRecord = record.clone().into();
         let recovered_record: Record<TestData> = kad_record.try_into().unwrap();
 
-        assert_eq!(recovered_record.expiry, Some(expiry_time));
+        assert_eq!(recovered_record.expiry, Some(3600));
         assert_eq!(recovered_record.creator, Some("test_creator".to_string()));
         assert_eq!(recovered_record.data, test_data);
     }
@@ -504,10 +483,9 @@ mod tests {
         assert_eq!(serializable_key.type_hint(), Some("TestData"));
         assert!(!serializable_key.as_bytes().is_empty());
 
-        // Test round-trip - keys may have different formats but should be valid
+        // Test round-trip
         let recovered_key = TestData::serializable_to_key(&serializable_key).unwrap();
-        // Instead of exact equality, just verify the key was recovered successfully
-        assert!(!recovered_key.composite_key.is_empty());
+        assert_eq!(recovered_key.composite_key, key.composite_key);
     }
 
     #[test]
