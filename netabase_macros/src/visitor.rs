@@ -1,7 +1,7 @@
 use proc_macro2::Span;
 
 use syn::{
-    Ident, Item, ItemStruct, PathSegment, Token, parse_quote,
+    Ident, Item, ItemStruct, PathSegment, Token, Type, parse_quote,
     punctuated::{Pair, Punctuated},
     visit::Visit,
     visit_mut::VisitMut,
@@ -10,6 +10,7 @@ use syn::{
 pub struct NativeModel<'ast> {
     pub model: &'ast ItemStruct,
     pub path: Vec<Pair<PathSegment, Token![::]>>,
+    pub primary_key_type: Option<Type>,
 }
 
 impl<'ast> NativeModel<'ast> {
@@ -40,6 +41,20 @@ impl<'ast> NativeModel<'ast> {
     pub fn key_path(&self) -> Punctuated<PathSegment, syn::token::PathSep> {
         Self::create_path(&self.path, &self.key_name())
     }
+
+    pub fn extract_primary_key_type(model: &ItemStruct) -> Option<Type> {
+        for field in &model.fields {
+            // Check if field has #[primary_key] attribute
+            if field
+                .attrs
+                .iter()
+                .any(|attr| attr.path().is_ident("primary_key"))
+            {
+                return Some(field.ty.clone());
+            }
+        }
+        None
+    }
 }
 
 #[derive(Default)]
@@ -63,9 +78,12 @@ impl<'ast> Visit<'ast> for SchemaVisitor<'ast> {
                                 .iter()
                                 .any(|att| att.path().is_ident("native_model"))
                         {
+                            let primary_key_type =
+                                NativeModel::extract_primary_key_type(item_struct);
                             self.items.push(NativeModel {
                                 model: item_struct,
                                 path: self.current_path.clone(),
+                                primary_key_type,
                             });
                         }
                     }

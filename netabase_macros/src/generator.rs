@@ -70,20 +70,18 @@ pub fn generate_variants<'ast>(
             discriminant: None,
         };
 
-        // For keys, we'll use a variant that stores a unique key type for each variant
-        // This allows derive_more to work properly without conflicts
+        // For keys, we'll use a variant that stores the actual primary key type
         let key_variant_name = {
             let mut name = variant_name.to_string();
             name.push_str("Key");
             Ident::new(&name, variant_name.span())
         };
 
-        // Create a unique key wrapper type for this variant
-        let key_wrapper_type_name = {
-            let mut name = variant_name.to_string();
-            name.push_str("SerializableKey");
-            Ident::new(&name, variant_name.span())
-        };
+        // Use the actual primary key type if available, fallback to String
+        let key_type = nm
+            .primary_key_type
+            .clone()
+            .unwrap_or_else(|| parse_quote!(String));
 
         let key_variant = Variant {
             attrs: vec![],
@@ -98,7 +96,7 @@ pub fn generate_variants<'ast>(
                         mutability: syn::FieldMutability::None,
                         ident: None,
                         colon_token: None,
-                        ty: parse_quote!(#key_wrapper_type_name),
+                        ty: key_type,
                     });
                     punctuated
                 },
@@ -178,10 +176,7 @@ pub fn generate_enums<'ast>(
     };
 
     let key_enum = ItemEnum {
-        attrs: vec![
-            parse_quote!(#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]),
-            parse_quote!(#[derive(derive_more::From, derive_more::TryInto)]),
-        ],
+        attrs: vec![parse_quote!(#[derive(Debug, Clone)])],
         vis: syn::Visibility::Public(syn::token::Pub::default()),
         enum_token: syn::token::Enum::default(),
         ident: keys_name,
@@ -203,34 +198,6 @@ pub fn generate_conversions<'ast>(
     db_name: &Ident,
     schema: &SchemaVisitor<'ast>,
 ) -> proc_macro2::TokenStream {
-    // Generate wrapper types for keys to avoid derive_more conflicts
-    let mut key_wrapper_types = Vec::new();
-
-    for nm in &schema.items {
-        let variant_name = &nm.model.ident;
-        let key_wrapper_type_name = {
-            let mut name = variant_name.to_string();
-            name.push_str("SerializableKey");
-            Ident::new(&name, variant_name.span())
-        };
-
-        key_wrapper_types.push(quote::quote! {
-            #[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
-            pub struct #key_wrapper_type_name(pub ::netabase::SerializableKey);
-
-            impl From<::netabase::SerializableKey> for #key_wrapper_type_name {
-                fn from(key: ::netabase::SerializableKey) -> Self {
-                    Self(key)
-                }
-            }
-
-            impl From<#key_wrapper_type_name> for ::netabase::SerializableKey {
-                fn from(wrapper: #key_wrapper_type_name) -> Self {
-                    wrapper.0
-                }
-            }
-        });
-    }
     let ref_name = {
         let mut old_name = db_name.to_string();
         old_name.push_str("Ref");
@@ -251,7 +218,6 @@ pub fn generate_conversions<'ast>(
     let mut downcast_arms = Vec::new();
     let mut catalog_constructor_impls = Vec::new();
     let mut key_variant_names = Vec::new();
-    let mut key_wrapper_type_names = Vec::new();
 
     for nm in &schema.items {
         let variant_name = &nm.model.ident;
@@ -262,47 +228,66 @@ pub fn generate_conversions<'ast>(
             Ident::new(&name, variant_name.span())
         };
 
-        let key_wrapper_type_name = {
-            let mut name = variant_name.to_string();
-            name.push_str("SerializableKey");
-            Ident::new(&name, variant_name.span())
-        };
-
-        // Store key variant name and wrapper type name for later use
+        // Store key variant name for later use
         key_variant_names.push(key_variant_name.clone());
-        key_wrapper_type_names.push(key_wrapper_type_name.clone());
 
         // Generate From<&Owned> for Ref
         from_owned_arms.push(quote::quote! {
             #db_name::#variant_name(data) => #ref_name::#variant_name(data),
         });
 
-        // Generate CatalogKey implementation using native_db's primary key
+        // Get the primary key field name and type
+        let primary_key_field = if let Some(_primary_key_type) = &nm.primary_key_type {
+            // Extract the field name from the model that has #[primary_key]
+            let mut field_name = None;
+            for field in &nm.model.fields {
+                if field
+                    .attrs
+                    .iter()
+                    .any(|attr| attr.path().is_ident("primary_key"))
+                {
+                    if let Some(ref ident) = field.ident {
+                        field_name = Some(ident.clone());
+                        break;
+                    }
+                }
+            }
+            field_name.unwrap_or_else(|| Ident::new("id", variant_name.span()))
+        } else {
+            Ident::new("id", variant_name.span())
+        };
+
+        // Generate CatalogKey implementation using the actual primary key field
         catalog_key_arms.push(quote::quote! {
             #db_name::#variant_name(data) => {
-                let native_key = data.native_db_primary_key();
-                let type_hint = format!("{}::{}", stringify!(#db_name), stringify!(#variant_name));
-                let serializable_key = ::netabase::SerializableKey::from_native_db_key_with_hint(&native_key, type_hint);
-                #key_name::#key_variant_name(#key_wrapper_type_name(serializable_key))
+                #key_name::#key_variant_name(data.#primary_key_field.clone())
             },
         });
 
-        // Generate key to bytes conversion (legacy)
+        // Generate key to bytes conversion using ToKey trait
         key_to_native_db_arms.push(quote::quote! {
-            #key_name::#key_variant_name(wrapper) => wrapper.0.as_bytes().to_vec(),
+            #key_name::#key_variant_name(key) => {
+                use native_db::ToKey;
+                let native_key = key.to_key();
+                ::netabase::native_db_key_to_bytes(&native_key)
+            },
         });
 
         // Generate key to SerializableKey conversion
         key_to_serializable_arms.push(quote::quote! {
-            #key_name::#key_variant_name(wrapper) => wrapper.0.clone(),
+            #key_name::#key_variant_name(key) => {
+                use native_db::ToKey;
+                let native_key = key.to_key();
+                ::netabase::SerializableKey::from_native_db_key(&native_key)
+            },
         });
 
-        // Generate From<Ref> for Record using bincode and SerializableKey
+        // Generate From<Ref> for Record using the actual primary key field
         from_ref_arms.push(quote::quote! {
             #ref_name::#variant_name(data) => {
-                let native_key = data.native_db_primary_key();
-                let type_hint = format!("{}::{}", stringify!(#db_name), stringify!(#variant_name));
-                let serializable_key = ::netabase::SerializableKey::from_native_db_key_with_hint(&native_key, type_hint);
+                use native_db::ToKey;
+                let native_key = data.#primary_key_field.to_key();
+                let serializable_key = ::netabase::SerializableKey::from_native_db_key(&native_key);
                 let catalog_data = #db_name::#variant_name(data.clone());
                 ::netabase::Record::from_serializable_key(serializable_key, catalog_data)
             },
@@ -332,7 +317,7 @@ pub fn generate_conversions<'ast>(
         });
     }
 
-    // Get the first key variant and wrapper type for the bytes_to_key fallback
+    // Get the first key variant for the bytes_to_key fallback
     let first_key_variant = if let Some(first_variant) = key_variant_names.first() {
         first_variant.clone()
     } else {
@@ -341,17 +326,60 @@ pub fn generate_conversions<'ast>(
         };
     };
 
-    let first_key_wrapper_type = if let Some(first_wrapper) = key_wrapper_type_names.first() {
-        first_wrapper.clone()
-    } else {
-        return quote::quote! {
-            compile_error!("No key wrapper types found for schema");
-        };
-    };
+    // Generate bincode implementations for the key enum
+    let bincode_encode_arms =
+        key_variant_names
+            .iter()
+            .enumerate()
+            .map(|(idx, key_variant_name)| {
+                let idx_u8 = idx as u8;
+                quote::quote! {
+                    #key_name::#key_variant_name(key) => {
+                        ::bincode::Encode::encode(&#idx_u8, encoder)?;
+                        ::bincode::Encode::encode(key, encoder)
+                    },
+                }
+            });
+
+    let bincode_decode_arms =
+        key_variant_names
+            .iter()
+            .enumerate()
+            .map(|(idx, key_variant_name)| {
+                let idx_u8 = idx as u8;
+                quote::quote! {
+                    #idx_u8 => {
+                        let key = ::bincode::Decode::decode(decoder)?;
+                        Ok(#key_name::#key_variant_name(key))
+                    },
+                }
+            });
 
     quote::quote! {
-        // Generate key wrapper types
-        #(#key_wrapper_types)*
+        // Manual implementation of bincode traits for the key enum
+        impl ::bincode::Encode for #key_name {
+            fn encode<__E: ::bincode::enc::Encoder>(
+                &self,
+                encoder: &mut __E,
+            ) -> core::result::Result<(), ::bincode::error::EncodeError> {
+                match self {
+                    #(#bincode_encode_arms)*
+                }
+            }
+        }
+
+        impl<Context> ::bincode::Decode<Context> for #key_name {
+            fn decode<__D: ::bincode::de::Decoder<Context = Context>>(
+                decoder: &mut __D,
+            ) -> core::result::Result<Self, ::bincode::error::DecodeError> {
+                let discriminant: u8 = ::bincode::Decode::decode(decoder)?;
+                match discriminant {
+                    #(#bincode_decode_arms)*
+                    _ => Err(::bincode::error::DecodeError::UnexpectedEnd { additional: 0 }),
+                }
+            }
+        }
+
         // Import required traits
         use ::native_db::db_type::ToInput;
 
@@ -393,18 +421,22 @@ pub fn generate_conversions<'ast>(
             }
 
             fn bytes_to_key(bytes: &[u8]) -> Result<Self::KeyType, Box<dyn std::error::Error>> {
-                let serializable_key = ::netabase::SerializableKey {
-                    key_bytes: bytes.to_vec(),
-                    type_hint: None,
-                };
-                // Use first variant as default - in a more sophisticated implementation,
-                // you would need type discrimination to determine the correct variant
-                Ok(#key_name::#first_key_variant(#first_key_wrapper_type(serializable_key)))
+                use native_db::ToKey;
+                let native_key = ::netabase::bytes_to_native_db_key(bytes);
+                // Convert back to the original key type - this is simplified for now
+                // In practice, you'd need type discrimination to determine the correct variant
+                let key_bytes = ::netabase::native_db_key_to_bytes(&native_key);
+                let key_str = String::from_utf8(key_bytes)?;
+                Ok(#key_name::#first_key_variant(key_str))
             }
 
             fn serializable_to_key(key: &::netabase::SerializableKey) -> Result<Self::KeyType, Box<dyn std::error::Error>> {
-                // For now, use the first variant as default - in production you'd want to use the type_hint
-                Ok(#key_name::#first_key_variant(#first_key_wrapper_type(key.clone())))
+                use native_db::ToKey;
+                let native_key = key.to_native_db_key();
+                // Convert back to the original key type - this is simplified for now
+                let key_bytes = ::netabase::native_db_key_to_bytes(&native_key);
+                let key_str = String::from_utf8(key_bytes)?;
+                Ok(#key_name::#first_key_variant(key_str))
             }
         }
 

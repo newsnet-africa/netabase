@@ -253,7 +253,7 @@ pub mod social_data {
         #[native_db]
         pub struct Comment {
             #[primary_key]
-            pub id: String,
+            pub id: u64,
             #[secondary_key]
             pub post_id: String,
             #[secondary_key]
@@ -618,7 +618,7 @@ mod tests {
         let edited_at = now + chrono::Duration::seconds(300); // 5 minutes later
 
         let comment = social_data::v1::Comment {
-            id: "comment-789".to_string(),
+            id: 0.to_string(),
             post_id: "post-456".to_string(),
             user_id: "user-123".to_string(),
             created_at: 1640995200i64,
