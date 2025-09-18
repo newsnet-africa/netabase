@@ -139,7 +139,6 @@ where
             value: serialized_record,
             publisher: None,
             expires: record.expiry.and_then(|expiry_time| {
-                let now = std::time::SystemTime::now();
                 let duration_until_expiry = expiry_time.signed_duration_since(Utc::now());
                 if duration_until_expiry > Duration::zero() {
                     Some(
