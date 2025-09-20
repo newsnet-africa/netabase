@@ -1150,3 +1150,5 @@ mod tests {
         }
     }
 }
+
+mod simple_test;

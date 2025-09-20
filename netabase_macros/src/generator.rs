@@ -1,8 +1,8 @@
 use proc_macro2::TokenStream;
-use quote::{ToTokens, quote};
+use quote::quote;
 use syn::{
-    ExprAssign, ExprLet, Field, Fields, FieldsUnnamed, GenericParam, Ident, ItemEnum, ItemImpl,
-    ItemStruct, LifetimeParam, Token, Type, TypePath, Variant, parse_quote, punctuated::Punctuated,
+    Field, Fields, FieldsUnnamed, GenericParam, Ident, ItemEnum, ItemImpl, ItemStruct,
+    LifetimeParam, Token, Type, TypePath, Variant, parse_quote, punctuated::Punctuated,
 };
 
 use crate::SchemaVisitor;
@@ -127,10 +127,7 @@ pub fn generate_enums<'ast>(
     };
 
     let model_enum = ItemEnum {
-        attrs: vec![
-            parse_quote!(#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]),
-            parse_quote!(#[derive(derive_more::From, derive_more::TryInto)]),
-        ],
+        attrs: vec![parse_quote!(#[derive(Debug, Clone, bincode::Encode, bincode::Decode)])],
         vis: syn::Visibility::Public(syn::token::Pub::default()),
         enum_token: syn::token::Enum::default(),
         ident: db_name.clone(),
@@ -146,9 +143,7 @@ pub fn generate_enums<'ast>(
     };
 
     let ref_model_enum = ItemEnum {
-        attrs: vec![
-            parse_quote!(#[derive(derive_more::From, derive_more::TryInto, Debug, Clone, Copy)]),
-        ],
+        attrs: vec![parse_quote!(#[derive(Debug, Clone, Copy)])],
         vis: syn::Visibility::Public(syn::token::Pub::default()),
         enum_token: syn::token::Enum::default(),
         ident: {
@@ -200,128 +195,127 @@ pub fn generate_ref_iter(ref_enum: &ItemEnum) -> (ItemStruct, ItemImpl) {
     let mut name = ref_enum.ident.to_string();
     name.push_str("DBIter");
     let name = Ident::new(&name, proc_macro2::Span::call_site());
-    let _generics = &ref_enum.generics;
-    let variant_map = ref_enum.variants.iter().filter_map(|v| {
-        if let Fields::Unnamed(fields_unnamed) = &v.fields
-            && let Some(first) = fields_unnamed.unnamed.first()
-        {
-            Some(first.ty.clone())
-        } else {
-            None
-        }
-    });
 
-    let methods: Vec<TokenStream> = variant_map
-        .clone()
-        .enumerate()
-        .map(|(ix, ty)| {
-            let method_name =
-                syn::Ident::new(&format!("scan_type_{ix}"), proc_macro2::Span::call_site());
+    // Extract the base enum name (remove "Ref" suffix)
+    let base_enum_name = {
+        let name_str = ref_enum.ident.to_string();
+        if name_str.ends_with("Ref") {
+            let base_str = &name_str[..name_str.len() - 3];
+            Ident::new(base_str, proc_macro2::Span::call_site())
+        } else {
+            ref_enum.ident.clone()
+        }
+    };
+
+    // Extract variant types from the reference enum
+    let variant_info: Vec<(Ident, Type)> = ref_enum
+        .variants
+        .iter()
+        .filter_map(|v| {
+            if let Fields::Unnamed(fields_unnamed) = &v.fields {
+                if let Some(first) = fields_unnamed.unnamed.first() {
+                    // Extract the inner type from &'a Type
+                    if let Type::Reference(type_ref) = &first.ty {
+                        Some((v.ident.clone(), (*type_ref.elem).clone()))
+                    } else {
+                        Some((v.ident.clone(), first.ty.clone()))
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    // Generate iterator methods that return collected results to avoid lifetime issues
+    let iter_methods: Vec<TokenStream> = variant_info
+        .iter()
+        .map(|(variant_name, ty)| {
+            let method_name = syn::Ident::new(
+                &format!("scan_{}", variant_name.to_string().to_lowercase()),
+                proc_macro2::Span::call_site(),
+            );
             quote! {
-                pub fn #method_name(&'stack_db self) -> native_db::db_type::Result<native_db::transaction::query::PrimaryScanIterator<'stack_db, #ty>> {
-                    self.r_scan.primary::<#ty>()?.all() 
+                pub fn #method_name(&self) -> native_db::db_type::Result<Vec<#ty>> {
+                    let r_transaction = self.database.r_transaction()?;
+                    let scan = r_transaction.scan().primary::<#ty>()?;
+                    let mut items = Vec::new();
+                    for item_result in scan.all()? {
+                        items.push(item_result?);
+                    }
+                    Ok(items)
                 }
             }
         })
         .collect();
 
-    (
-        parse_quote! {
-            pub struct #name<'db: 'stack_db, 'stack_db> {
-                database: &'stack_db native_db::Database<'db>,
-                r_scan: native_db::transaction::query::RScan<'db, 'stack_db>,
-            }
-        },
-        parse_quote! {
-            impl<'db: 'stack_db, 'stack_db> #name<'db, 'stack_db> {
-                pub fn new(database: &'stack_db native_db::Database<'db>) -> native_db::db_type::Result<Self> {
-                    let r_scan = database.r_transaction()?.scan::<'stack_db>();
-                    Ok(Self {
-                        database,
-                        r_scan,
-                    })
+    // Generate collection calls for all types
+    let collect_calls: Vec<TokenStream> = variant_info
+        .iter()
+        .map(|(variant_name, _ty)| {
+            let method_name = syn::Ident::new(
+                &format!("scan_{}", variant_name.to_string().to_lowercase()),
+                proc_macro2::Span::call_site(),
+            );
+            quote! {
+                for item in self.#method_name()? {
+                    all_items.push(#base_enum_name::#variant_name(item));
                 }
-
-                #(#methods)*
             }
-        },
-    )
+        })
+        .collect();
+
+    // The struct with simplified lifetime
+    let iter_struct = parse_quote! {
+        pub struct #name<'db> {
+            database: &'db native_db::Database<'db>,
+        }
+    };
+
+    // Implementation with working iterator methods
+    let iter_impl = parse_quote! {
+        impl<'db> #name<'db> {
+            pub fn new(database: &'db native_db::Database<'db>) -> Self {
+                Self { database }
+            }
+
+            #(#iter_methods)*
+
+            /// Collects all items from all types into a Vec as enum variants
+            /// This resolves lifetime issues by owning the data
+            pub fn scan_all_types(&self) -> native_db::db_type::Result<Vec<#base_enum_name>> {
+                let mut all_items = Vec::new();
+
+                #(#collect_calls)*
+
+                Ok(all_items)
+            }
+        }
+    };
+
+    (iter_struct, iter_impl)
 }
-pub fn generate_model_specific_key_enums<'ast>(schema: &SchemaVisitor<'ast>) -> Vec<syn::ItemEnum> {
-    let mut enums = Vec::new();
 
-    for nm in &schema.items {
-        let variant_name = &nm.model.ident;
-        let model_key_enum_name = format!("{}Keys", variant_name);
-        let model_key_ident = Ident::new(&model_key_enum_name, variant_name.span());
-
-        // Get the primary key type for this model
-        let primary_key_type = nm
-            .primary_key_type
-            .clone()
-            .unwrap_or_else(|| parse_quote!(String));
-
-        // Create Primary variant
-        let primary_variant = Variant {
-            attrs: vec![],
-            ident: Ident::new("Primary", variant_name.span()),
-            fields: Fields::Unnamed(FieldsUnnamed {
-                paren_token: syn::token::Paren::default(),
-                unnamed: {
-                    let mut punctuated = syn::punctuated::Punctuated::new();
-                    punctuated.push(Field {
-                        attrs: vec![],
-                        vis: syn::Visibility::Inherited,
-                        mutability: syn::FieldMutability::None,
-                        ident: None,
-                        colon_token: None,
-                        ty: primary_key_type,
-                    });
-                    punctuated
-                },
-            }),
-            discriminant: None,
-        };
-
-        let mut key_variants = syn::punctuated::Punctuated::new();
-        key_variants.push(primary_variant);
-
-        // Only add Secondary variant if there are secondary keys
-        if !nm.secondary_keys.is_empty() {
-            let secondary_enum_name = format!("{}SecondaryKeys", variant_name);
-            let secondary_enum_ident = Ident::new(&secondary_enum_name, variant_name.span());
-
-            let secondary_variant = Variant {
-                attrs: vec![],
-                ident: Ident::new("Secondary", variant_name.span()),
-                fields: Fields::Unnamed(FieldsUnnamed {
-                    paren_token: syn::token::Paren::default(),
-                    unnamed: {
-                        let mut punctuated = syn::punctuated::Punctuated::new();
-                        punctuated.push(Field {
-                            attrs: vec![],
-                            vis: syn::Visibility::Inherited,
-                            mutability: syn::FieldMutability::None,
-                            ident: None,
-                            colon_token: None,
-                            ty: parse_quote!(#secondary_enum_ident),
-                        });
-                        punctuated
-                    },
-                }),
-                discriminant: None,
+pub fn generate_model_specific_key_enums<'ast>(schema: &SchemaVisitor<'ast>) -> Vec<ItemEnum> {
+    schema
+        .items
+        .iter()
+        .map(|nm| {
+            let key_enum_name = {
+                let mut name = nm.model.ident.to_string();
+                name.push_str("Key");
+                Ident::new(&name, nm.model.ident.span())
             };
 
-            key_variants.push(secondary_variant);
+            let mut variants = vec![];
 
-            // Generate the secondary keys enum
-            let mut secondary_variants = syn::punctuated::Punctuated::new();
-            for (field_name, field_type) in &nm.secondary_keys {
-                let variant_ident = Ident::new(&field_name.to_string(), field_name.span());
-
-                let secondary_key_variant = Variant {
+            // Primary key variant
+            if let Some(primary_key_type) = &nm.primary_key_type {
+                variants.push(Variant {
                     attrs: vec![],
-                    ident: variant_ident,
+                    ident: Ident::new("Primary", proc_macro2::Span::call_site()),
                     fields: Fields::Unnamed(FieldsUnnamed {
                         paren_token: syn::token::Paren::default(),
                         unnamed: {
@@ -332,376 +326,232 @@ pub fn generate_model_specific_key_enums<'ast>(schema: &SchemaVisitor<'ast>) -> 
                                 mutability: syn::FieldMutability::None,
                                 ident: None,
                                 colon_token: None,
-                                ty: field_type.clone(),
+                                ty: primary_key_type.clone(),
                             });
                             punctuated
                         },
                     }),
                     discriminant: None,
+                });
+            }
+
+            // Secondary key variants
+            for (secondary_key_name, secondary_key_type) in &nm.secondary_keys {
+                let variant_name = {
+                    let name_str = secondary_key_name.to_string();
+                    // Convert snake_case to PascalCase
+                    let pascal_case = name_str
+                        .split('_')
+                        .map(|s| {
+                            let mut chars = s.chars();
+                            match chars.next() {
+                                None => String::new(),
+                                Some(first) => {
+                                    first.to_uppercase().collect::<String>()
+                                        + &chars.as_str().to_lowercase()
+                                }
+                            }
+                        })
+                        .collect::<String>();
+                    Ident::new(&pascal_case, secondary_key_name.span())
                 };
 
-                secondary_variants.push(secondary_key_variant);
+                variants.push(Variant {
+                    attrs: vec![],
+                    ident: variant_name,
+                    fields: Fields::Unnamed(FieldsUnnamed {
+                        paren_token: syn::token::Paren::default(),
+                        unnamed: {
+                            let mut punctuated = syn::punctuated::Punctuated::new();
+                            punctuated.push(Field {
+                                attrs: vec![],
+                                vis: syn::Visibility::Inherited,
+                                mutability: syn::FieldMutability::None,
+                                ident: None,
+                                colon_token: None,
+                                ty: secondary_key_type.clone(),
+                            });
+                            punctuated
+                        },
+                    }),
+                    discriminant: None,
+                });
             }
 
-            let secondary_enum = ItemEnum {
-                attrs: vec![
-                    parse_quote!(#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]),
-                ],
+            ItemEnum {
+                attrs: vec![parse_quote!(#[derive(Debug, Clone)])],
                 vis: syn::Visibility::Public(syn::token::Pub::default()),
                 enum_token: syn::token::Enum::default(),
-                ident: secondary_enum_ident,
+                ident: key_enum_name,
                 generics: syn::Generics::default(),
                 brace_token: syn::token::Brace::default(),
-                variants: secondary_variants,
+                variants: Punctuated::from_iter(variants),
+            }
+        })
+        .collect()
+}
+
+pub fn generate_database_key_variants<'ast>(schema: &SchemaVisitor<'ast>) -> Vec<Variant> {
+    schema
+        .items
+        .iter()
+        .map(|nm| {
+            let variant_name = &nm.model.ident;
+            let key_enum_name = {
+                let mut name = nm.model.ident.to_string();
+                name.push_str("Key");
+                Ident::new(&name, nm.model.ident.span())
             };
 
-            enums.push(secondary_enum);
-        }
-
-        let model_key_enum = ItemEnum {
-            attrs: vec![parse_quote!(#[derive(Debug, Clone, bincode::Encode, bincode::Decode)])],
-            vis: syn::Visibility::Public(syn::token::Pub::default()),
-            enum_token: syn::token::Enum::default(),
-            ident: model_key_ident,
-            generics: syn::Generics::default(),
-            brace_token: syn::token::Brace::default(),
-            variants: key_variants,
-        };
-
-        enums.push(model_key_enum);
-    }
-
-    enums
+            Variant {
+                attrs: vec![],
+                ident: variant_name.clone(),
+                fields: Fields::Unnamed(FieldsUnnamed {
+                    paren_token: syn::token::Paren::default(),
+                    unnamed: {
+                        let mut punctuated = syn::punctuated::Punctuated::new();
+                        punctuated.push(Field {
+                            attrs: vec![],
+                            vis: syn::Visibility::Inherited,
+                            mutability: syn::FieldMutability::None,
+                            ident: None,
+                            colon_token: None,
+                            ty: parse_quote!(#key_enum_name),
+                        });
+                        punctuated
+                    },
+                }),
+                discriminant: None,
+            }
+        })
+        .collect()
 }
 
-pub fn generate_database_key_variants<'ast>(schema: &SchemaVisitor<'ast>) -> Vec<syn::Variant> {
-    let mut variants = Vec::new();
+pub fn generate_conversions<'ast>(db_name: &Ident, schema: &SchemaVisitor<'ast>) -> TokenStream {
+    let base_enum_name = db_name;
+    let ref_enum_name = {
+        let mut name = db_name.to_string();
+        name.push_str("Ref");
+        Ident::new(&name, proc_macro2::Span::call_site())
+    };
 
-    for nm in &schema.items {
-        let variant_name = &nm.model.ident;
-        let model_key_enum_name = format!("{}Keys", variant_name);
-        let model_key_ident = Ident::new(&model_key_enum_name, variant_name.span());
-
-        let variant = Variant {
-            attrs: vec![],
-            ident: variant_name.clone(),
-            fields: Fields::Unnamed(FieldsUnnamed {
-                paren_token: syn::token::Paren::default(),
-                unnamed: {
-                    let mut punctuated = syn::punctuated::Punctuated::new();
-                    punctuated.push(Field {
-                        attrs: vec![],
-                        vis: syn::Visibility::Inherited,
-                        mutability: syn::FieldMutability::None,
-                        ident: None,
-                        colon_token: None,
-                        ty: parse_quote!(#model_key_ident),
-                    });
-                    punctuated
+    // Generate From implementations for each model type to the base enum
+    let from_impls: Vec<TokenStream> = schema
+        .items
+        .iter()
+        .map(|nm| {
+            let variant_name = &nm.model.ident;
+            let model_path = nm.model_path();
+            let model_type = syn::Type::Path(syn::TypePath {
+                qself: None,
+                path: syn::Path {
+                    leading_colon: None,
+                    segments: model_path,
                 },
-            }),
-            discriminant: None,
-        };
+            });
 
-        variants.push(variant);
-    }
-
-    variants
-}
-
-pub fn generate_conversions<'ast>(
-    db_name: &Ident,
-    schema: &SchemaVisitor<'ast>,
-) -> proc_macro2::TokenStream {
-    let ref_name = {
-        let mut old_name = db_name.to_string();
-        old_name.push_str("Ref");
-        Ident::new(&old_name, proc_macro2::Span::call_site())
-    };
-
-    let key_name = {
-        let mut temp_name = db_name.to_string();
-        temp_name.push_str("Key");
-        Ident::new(&temp_name, proc_macro2::Span::call_site())
-    };
-
-    let mut get_key_arms = Vec::new();
-    let mut record_conversion_impls = Vec::new();
-    let mut catalog_constructor_impls = Vec::new();
-    let mut from_owned_arms = Vec::new();
-    let mut from_ref_arms = Vec::new();
-    let mut downcast_arms = Vec::new();
-    let mut variant_names = Vec::new();
-
-    for nm in &schema.items {
-        let variant_name = &nm.model.ident;
-        let model_path = nm.model_path();
-
-        variant_names.push(variant_name.clone());
-
-        // Get the primary key field name
-        let primary_key_field = if let Some(_primary_key_type) = &nm.primary_key_type {
-            let mut field_name = None;
-            for field in &nm.model.fields {
-                if field
-                    .attrs
-                    .iter()
-                    .any(|attr| attr.path().is_ident("primary_key"))
-                {
-                    if let Some(ref ident) = field.ident {
-                        field_name = Some(ident.clone());
-                        break;
+            quote! {
+                impl From<#model_type> for #base_enum_name {
+                    fn from(value: #model_type) -> Self {
+                        #base_enum_name::#variant_name(value)
                     }
                 }
             }
-            field_name.unwrap_or_else(|| Ident::new("id", variant_name.span()))
-        } else {
-            Ident::new("id", variant_name.span())
-        };
+        })
+        .collect();
 
-        let model_key_enum_name = format!("{}Keys", variant_name);
-        let model_key_ident = Ident::new(&model_key_enum_name, variant_name.span());
+    // Generate From implementations for references to the ref enum
+    let ref_from_impls: Vec<TokenStream> = schema
+        .items
+        .iter()
+        .map(|nm| {
+            let variant_name = &nm.model.ident;
+            let model_path = nm.model_path();
+            let model_type = syn::Type::Path(syn::TypePath {
+                qself: None,
+                path: syn::Path {
+                    leading_colon: None,
+                    segments: model_path,
+                },
+            });
 
-        // Generate GetKey implementation for individual models
-        let key_to_bytes_impl = if !nm.secondary_keys.is_empty() {
-            quote::quote! {
-                match key {
-                    #model_key_ident::Primary(k) => {
-                        use native_db::ToKey;
-                        let native_key = k.to_key();
-                        ::netabase::native_db_key_to_bytes(&native_key)
-                    },
-                    #model_key_ident::Secondary(sk_enum) => {
-                        // For now, secondary keys need custom implementation
-                        todo!("Secondary key conversion not yet implemented")
-                    },
-                }
-            }
-        } else {
-            quote::quote! {
-                match key {
-                    #model_key_ident::Primary(k) => {
-                        use native_db::ToKey;
-                        let native_key = k.to_key();
-                        ::netabase::native_db_key_to_bytes(&native_key)
-                    },
-                }
-            }
-        };
-
-        record_conversion_impls.push(quote::quote! {
-            impl ::netabase::GetKey for #model_path {
-                type KeyType = #model_key_ident;
-
-                fn key(&self) -> Self::KeyType {
-                    #model_key_ident::Primary(self.#primary_key_field.clone())
-                }
-            }
-
-            impl ::netabase::RecordConversion for #model_path {
-                fn calculate_expiry(&self) -> Option<std::time::Instant> {
-                    // Default: no expiry. Override in specific implementations if needed.
-                    None
-                }
-
-                fn key_to_bytes(key: &Self::KeyType) -> Vec<u8> {
-                    #key_to_bytes_impl
-                }
-
-                fn bytes_to_key(bytes: &[u8]) -> Result<Self::KeyType, Box<dyn std::error::Error>> {
-                    use ::bincode::Decode;
-                    let (key, _): (#model_key_ident, usize) =
-                        ::bincode::decode_from_slice(bytes, ::bincode::config::standard())?;
-                    Ok(key)
-                }
-            }
-        });
-
-        // Generate GetKey implementation for schema enum
-        get_key_arms.push(quote::quote! {
-            #db_name::#variant_name(data) => {
-                #key_name::#variant_name(data.key())
-            },
-        });
-
-        // Generate From<&Owned> for Ref
-        from_owned_arms.push(quote::quote! {
-            #db_name::#variant_name(data) => #ref_name::#variant_name(data),
-        });
-
-        // Generate From<Ref> for Record
-        from_ref_arms.push(quote::quote! {
-            #ref_name::#variant_name(data) => {
-                use ::netabase::GetKey;
-                let key = data.key();
-                let key_bytes = <#model_path as ::netabase::RecordConversion>::key_to_bytes(&key);
-                let catalog_data = #db_name::#variant_name(data.clone());
-                ::netabase::Record::new(key_bytes, catalog_data)
-            },
-        });
-
-        // Generate downcast checks for TryFrom native_db
-        downcast_arms.push(quote::quote! {
-            if let Some(typed_data) = any_data.downcast_ref::<#model_path>() {
-                return Some(#ref_name::#variant_name(typed_data));
-            }
-        });
-
-        // Generate CatalogConstructor implementations
-        catalog_constructor_impls.push(quote::quote! {
-            impl ::netabase::CatalogConstructor<#model_path> for #db_name {
-                fn from_native_db(data: #model_path) -> Self {
-                    #db_name::#variant_name(data)
-                }
-
-                fn to_native_db(self) -> #model_path {
-                    match self {
-                        #db_name::#variant_name(data) => data,
-                        _ => panic!("Cannot convert {} variant to {}", stringify!(#db_name), stringify!(#model_path)),
+            quote! {
+                impl<'a> From<&'a #model_type> for #ref_enum_name<'a> {
+                    fn from(value: &'a #model_type) -> Self {
+                        #ref_enum_name::#variant_name(value)
                     }
                 }
             }
-        });
-    }
+        })
+        .collect();
 
-    let first_variant_name = if let Some(first_variant) = variant_names.first() {
-        first_variant.clone()
-    } else {
-        return syn::Error::new_spanned(db_name, "No models found").to_compile_error();
+    // Generate conversion from base enum to ref enum
+    let base_to_ref_arms: Vec<TokenStream> = schema
+        .items
+        .iter()
+        .map(|nm| {
+            let variant_name = &nm.model.ident;
+            quote! {
+                #base_enum_name::#variant_name(item) => #ref_enum_name::#variant_name(item),
+            }
+        })
+        .collect();
+
+    let base_to_ref_impl = quote! {
+        impl<'a> From<&'a #base_enum_name> for #ref_enum_name<'a> {
+            fn from(value: &'a #base_enum_name) -> Self {
+                match value {
+                    #(#base_to_ref_arms)*
+                }
+            }
+        }
     };
 
-    let first_model_key_enum_name = format!("{}Keys", first_variant_name);
-    let first_model_key_ident = Ident::new(&first_model_key_enum_name, first_variant_name.span());
-
-    let bincode_encode_arms = variant_names
+    // Generate TryFrom implementations for extracting specific types
+    let try_from_impls: Vec<TokenStream> = schema
+        .items
         .iter()
-        .enumerate()
-        .map(|(idx, variant_name)| {
-            let idx_u8 = idx as u8;
-            quote::quote! {
-                #key_name::#variant_name(key) => {
-                    ::bincode::Encode::encode(&#idx_u8, encoder)?;
-                    ::bincode::Encode::encode(key, encoder)
+        .map(|nm| {
+            let variant_name = &nm.model.ident;
+            let model_path = nm.model_path();
+            let model_type = syn::Type::Path(syn::TypePath {
+                qself: None,
+                path: syn::Path {
+                    leading_colon: None,
+                    segments: model_path,
                 },
+            });
+
+            quote! {
+                impl TryFrom<#base_enum_name> for #model_type {
+                    type Error = #base_enum_name;
+
+                    fn try_from(value: #base_enum_name) -> Result<Self, Self::Error> {
+                        match value {
+                            #base_enum_name::#variant_name(item) => Ok(item),
+                            other => Err(other),
+                        }
+                    }
+                }
+
+                impl<'a> TryFrom<#ref_enum_name<'a>> for &'a #model_type {
+                    type Error = #ref_enum_name<'a>;
+
+                    fn try_from(value: #ref_enum_name<'a>) -> Result<Self, Self::Error> {
+                        match value {
+                            #ref_enum_name::#variant_name(item) => Ok(item),
+                            other => Err(other),
+                        }
+                    }
+                }
             }
         })
-        .collect::<Vec<_>>();
+        .collect();
 
-    let bincode_decode_arms = variant_names
-        .iter()
-        .enumerate()
-        .map(|(idx, variant_name)| {
-            let idx_u8 = idx as u8;
-            quote::quote! {
-                #idx_u8 => {
-                    let key = ::bincode::Decode::decode(decoder)?;
-                    Ok(#key_name::#variant_name(key))
-                },
-            }
-        })
-        .collect::<Vec<_>>();
-
-    quote::quote! {
-        // Individual model implementations
-        #(#record_conversion_impls)*
-
-        // GetKey implementation for schema enum
-        impl ::netabase::GetKey for #db_name {
-            type KeyType = #key_name;
-
-            fn key(&self) -> Self::KeyType {
-                match self {
-                    #(#get_key_arms)*
-                }
-            }
-        }
-
-        // RecordConversion implementation for schema enum
-        impl ::netabase::RecordConversion for #db_name {
-            fn calculate_expiry(&self) -> Option<std::time::Instant> {
-                match self {
-                    #(#db_name::#variant_names(data) => data.calculate_expiry(),)*
-                }
-            }
-
-            fn key_to_bytes(key: &Self::KeyType) -> Vec<u8> {
-                match key {
-                    #(#key_name::#variant_names(k) => {
-                        // Delegate to the individual model's implementation
-                        // For now, use a simple encoding
-                        use ::bincode::Encode;
-                        ::bincode::encode_to_vec(k, ::bincode::config::standard()).unwrap_or_default()
-                    },)*
-                }
-            }
-
-            fn bytes_to_key(bytes: &[u8]) -> Result<Self::KeyType, Box<dyn std::error::Error>> {
-                // For now, default to the first variant - this needs improvement for production
-                use ::bincode::Decode;
-                let (key, _): (#first_model_key_ident, usize) =
-                    ::bincode::decode_from_slice(bytes, ::bincode::config::standard())?;
-                Ok(#key_name::#first_variant_name(key))
-            }
-        }
-
-        // ThreadSafe is automatically implemented via blanket impl
-
-        // Manual implementation of bincode traits for the key enum
-        impl ::bincode::Encode for #key_name {
-            fn encode<__E: ::bincode::enc::Encoder>(
-                &self,
-                encoder: &mut __E,
-            ) -> core::result::Result<(), ::bincode::error::EncodeError> {
-                match self {
-                    #(#bincode_encode_arms)*
-                }
-            }
-        }
-
-        impl<Context> ::bincode::Decode<Context> for #key_name {
-            fn decode<__D: ::bincode::de::Decoder<Context = Context>>(
-                decoder: &mut __D,
-            ) -> core::result::Result<Self, ::bincode::error::DecodeError> {
-                let discriminant: u8 = ::bincode::Decode::decode(decoder)?;
-                match discriminant {
-                    #(#bincode_decode_arms)*
-                    _ => Err(::bincode::error::DecodeError::UnexpectedEnd { additional: 0 }),
-                }
-            }
-        }
-
-
-        // From owned enum to ref enum
-        impl<'a> From<&'a #db_name> for #ref_name<'a> {
-            fn from(owned: &'a #db_name) -> Self {
-                match owned {
-                    #(#from_owned_arms)*
-                }
-            }
-        }
-
-        // From ref enum to Record
-        impl<'a> From<#ref_name<'a>> for ::netabase::Record<#db_name> {
-            fn from(ref_enum: #ref_name<'a>) -> Self {
-                match ref_enum {
-                    #(#from_ref_arms)*
-                }
-            }
-        }
-
-        // FromNativeDb implementation for ref enum
-        impl<'a> ::netabase::FromNativeDb<'a> for #ref_name<'a> {
-            fn try_from_native_db<T: ::native_db::ToInput + 'a>(data: &'a T) -> Option<Self>
-            where
-                T: ::std::any::Any,
-            {
-                let any_data = data as &dyn ::std::any::Any;
-                #(#downcast_arms)*
-                None
-            }
-        }
-
-        // CatalogConstructor implementations for each variant
-        #(#catalog_constructor_impls)*
+    quote! {
+        #(#from_impls)*
+        #(#ref_from_impls)*
+        #base_to_ref_impl
+        #(#try_from_impls)*
     }
 }
