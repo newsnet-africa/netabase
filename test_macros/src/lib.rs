@@ -1,5 +1,6 @@
 use crate::social_data::v1;
 use chrono::{DateTime, Duration, Utc};
+use native_db::transaction::query::PrimaryScanIterator;
 use netabase_macros::netabase_schema;
 use serde::{Deserialize, Serialize};
 
@@ -75,8 +76,8 @@ use serde::{Deserialize, Serialize};
 #[netabase_schema(SocialMediaSchema)]
 pub mod social_data {
     use bincode::{Decode, Encode};
-    use native_db::{native_db, ToKey};
-    use native_model::{native_model, Model};
+    use native_db::{ToKey, native_db};
+    use native_model::{Model, native_model};
     use serde::{Deserialize, Serialize};
     use std::collections::HashMap;
 

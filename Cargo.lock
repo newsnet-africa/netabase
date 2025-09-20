@@ -1169,6 +1169,7 @@ dependencies = [
  "native_db",
  "native_model",
  "serde",
+ "test_macros",
 ]
 
 [[package]]

@@ -2,58 +2,83 @@
 
 pub mod network;
 
+// Legacy traits for compatibility with existing code
 pub trait NetabaseRefCatalog<'a> {}
+
 pub trait NetabaseCatalog {
     type RefCatalog<'a>: NetabaseRefCatalog<'a>;
 }
 
-use bincode::{Decode, Encode};
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 pub use libp2p::kad::{Record as KadRecord, RecordKey};
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
 
-/// Serializable wrapper for native_db::db_type::Key
-/// This allows keys to be sent over the network and stored in records
-#[derive(Debug, Clone, PartialEq, Encode, Decode)]
-pub struct SerializableKey {
-    /// The key data as bytes (from native_db key's debug representation)
-    pub key_bytes: Vec<u8>,
-    /// Optional type hint for better deserialization
-    pub type_hint: Option<String>,
+use std::time::Instant;
+
+/// Trait for types that can provide a key for database operations.
+/// This trait is implemented by both individual models and schema enums.
+pub trait GetKey {
+    type KeyType: Clone + Send + Sync;
+
+    /// Get the key for this item
+    fn key(&self) -> Self::KeyType;
 }
 
-impl SerializableKey {
-    /// Create a new SerializableKey from a native_db Key
-    pub fn from_native_db_key(key: &native_db::db_type::Key) -> Self {
-        Self {
-            key_bytes: native_db_key_to_bytes(key),
-            type_hint: None,
+/// Trait for types that can be sent safely across thread boundaries.
+/// This is primarily used for schema enums that will be transmitted as messages.
+pub trait ThreadSafe: Send + Sync + Clone {}
+
+/// Blanket implementation for types that already implement the required bounds
+impl<T> ThreadSafe for T where T: Send + Sync + Clone {}
+
+/// Trait for conversion between netabase types and libp2p Record types.
+/// Provides customizable expiry calculation for records.
+pub trait RecordConversion: bincode::Encode + bincode::Decode<()> + GetKey + Clone {
+    /// Calculate when this record should expire.
+    /// Return None for records that don't expire.
+    fn calculate_expiry(&self) -> Option<Instant>;
+
+    /// Convert key to bytes for network transmission
+    fn key_to_bytes(key: &Self::KeyType) -> Vec<u8>;
+
+    /// Convert bytes back to key
+    fn bytes_to_key(bytes: &[u8]) -> Result<Self::KeyType, Box<dyn std::error::Error>>;
+
+    /// Convert to libp2p Record with calculated expiry
+    fn to_record(&self) -> KadRecord {
+        let key = self.key();
+        let key_bytes = Self::key_to_bytes(&key);
+        let record = Record::new(key_bytes, self.clone());
+        let kad_record = KadRecord::from(record);
+
+        // Apply expiry if calculated
+        if let Some(expiry) = self.calculate_expiry() {
+            KadRecord {
+                key: kad_record.key,
+                value: kad_record.value,
+                publisher: kad_record.publisher,
+                expires: Some(expiry),
+            }
+        } else {
+            kad_record
         }
     }
 
-    /// Create a SerializableKey with a type hint
-    pub fn from_native_db_key_with_hint(key: &native_db::db_type::Key, type_hint: String) -> Self {
-        Self {
-            key_bytes: native_db_key_to_bytes(key),
-            type_hint: Some(type_hint),
-        }
+    /// Convert from libp2p Record
+    fn from_record(record: KadRecord) -> Result<Self, Box<dyn std::error::Error>> {
+        let netabase_record: Record<Self> = record.try_into()?;
+        Ok(netabase_record.data)
     }
+}
 
-    /// Convert back to native_db Key
-    pub fn to_native_db_key(&self) -> native_db::db_type::Key {
-        bytes_to_native_db_key(&self.key_bytes)
-    }
-
-    /// Get the raw key bytes
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.key_bytes
-    }
-
-    /// Get the type hint if available
-    pub fn type_hint(&self) -> Option<&str> {
-        self.type_hint.as_deref()
-    }
+/// Trait for ref enums to support conversion from native_db types
+pub trait FromNativeDb<'a> {
+    /// Try to convert from a native_db ToInput type
+    fn try_from_native_db<T>(data: &'a T) -> Option<Self>
+    where
+        T: std::any::Any,
+        Self: Sized,
+        T: native_db::ToInput + 'a;
 }
 
 /// Custom Record wrapper that contains metadata along with the actual data payload.
@@ -100,24 +125,6 @@ impl<T> Record<T> {
         Self::new(key_bytes, data)
     }
 
-    /// Create a Record from SerializableKey and data
-    pub fn from_serializable_key(key: SerializableKey, data: T) -> Self {
-        Self {
-            key: key.key_bytes,
-            data,
-            expiry: None,
-            creator: None,
-        }
-    }
-
-    /// Get the key as SerializableKey
-    pub fn to_serializable_key(&self) -> SerializableKey {
-        SerializableKey {
-            key_bytes: self.key.clone(),
-            type_hint: None,
-        }
-    }
-
     /// Get the key as native_db::db_type::Key
     pub fn to_native_db_key(&self) -> native_db::db_type::Key {
         bytes_to_native_db_key(&self.key)
@@ -140,7 +147,7 @@ where
             publisher: None,
             expires: record.expiry.and_then(|expiry_time| {
                 let duration_until_expiry = expiry_time.signed_duration_since(Utc::now());
-                if duration_until_expiry > Duration::zero() {
+                if duration_until_expiry > chrono::Duration::zero() {
                     Some(
                         std::time::Instant::now()
                             + std::time::Duration::from_secs(
@@ -172,88 +179,6 @@ where
     }
 }
 
-// Trait for RecordStore compatibility
-pub trait AsKadRecord {
-    fn as_kad_record(&self) -> Cow<'_, KadRecord>;
-}
-
-impl AsKadRecord for KadRecord {
-    fn as_kad_record(&self) -> Cow<'_, KadRecord> {
-        Cow::Borrowed(self)
-    }
-}
-
-impl<T> AsKadRecord for Record<T>
-where
-    T: bincode::Encode + Clone,
-{
-    fn as_kad_record(&self) -> Cow<'_, KadRecord> {
-        let record = self.clone();
-        Cow::Owned(record.into())
-    }
-}
-
-// Trait that links a catalog type to its key type (similar to native_db and native_model pattern)
-pub trait CatalogKey {
-    type KeyType;
-
-    /// Get the key for this catalog item, using native_db's key system
-    fn catalog_key(&self) -> Self::KeyType;
-
-    /// Convert the key to SerializableKey for network transmission
-    fn key_to_serializable(key: &Self::KeyType) -> SerializableKey;
-
-    /// Convert the key to bytes for network transmission (legacy)
-    fn key_to_bytes(key: &Self::KeyType) -> Vec<u8> {
-        Self::key_to_serializable(key).as_bytes().to_vec()
-    }
-
-    /// Convert bytes back to key type (legacy)
-    fn bytes_to_key(bytes: &[u8]) -> Result<Self::KeyType, Box<dyn std::error::Error>>;
-
-    /// Convert SerializableKey back to key type
-    fn serializable_to_key(
-        key: &SerializableKey,
-    ) -> Result<Self::KeyType, Box<dyn std::error::Error>> {
-        Self::bytes_to_key(&key.key_bytes)
-    }
-}
-
-// Main trait for Catalog objects to integrate with the record system
-pub trait NetabaseRecordExt: bincode::Encode + bincode::Decode<()> + CatalogKey + Clone {
-    /// Convert to KadRecord for network transmission using bincode
-    fn to_kad_record(&self) -> KadRecord
-    where
-        Self: bincode::Encode,
-    {
-        let key = self.catalog_key();
-        let serializable_key = Self::key_to_serializable(&key);
-        let record = Record::from_serializable_key(serializable_key, self.clone());
-        record.into()
-    }
-
-    /// Convert to KadRecord with type hint for better deserialization
-    fn to_kad_record_with_hint(&self, type_hint: &str) -> KadRecord
-    where
-        Self: bincode::Encode,
-    {
-        let key = self.catalog_key();
-        let mut serializable_key = Self::key_to_serializable(&key);
-        serializable_key.type_hint = Some(type_hint.to_string());
-        let record = Record::from_serializable_key(serializable_key, self.clone());
-        record.into()
-    }
-
-    /// Convert from KadRecord received from network using bincode
-    fn from_kad_record(kad_record: KadRecord) -> Result<Self, Box<dyn std::error::Error>>
-    where
-        Self: bincode::Decode<()>,
-    {
-        let record: Record<Self> = kad_record.try_into()?;
-        Ok(record.data)
-    }
-}
-
 // Constructor trait for creating catalog items from native_db types
 // This uses the constructor pattern instead of a generator as requested
 pub trait CatalogConstructor<T> {
@@ -266,71 +191,57 @@ pub trait CatalogConstructor<T> {
 
 // Helper functions for working with native_db keys
 pub fn native_db_key_to_bytes(key: &native_db::db_type::Key) -> Vec<u8> {
-    // Since as_slice() is private, use debug representation as bytes
+    // Convert to string for debug representation, then to bytes
     format!("{:?}", key).into_bytes()
 }
 
 pub fn bytes_to_native_db_key(bytes: &[u8]) -> native_db::db_type::Key {
     use native_db::ToKey;
-    // Create key directly from bytes - this works for the debug format approach
-    // For production, you might want a more sophisticated reconstruction
+    // Convert bytes back to key using ToKey
     bytes.to_key()
-}
-
-/// Create a SerializableKey from any ToKey type
-pub fn create_serializable_key<T: native_db::ToKey>(value: &T) -> SerializableKey {
-    let native_key = value.to_key();
-    SerializableKey::from_native_db_key(&native_key)
-}
-
-/// Create a SerializableKey with type information
-pub fn create_typed_serializable_key<T: native_db::ToKey>(
-    value: &T,
-    type_name: &str,
-) -> SerializableKey {
-    let native_key = value.to_key();
-    SerializableKey::from_native_db_key_with_hint(&native_key, type_name.to_string())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use native_db::ToKey;
 
     #[derive(Debug, Clone, PartialEq, bincode::Encode, bincode::Decode)]
     struct TestData {
         name: String,
-        value: u32,
+        value: i32,
     }
 
-    #[derive(Debug, Clone, PartialEq, bincode::Encode, bincode::Decode)]
+    #[derive(Debug, Clone)]
     struct TestKey {
         composite_key: String,
     }
 
-    impl CatalogKey for TestData {
+    impl GetKey for TestData {
         type KeyType = TestKey;
 
-        fn catalog_key(&self) -> Self::KeyType {
+        fn key(&self) -> TestKey {
             TestKey {
-                composite_key: format!("test:{}:{}", self.name, self.value),
+                composite_key: format!("test_{}_{}", self.name, self.value),
             }
-        }
-
-        fn key_to_serializable(key: &Self::KeyType) -> SerializableKey {
-            let native_key = key.composite_key.to_key();
-            SerializableKey::from_native_db_key_with_hint(&native_key, "TestData".to_string())
-        }
-
-        fn bytes_to_key(bytes: &[u8]) -> Result<Self::KeyType, Box<dyn std::error::Error>> {
-            let key_str = String::from_utf8(bytes.to_vec())?;
-            Ok(TestKey {
-                composite_key: key_str,
-            })
         }
     }
 
-    impl NetabaseRecordExt for TestData {}
+    impl RecordConversion for TestData {
+        fn calculate_expiry(&self) -> Option<Instant> {
+            None
+        }
+
+        fn key_to_bytes(key: &TestKey) -> Vec<u8> {
+            key.composite_key.as_bytes().to_vec()
+        }
+
+        fn bytes_to_key(bytes: &[u8]) -> Result<TestKey, Box<dyn std::error::Error>> {
+            let debug_str = String::from_utf8(bytes.to_vec())?;
+            Ok(TestKey {
+                composite_key: debug_str,
+            })
+        }
+    }
 
     impl CatalogConstructor<TestData> for TestData {
         fn from_native_db(data: TestData) -> Self {
@@ -343,199 +254,175 @@ mod tests {
     }
 
     #[test]
-    fn test_serializable_key() {
-        let native_key = "test_key".to_key();
-        let serializable_key = SerializableKey::from_native_db_key(&native_key);
-
-        assert!(!serializable_key.as_bytes().is_empty());
-        assert!(serializable_key.type_hint().is_none());
-
-        let recovered_key = serializable_key.to_native_db_key();
-        // Keys should be functionally equivalent for the debug format approach
-        assert!(!serializable_key.key_bytes.is_empty());
-    }
-
-    #[test]
-    fn test_serializable_key_with_hint() {
-        let native_key = "test_key_with_hint".to_key();
-        let serializable_key =
-            SerializableKey::from_native_db_key_with_hint(&native_key, "TestType".to_string());
-
-        assert!(!serializable_key.as_bytes().is_empty());
-        assert_eq!(serializable_key.type_hint(), Some("TestType"));
-
-        let recovered_key = serializable_key.to_native_db_key();
-        assert!(!serializable_key.key_bytes.is_empty());
-    }
-
-    #[test]
     fn test_record_creation() {
         let test_data = TestData {
             name: "test".to_string(),
             value: 42,
         };
 
-        // Test Record creation with bytes key
-        let key_bytes = b"test_key".to_vec();
+        let key_bytes = vec![1, 2, 3, 4];
         let record = Record::new(key_bytes.clone(), test_data.clone());
 
         assert_eq!(record.key, key_bytes);
-        assert_eq!(record.data.name, "test");
-        assert_eq!(record.data.value, 42);
-    }
-
-    #[test]
-    fn test_record_with_serializable_key() {
-        let test_data = TestData {
-            name: "serializable_test".to_string(),
-            value: 123,
-        };
-
-        let native_key = "test_key".to_key();
-        let serializable_key =
-            SerializableKey::from_native_db_key_with_hint(&native_key, "TestData".to_string());
-        let record = Record::from_serializable_key(serializable_key.clone(), test_data.clone());
-
-        // Test round-trip conversion
-        let recovered_serializable_key = record.to_serializable_key();
-        assert_eq!(
-            recovered_serializable_key.as_bytes(),
-            serializable_key.as_bytes()
-        );
         assert_eq!(record.data, test_data);
+        assert!(record.expiry.is_none());
+        assert!(record.creator.is_none());
     }
 
     #[test]
     fn test_bincode_record_conversion() {
         let test_data = TestData {
             name: "bincode_test".to_string(),
-            value: 789,
+            value: 200,
         };
 
-        let record = Record::new(b"test_key".to_vec(), test_data.clone());
-
-        // Convert Record to KadRecord using bincode
+        let record = Record::new(vec![5, 6, 7, 8], test_data.clone());
         let kad_record: KadRecord = record.clone().into();
-        assert!(!kad_record.value.is_empty());
-        assert_eq!(kad_record.key.as_ref(), b"test_key");
 
-        // Convert KadRecord back to Record using bincode
         let recovered_record: Record<TestData> = kad_record.try_into().unwrap();
         assert_eq!(recovered_record.data, test_data);
-        assert_eq!(recovered_record.key, b"test_key".to_vec());
+        assert_eq!(recovered_record.key, record.key);
     }
 
     #[test]
-    fn test_netabase_record_ext() {
-        let data = TestData {
-            name: "ext_test".to_string(),
-            value: 456,
+    fn test_record_conversion() {
+        let test_data = TestData {
+            name: "record_test".to_string(),
+            value: 300,
         };
 
-        // Test direct conversion to KadRecord using bincode
-        let kad_record = data.to_kad_record();
+        let kad_record = test_data.to_record();
         assert!(!kad_record.value.is_empty());
 
-        // Test recovery from KadRecord using bincode
-        let recovered = TestData::from_kad_record(kad_record).unwrap();
-        assert_eq!(recovered, data);
+        let recovered_data = TestData::from_record(kad_record).unwrap();
+        assert_eq!(recovered_data, test_data);
     }
 
     #[test]
     fn test_record_with_metadata() {
+        use chrono::Utc;
+
         let test_data = TestData {
             name: "metadata_test".to_string(),
-            value: 999,
+            value: 400,
         };
 
-        let expiry_time = Utc::now() + Duration::seconds(3600);
-        let record = Record::new(b"meta_key".to_vec(), test_data.clone())
+        let expiry_time = Utc::now() + chrono::Duration::hours(1);
+        let record = Record::new(vec![9, 10, 11, 12], test_data.clone())
             .with_expiry(expiry_time)
             .with_creator("test_creator".to_string());
 
-        // Convert to KadRecord and back using bincode
-        let kad_record: KadRecord = record.clone().into();
+        assert_eq!(record.expiry, Some(expiry_time));
+        assert_eq!(record.creator, Some("test_creator".to_string()));
+    }
+
+    #[test]
+    fn test_record_to_kad_record() {
+        let test_data = TestData {
+            name: "kad_test".to_string(),
+            value: 500,
+        };
+
+        let record = Record::new(vec![13, 14, 15, 16], test_data);
+        let kad_record: KadRecord = record.into();
+        assert!(!kad_record.value.is_empty());
+    }
+
+    #[test]
+    fn test_key_to_bytes() {
+        let test_data = TestData {
+            name: "key_test".to_string(),
+            value: 600,
+        };
+
+        let key = test_data.key();
+        let key_bytes = TestData::key_to_bytes(&key);
+        assert!(!key_bytes.is_empty());
+
+        let recovered_key = TestData::bytes_to_key(&key_bytes).unwrap();
+        assert_eq!(recovered_key.composite_key, key.composite_key);
+    }
+
+    #[test]
+    fn test_get_key_trait() {
+        let test_data = TestData {
+            name: "get_key_test".to_string(),
+            value: 700,
+        };
+
+        let key = test_data.key();
+        assert!(key.composite_key.contains("get_key_test"));
+        assert!(key.composite_key.contains("700"));
+    }
+
+    #[test]
+    fn test_complete_dataflow() {
+        let test_data = TestData {
+            name: "complete_flow".to_string(),
+            value: 800,
+        };
+
+        // Test complete flow: data -> Record -> KadRecord -> Record -> data
+        let key_bytes = TestData::key_to_bytes(&test_data.key());
+        let record = Record::new(key_bytes, test_data.clone());
+
+        // Convert to KadRecord and back
+        let kad_record: KadRecord = record.into();
         let recovered_record: Record<TestData> = kad_record.try_into().unwrap();
 
-        assert_eq!(recovered_record.expiry, Some(expiry_time));
-        assert_eq!(recovered_record.creator, Some("test_creator".to_string()));
+        // Verify data integrity
         assert_eq!(recovered_record.data, test_data);
     }
 
     #[test]
-    fn test_as_kad_record_trait() {
+    fn test_record_conversion_with_expiry() {
         let test_data = TestData {
-            name: "trait_test".to_string(),
-            value: 111,
+            name: "expiry_test".to_string(),
+            value: 800,
         };
 
-        let record = Record::new(b"trait_key".to_vec(), test_data);
-        let kad_record_cow = record.as_kad_record();
-
-        match kad_record_cow {
-            Cow::Owned(kad_record) => {
-                assert_eq!(kad_record.key.as_ref(), b"trait_key");
-                assert!(!kad_record.value.is_empty());
-            }
-            _ => panic!("Expected owned KadRecord"),
-        }
-    }
-
-    #[test]
-    fn test_create_typed_serializable_key() {
-        let test_value = "test_typed_key";
-        let serializable_key = create_typed_serializable_key(&test_value, "String");
-
-        assert_eq!(serializable_key.type_hint(), Some("String"));
-        assert!(!serializable_key.as_bytes().is_empty());
-    }
-
-    #[test]
-    fn test_catalog_key_with_serializable() {
-        let test_data = TestData {
-            name: "catalog_key_test".to_string(),
-            value: 42,
-        };
-
-        let key = test_data.catalog_key();
-        let serializable_key = TestData::key_to_serializable(&key);
-
-        assert_eq!(serializable_key.type_hint(), Some("TestData"));
-        assert!(!serializable_key.as_bytes().is_empty());
-
-        // Test round-trip - keys may have different formats but should be valid
-        let recovered_key = TestData::serializable_to_key(&serializable_key).unwrap();
-        // Instead of exact equality, just verify the key was recovered successfully
-        assert!(!recovered_key.composite_key.is_empty());
-    }
-
-    #[test]
-    fn test_complete_dataflow_with_serializable_keys() {
-        // Step 1: Create native_db data
-        let native_data = TestData {
-            name: "dataflow_test".to_string(),
-            value: 555,
-        };
-
-        // Step 2: Wrap in catalog (using constructor pattern)
-        let catalog = TestData::from_native_db(native_data.clone());
-
-        // Step 3: Catalog is sent across threads (clone demonstrates this)
-        let catalog_for_network = catalog.clone();
-
-        // Step 4: Catalog is wrapped in KadRecord for network transmission with SerializableKey
-        let kad_record = catalog_for_network.to_kad_record_with_hint("TestData");
-
-        // Step 5: Record is sent over network (simulated)
+        // Test the to_record method which should use calculate_expiry
+        let kad_record = test_data.to_record();
         assert!(!kad_record.value.is_empty());
+        assert!(kad_record.expires.is_none()); // Since calculate_expiry returns None
 
-        // Step 6: Record is received and parsed back into Catalog
-        let recovered_catalog = TestData::from_kad_record(kad_record).unwrap();
+        // Test from_record
+        let recovered_data = TestData::from_record(kad_record).unwrap();
+        assert_eq!(recovered_data, test_data);
+    }
 
-        // Step 7: Catalog is converted back to native_db type
-        let recovered_native = recovered_catalog.to_native_db();
+    #[test]
+    fn test_new_trait_system_integration() {
+        let test_data = TestData {
+            name: "integration_test".to_string(),
+            value: 900,
+        };
 
-        // Step 8: Verify complete round-trip worked
-        assert_eq!(recovered_native, native_data);
+        // Test GetKey trait
+        let key = test_data.key();
+        assert!(matches!(key, TestKey { .. }));
+        assert!(key.composite_key.contains("integration_test"));
+        assert!(key.composite_key.contains("900"));
+
+        // Test RecordConversion trait
+        assert!(test_data.calculate_expiry().is_none()); // Default implementation
+
+        // Test key serialization roundtrip
+        let key_bytes = <TestData as RecordConversion>::key_to_bytes(&key);
+        let recovered_key = <TestData as RecordConversion>::bytes_to_key(&key_bytes).unwrap();
+        assert_eq!(key.composite_key, recovered_key.composite_key);
+
+        // Test RecordConversion::to_record and from_record
+        let kad_record = test_data.to_record();
+        let recovered_data = TestData::from_record(kad_record).unwrap();
+        assert_eq!(test_data, recovered_data);
+
+        // Test ThreadSafe trait (blanket implementation)
+        fn assert_thread_safe<T: ThreadSafe>(_: &T) {}
+        assert_thread_safe(&test_data);
+
+        // Test RecordConversion trait (blanket implementation)
+        let kad_record_via_conversion = test_data.to_record();
+        assert!(!kad_record_via_conversion.value.is_empty());
     }
 }

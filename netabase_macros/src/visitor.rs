@@ -11,6 +11,7 @@ pub struct NativeModel<'ast> {
     pub model: &'ast ItemStruct,
     pub path: Vec<Pair<PathSegment, Token![::]>>,
     pub primary_key_type: Option<Type>,
+    pub secondary_keys: Vec<(Ident, Type)>,
 }
 
 impl<'ast> NativeModel<'ast> {
@@ -55,6 +56,23 @@ impl<'ast> NativeModel<'ast> {
         }
         None
     }
+
+    pub fn extract_secondary_keys(model: &ItemStruct) -> Vec<(Ident, Type)> {
+        let mut secondary_keys = Vec::new();
+        for field in &model.fields {
+            // Check if field has #[secondary_key] attribute
+            if field
+                .attrs
+                .iter()
+                .any(|attr| attr.path().is_ident("secondary_key"))
+            {
+                if let Some(field_ident) = &field.ident {
+                    secondary_keys.push((field_ident.clone(), field.ty.clone()));
+                }
+            }
+        }
+        secondary_keys
+    }
 }
 
 #[derive(Default)]
@@ -80,10 +98,12 @@ impl<'ast> Visit<'ast> for SchemaVisitor<'ast> {
                         {
                             let primary_key_type =
                                 NativeModel::extract_primary_key_type(item_struct);
+                            let secondary_keys = NativeModel::extract_secondary_keys(item_struct);
                             self.items.push(NativeModel {
                                 model: item_struct,
                                 path: self.current_path.clone(),
                                 primary_key_type,
+                                secondary_keys,
                             });
                         }
                     }

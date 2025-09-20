@@ -3,7 +3,10 @@ use quote::quote;
 use syn::{Ident, ItemMod, parse_macro_input, visit::Visit};
 
 use crate::{
-    generator::{generate_conversions, generate_enums, generate_variants},
+    generator::{
+        generate_conversions, generate_database_key_variants, generate_enums,
+        generate_model_specific_key_enums, generate_ref_iter, generate_variants,
+    },
     visitor::SchemaVisitor,
 };
 
@@ -41,9 +44,37 @@ pub fn netabase_schema(input: TokenStream, item: TokenStream) -> TokenStream {
 
     eprintln!("netabase_schema: found {} native models", vi.items.len());
 
-    let ((variants, ref_variants), keys) = generate_variants(&vi);
-    let ((model_list, ref_model_list), key_list) =
-        generate_enums(&name_ident, variants, ref_variants, keys);
+    let ((variants, ref_variants), _old_keys) = generate_variants(&vi);
+    let ((model_list, ref_model_list), _old_key_list) =
+        generate_enums(&name_ident, variants, ref_variants, vec![]);
+
+    // Generate model-specific key enums
+    let model_key_enums = generate_model_specific_key_enums(&vi);
+    let (iter_struct, iter_impl) = generate_ref_iter(&model_list);
+
+    // Generate new database key enum with model-specific variants
+    let db_key_variants = generate_database_key_variants(&vi);
+    let keys_name = {
+        let mut temp_name = name_ident.to_string();
+        temp_name.push_str("Key");
+        syn::Ident::new(&temp_name, proc_macro2::Span::call_site())
+    };
+
+    let key_list = syn::ItemEnum {
+        attrs: vec![syn::parse_quote!(#[derive(Debug, Clone)])],
+        vis: syn::Visibility::Public(syn::token::Pub::default()),
+        enum_token: syn::token::Enum::default(),
+        ident: keys_name,
+        generics: syn::Generics::default(),
+        brace_token: syn::token::Brace::default(),
+        variants: {
+            let mut variants = syn::punctuated::Punctuated::new();
+            for variant in db_key_variants {
+                variants.push(variant);
+            }
+            variants
+        },
+    };
 
     let conversions = generate_conversions(&name_ident, &vi);
 
@@ -51,6 +82,9 @@ pub fn netabase_schema(input: TokenStream, item: TokenStream) -> TokenStream {
         #items
         #model_list
         #ref_model_list
+        #iter_struct
+        #iter_impl
+        #(#model_key_enums)*
         #key_list
         #conversions
     }
