@@ -218,8 +218,13 @@ pub fn generate_ref_iter(ref_enum: &ItemEnum) -> (ItemStruct, ItemImpl) {
             let method_name =
                 syn::Ident::new(&format!("scan_type_{ix}"), proc_macro2::Span::call_site());
             quote! {
-                pub fn #method_name(&'stack_db self) -> native_db::db_type::Result<native_db::transaction::query::PrimaryScanIterator<'stack_db, #ty>> {
-                    self.r_scan.primary::<#ty>()?.all() 
+                pub fn #method_name(&self) -> native_db::db_type::Result<Vec<#ty>> {
+                    let scan = self.r_transaction.scan();
+                    let mut results = Vec::new();
+                    for item in scan.primary::<#ty>()?.all()? {
+                        results.push(item?);
+                    }
+                    Ok(results)
                 }
             }
         })
@@ -227,18 +232,16 @@ pub fn generate_ref_iter(ref_enum: &ItemEnum) -> (ItemStruct, ItemImpl) {
 
     (
         parse_quote! {
-            pub struct #name<'db: 'stack_db, 'stack_db> {
-                database: &'stack_db native_db::Database<'db>,
-                r_scan: native_db::transaction::query::RScan<'db, 'stack_db>,
+            pub struct #name<'db> {
+                r_transaction: native_db::transaction::RTransaction<'db>,
             }
         },
         parse_quote! {
-            impl<'db: 'stack_db, 'stack_db> #name<'db, 'stack_db> {
-                pub fn new(database: &'stack_db native_db::Database<'db>) -> native_db::db_type::Result<Self> {
-                    let r_scan = database.r_transaction()?.scan::<'stack_db>();
+            impl<'db> #name<'db> {
+                pub fn new(database: &'db native_db::Database<'db>) -> native_db::db_type::Result<Self> {
+                    let r_transaction = database.r_transaction()?;
                     Ok(Self {
-                        database,
-                        r_scan,
+                        r_transaction,
                     })
                 }
 
