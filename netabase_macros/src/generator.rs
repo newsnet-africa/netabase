@@ -239,29 +239,30 @@ pub fn generate_ref_iter(ref_enum: &ItemEnum) -> (ItemStruct, ItemImpl) {
             );
             quote! {
                 pub fn #method_name(&self) -> native_db::db_type::Result<Vec<#ty>> {
-                    let r_transaction = self.database.r_transaction()?;
-                    let scan = r_transaction.scan().primary::<#ty>()?;
-                    let mut items = Vec::new();
-                    for item_result in scan.all()? {
-                        items.push(item_result?);
+                    let scan = self.r_transaction.scan();
+                    let mut results = Vec::new();
+                    for item in scan.primary::<#ty>()?.all()? {
+                        results.push(item?);
                     }
-                    Ok(items)
+                    Ok(results)
                 }
             }
         })
         .collect();
 
-    // Generate collection calls for all types
-    let collect_calls: Vec<TokenStream> = variant_info
-        .iter()
-        .map(|(variant_name, _ty)| {
-            let method_name = syn::Ident::new(
-                &format!("scan_{}", variant_name.to_string().to_lowercase()),
-                proc_macro2::Span::call_site(),
-            );
-            quote! {
-                for item in self.#method_name()? {
-                    all_items.push(#base_enum_name::#variant_name(item));
+    (
+        parse_quote! {
+            pub struct #name<'db> {
+                r_transaction: native_db::transaction::RTransaction<'db>,
+            }
+        },
+        parse_quote! {
+            impl<'db> #name<'db> {
+                pub fn new(database: &'db native_db::Database<'db>) -> native_db::db_type::Result<Self> {
+                    let r_transaction = database.r_transaction()?;
+                    Ok(Self {
+                        r_transaction,
+                    })
                 }
             }
         })
