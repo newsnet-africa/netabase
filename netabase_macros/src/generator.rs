@@ -198,9 +198,9 @@ pub fn generate_enums<'ast>(
 
 pub fn generate_ref_iter(ref_enum: &ItemEnum) -> (ItemStruct, ItemImpl) {
     let mut name = ref_enum.ident.to_string();
-    name.push_str("Iter");
+    name.push_str("DBIter");
     let name = Ident::new(&name, proc_macro2::Span::call_site());
-    let generics = &ref_enum.generics;
+    let _generics = &ref_enum.generics;
     let variant_map = ref_enum.variants.iter().filter_map(|v| {
         if let Fields::Unnamed(fields_unnamed) = &v.fields
             && let Some(first) = fields_unnamed.unnamed.first()
@@ -211,34 +211,38 @@ pub fn generate_ref_iter(ref_enum: &ItemEnum) -> (ItemStruct, ItemImpl) {
         }
     });
 
-    let (range, names): (Vec<TokenStream>, Vec<Ident>) = variant_map.clone().enumerate().map(|(ix, ty)| {
-        let var_name = syn::Ident::new(&format!("db_type_{ix}"), proc_macro2::Span::call_site());
-        (quote! {
-            let #var_name: Option<native_db::transaction::query::PrimaryScanIterator<'db, #ty>> = r_transaction.scan().primary()?.all().ok();
-        }, var_name)
-    }).unzip();
+    let methods: Vec<TokenStream> = variant_map
+        .clone()
+        .enumerate()
+        .map(|(ix, ty)| {
+            let method_name =
+                syn::Ident::new(&format!("scan_type_{ix}"), proc_macro2::Span::call_site());
+            quote! {
+                pub fn #method_name(&'stack_db self) -> native_db::db_type::Result<native_db::transaction::query::PrimaryScanIterator<'stack_db, #ty>> {
+                    self.r_scan.primary::<#ty>()?.all() 
+                }
+            }
+        })
+        .collect();
 
     (
         parse_quote! {
             pub struct #name<'db: 'stack_db, 'stack_db> {
                 database: &'stack_db native_db::Database<'db>,
-                r_transaction: native_db::transaction::RTransaction<'stack_db>,
-                iters: (#(Option<native_db::transaction::query::PrimaryScanIterator<'db, #variant_map>>),* )
+                r_scan: native_db::transaction::query::RScan<'db, 'stack_db>,
             }
         },
         parse_quote! {
             impl<'db: 'stack_db, 'stack_db> #name<'db, 'stack_db> {
                 pub fn new(database: &'stack_db native_db::Database<'db>) -> native_db::db_type::Result<Self> {
-                    let r_transaction = database.r_transaction()?;
-                    #(#range)*
+                    let r_scan = database.r_transaction()?.scan::<'stack_db>();
                     Ok(Self {
                         database,
-                        r_transaction,
-                        iters: (
-                            #(#names),*
-                        )
+                        r_scan,
                     })
                 }
+
+                #(#methods)*
             }
         },
     )
