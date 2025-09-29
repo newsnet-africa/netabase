@@ -12,7 +12,7 @@ use native_db::{Builder, Models};
 use std::collections::HashMap;
 use std::sync::LazyLock;
 use test_macros::social_data::v1::{Post, PrimitiveTest, User};
-use test_macros::{SocialMediaSchema, SocialMediaSchemaDBIter, SocialMediaSchemaRef};
+use test_macros::{SocialMediaSchema, SocialMediaSchemaRef, SocialMediaSchemaRefDBIter};
 
 static MODELS: LazyLock<Models> = LazyLock::new(|| {
     let mut models = Models::new();
@@ -119,7 +119,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("✓ Test data inserted successfully");
 
     // Test the iterator functionality - this demonstrates resolved lifetime issues
-    let iter = SocialMediaSchemaDBIter::new(&db);
+    let mut iter = SocialMediaSchemaRefDBIter::new(&db);
     println!("✓ Iterator created successfully (lifetimes resolved!)");
 
     // Test individual scan methods
