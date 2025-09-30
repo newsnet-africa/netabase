@@ -1,13 +1,17 @@
+use quote::ToTokens;
 use syn::{Field, Ident, MetaList, parse_quote, visit::Visit, visit_mut::VisitMut};
 
+use crate::append_ident;
+
 #[derive(Default)]
-pub struct NetabaseSchemaVisitor<'ast> {
-    pub keys: Option<&'ast Field>,
+pub struct NetabaseModelVisitor<'ast> {
+    pub key_field: Option<&'ast Field>,
     pub key_derive: Option<&'ast MetaList>,
     pub name: Option<&'ast Ident>,
+    pub key_name: Option<Ident>,
 }
 
-impl<'ast> Visit<'ast> for NetabaseSchemaVisitor<'ast> {
+impl<'ast> Visit<'ast> for NetabaseModelVisitor<'ast> {
     fn visit_derive_input(&mut self, i: &'ast syn::DeriveInput) {
         self.name = Some(&i.ident);
         self.key_derive = i.attrs.iter().find_map(|att| {
@@ -19,13 +23,24 @@ impl<'ast> Visit<'ast> for NetabaseSchemaVisitor<'ast> {
                 None
             }
         });
+        self.key_name = i.attrs.iter().find_map(|att| {
+            if att.path().is_ident("key_name")
+                && let syn::Meta::List(meta_list) = &att.meta
+            {
+                eprintln!("Visiting: {:?} with key: {:?}", self.name, self.key_name);
+                let tok = &meta_list.tokens;
+                Some(parse_quote! {#tok})
+            } else {
+                self.name.map(|name| append_ident(name, "Key"))
+            }
+        });
         if let syn::Data::Struct(data_struct) = &i.data
             && let Some(field) = data_struct
                 .fields
                 .iter()
                 .find(|f| f.attrs.iter().any(|attr| attr.path().is_ident("key")))
         {
-            self.keys = Some(field);
+            self.key_field = Some(field);
         }
     }
 }
