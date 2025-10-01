@@ -1,6 +1,8 @@
 pub mod record_store;
+pub mod sled;
 pub mod wrappers;
 
-pub struct SledRecordStore {
-    tree_names: Vec<String>,
-}
+// Re-export the main database types
+pub use sled::{
+    NetabaseSledDatabase, NetabaseSledTree, ProvidedIter, RecordsIter, StoredProviderRecord,
+};
