@@ -25,7 +25,7 @@ impl<'ast> NetabaseModelVisitor<'ast> {
             Clone,
             derive_more::From,
             derive_more::Into,
-            NetabaseSchemaKeyMacro
+            NetabaseModelKeyMacro
         );
         if let Some(keys) = self.key_derive {
             keys.tokens.clone().to_tokens(&mut key_derive);

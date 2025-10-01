@@ -10,6 +10,7 @@ libp2p = { version = "0.56.0", features = ["kad"] }
 netabase = { version = "0.1.0", path = ".." }
 netabase_macros = { version = "0.1.0", path = "../netabase_macros" }
 serde = { version = "1.0.224", features = ["derive"] }
+sled = "0.34"
 serde_json = "1.0.145"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.0", features = ["v4", "serde"] }
