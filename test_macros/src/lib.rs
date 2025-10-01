@@ -5,20 +5,20 @@ pub mod name {
 #[netabase_schema_module(MySchema, MyKey)]
 pub mod schema {
     use bincode::{Decode, Encode};
-    use netabase::traits::{NetabaseSchema, NetabaseSchemaKey};
+    use netabase::traits::{NetabaseModel, NetabaseModelKey};
     use netabase_macros::{
-        NetabaseSchema as NetabaseSchemaMacro, NetabaseSchemaKeyMacro, key_derive, key_name,
+        NetabaseModel as NetabaseModelMacro, NetabaseModelKeyMacro, key_derive, key_name,
         key_schema,
     };
 
-    #[derive(NetabaseSchemaMacro, Clone, Encode, Decode)]
+    #[derive(NetabaseModelMacro, Clone, Encode, Decode)]
     #[key_name(ThingKey)]
     struct Thing {
         #[key]
         this_k: Vec<u8>,
     }
 
-    #[derive(NetabaseSchemaMacro, Debug, Clone, Encode, Decode)]
+    #[derive(NetabaseModelMacro, Debug, Clone, Encode, Decode)]
     #[key_name(AnotherThingKey)]
     //
     struct AnotherThing {
@@ -29,13 +29,13 @@ pub mod schema {
 
     pub mod inner {
         use bincode::{Decode, Encode};
-        use netabase::traits::{NetabaseSchema, NetabaseSchemaKey};
+        use netabase::traits::{NetabaseModel, NetabaseModelKey};
         use netabase_macros::{
-            NetabaseSchema as NetabaseSchemaMacro, NetabaseSchemaKeyMacro, key_derive, key_name,
+            NetabaseModel as NetabaseModelMacro, NetabaseModelKeyMacro, key_derive, key_name,
             key_schema,
         };
 
-        #[derive(NetabaseSchemaMacro, Debug, Clone, Encode, Decode)]
+        #[derive(NetabaseModelMacro, Debug, Clone, Encode, Decode)]
         #[key_name(OkayKey)]
         pub struct Inner {
             #[key]
@@ -43,13 +43,13 @@ pub mod schema {
         }
         pub mod nested {
             use bincode::{Decode, Encode};
-            use netabase::traits::{NetabaseSchema, NetabaseSchemaKey};
+            use netabase::traits::{NetabaseModel, NetabaseModelKey};
             use netabase_macros::{
-                NetabaseSchema as NetabaseSchemaMacro, NetabaseSchemaKeyMacro, key_derive,
-                key_name, key_schema,
+                NetabaseModel as NetabaseModelMacro, NetabaseModelKeyMacro, key_derive, key_name,
+                key_schema,
             };
 
-            #[derive(NetabaseSchemaMacro, Encode, Decode)]
+            #[derive(NetabaseModelMacro, Encode, Decode)]
             #[key_name(Shit)]
             pub struct Nested {
                 #[key]

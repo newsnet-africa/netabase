@@ -1,34 +1,22 @@
-use anyhow::anyhow;
 use bincode::{Decode, Encode};
 use libp2p::kad::{Record, RecordKey};
 
 use crate::errors::NetabaseError;
 
-pub trait NetabaseModels:
-    Encode + Decode<()> + Sized + TryInto<Record> + TryFrom<Record> + Send + Sync
+pub trait NetabaseModel:
+    Encode + Decode<()> + Sized + TryFrom<Record> + TryInto<Record> + Send + Sync
 where
-    Self::Key: NetabaseSchemaKey,
-    <<Self as NetabaseModels>::Key as TryInto<libp2p::kad::RecordKey>>::Error: std::marker::Send,
-    <<Self as NetabaseModels>::Key as TryInto<libp2p::kad::RecordKey>>::Error: std::marker::Sync,
-    libp2p::kad::RecordKey: TryFrom<<Self as NetabaseModels>::Key>,
-    <<Self as NetabaseModels>::Key as std::convert::TryInto<libp2p::kad::RecordKey>>::Error:
-        std::error::Error,
+    Self::Key: NetabaseModelKey,
+    Record: TryFrom<Self> + TryInto<Self>,
+    libp2p::kad::RecordKey: TryFrom<<Self as NetabaseModel>::Key>,
 {
-    type Key: NetabaseSchemaKey;
+    type Key: NetabaseModelKey;
     fn key(&self) -> Self::Key;
 
     fn to_record(&self) -> Result<Record, NetabaseError>
     where
-        <Self as TryInto<libp2p::kad::Record>>::Error: std::marker::Send,
-        <Self as TryInto<libp2p::kad::Record>>::Error: std::marker::Sync,
-        <Self as TryInto<libp2p::kad::Record>>::Error: 'static,
-        <<Self as NetabaseModels>::Key as TryInto<libp2p::kad::RecordKey>>::Error:
-            std::error::Error,
-        <<Self as NetabaseModels>::Key as TryInto<libp2p::kad::RecordKey>>::Error:
-            std::marker::Send,
-        <<Self as NetabaseModels>::Key as TryInto<libp2p::kad::RecordKey>>::Error:
-            std::marker::Sync,
-        <<Self as NetabaseModels>::Key as TryInto<libp2p::kad::RecordKey>>::Error: 'static,
+        <Self::Key as TryInto<RecordKey>>::Error: std::fmt::Debug,
+        Record: std::convert::TryFrom<<Self as NetabaseModel>::Key>,
     {
         let key = match self.key().try_into() {
             Ok(t) => t,
@@ -47,22 +35,19 @@ where
     }
 }
 
-pub trait NetabaseSchemaKey:
+pub trait NetabaseModelKey:
     Encode
+    + AsRef<[u8]>
     + Decode<()>
-    + TryInto<RecordKey>
     + TryFrom<RecordKey>
+    + TryInto<RecordKey>
     + Clone
     + Sized
     + Send
     + Sync
     + 'static
 where
-    libp2p::kad::RecordKey: TryFrom<Self>,
-    <Self as TryInto<libp2p::kad::RecordKey>>::Error: std::error::Error,
-    <Self as TryInto<libp2p::kad::RecordKey>>::Error: std::marker::Send,
-    <Self as TryInto<libp2p::kad::RecordKey>>::Error: std::marker::Sync,
-    <Self as TryInto<libp2p::kad::RecordKey>>::Error: 'static,
+    libp2p::kad::RecordKey: TryFrom<Self> + TryInto<Self>,
 {
     fn to_record_key(&self) -> Result<RecordKey, NetabaseError> {
         Ok(RecordKey::new(&bincode::encode_to_vec(
@@ -75,9 +60,65 @@ where
     }
 }
 
+pub trait NetabaseSchema: Send + Sync + Encode + Decode<()> + TryFrom<sled::IVec>
+where
+    sled::IVec: TryFrom<Self>,
+{
+    type Discriminants: NetabaseDiscriminants;
+    type Keys: NetabaseKeys;
+}
+pub trait NetabaseKeys {
+    type Discriminants: NetabaseDiscriminants;
+}
+
+pub trait NetabaseDiscriminants: Into<&'static str> {}
+
 pub mod database_traits {
-    pub trait NetabaseDatabase<Schema: strum::VariantNames> {
+    use libp2p::kad::{Record, RecordKey};
+
+    use crate::{
+        errors::NetabaseError,
+        traits::{NetabaseDiscriminants, NetabaseModel, NetabaseModelKey, NetabaseSchema},
+    };
+
+    pub trait NetabaseSledDatabase<Schema: NetabaseSchema>
+    where
+        sled::IVec: TryFrom<Schema>,
+    {
         fn new(name: &str) -> Self;
-        fn open_tree()
+        fn db(&self) -> &sled::Db;
+        fn open_tree<K: NetabaseModelKey, V: NetabaseModel, T: NetabaseSledTree<K, V>>(
+            &self,
+            name: Schema::Discriminants,
+        ) -> Result<T, NetabaseError>
+        where
+            sled::IVec: std::convert::TryFrom<V>,
+            libp2p::kad::RecordKey: std::convert::TryFrom<K>,
+            libp2p::kad::Record: std::convert::TryFrom<V>,
+            libp2p::kad::RecordKey: std::convert::TryFrom<<V as NetabaseModel>::Key>,
+        {
+            match self.db().open_tree(name.into()) {
+                Ok(k) => T::try_from(k).map_err(|_| {
+                    NetabaseError::Conversion(
+                        crate::errors::conversion::ConversionError::TraitConversion,
+                    )
+                }),
+                Err(e) => Err(NetabaseError::Database),
+            }
+        }
+    }
+    pub trait NetabaseSledTree<K, V>: TryFrom<sled::Tree>
+    where
+        RecordKey: TryFrom<K>,
+        Record: TryFrom<V>,
+        RecordKey: TryFrom<<V as NetabaseModel>::Key>,
+        sled::IVec: std::convert::TryFrom<V>,
+        K: NetabaseModelKey,
+        V: NetabaseModel,
+    {
+        fn tree(&self) -> &sled::Tree;
+        fn insert(&self, key: K, value: V) -> sled::Result<Option<V>> {
+            self.tree().insert(key, value)
+        }
     }
 }

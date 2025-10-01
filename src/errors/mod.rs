@@ -7,6 +7,8 @@ pub mod conversion;
 pub enum NetabaseError {
     #[error("There was an error converting types: {0}")]
     Conversion(#[from] ConversionError),
+    #[error("There was an error with the database")]
+    Database,
 }
 
 impl From<bincode::error::DecodeError> for NetabaseError {

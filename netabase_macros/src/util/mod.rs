@@ -17,7 +17,7 @@ impl<'ast> NetabaseItemStruct<'ast> for ItemStruct {
         if self.attrs.iter().any(|att| {
             if let syn::Meta::List(metalist) = &att.meta
                 && att.path().is_ident("derive")
-                && metalist.tokens.to_string().contains("NetabaseSchema")
+                && metalist.tokens.to_string().contains("NetabaseModel")
             {
                 true
             } else {

@@ -23,7 +23,7 @@ impl<'ast> NetabaseModelVisitor<'ast> {
         }; // TODO: Support for Tuple Struct
 
         parse_quote! {
-            impl NetabaseSchema for #name {
+            impl NetabaseModel for #name {
                 type Key = #key_name;
 
                 fn key(&self) -> Self::Key {
@@ -64,7 +64,7 @@ pub mod key_impl {
     pub fn generate_netabase_schema_key_trait(key_struct: &DeriveInput) -> ItemImpl {
         let name = &key_struct.ident;
         parse_quote! {
-            impl NetabaseSchemaKey for #name {
+            impl NetabaseModelKey for #name {
 
             }
         }

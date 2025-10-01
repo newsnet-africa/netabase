@@ -15,7 +15,8 @@ chrono = { version = "0.4", features = ["serde"] }
 derive_more = { version = "2.0.1", features = ["from", "try_into"] }
 libp2p = { version = "0.56.0", features = ["kad"] }
 serde = { version = "1.0", features = ["derive"] }
-strum = "0.27.2"
+sled = "0.34.7"
+strum = { version = "0.27.2", features = ["derive"] }
 thiserror = "2.0.17"
 
 [dev-dependencies]

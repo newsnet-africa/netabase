@@ -20,7 +20,7 @@ mod generators;
 mod util;
 mod visitors;
 
-#[proc_macro_derive(NetabaseSchema, attributes(key))]
+#[proc_macro_derive(NetabaseModel, attributes(key))]
 pub fn netabase_derive(input: TokenStream) -> TokenStream {
     let derive_input = parse_macro_input!(input as DeriveInput);
     let mut visitor = NetabaseModelVisitor::default();
@@ -38,7 +38,7 @@ pub fn netabase_derive(input: TokenStream) -> TokenStream {
     .into()
 }
 
-#[proc_macro_derive(NetabaseSchemaKeyMacro)]
+#[proc_macro_derive(NetabaseModelKeyMacro)]
 pub fn netabase_key_derive(input: TokenStream) -> TokenStream {
     let derive_input = parse_macro_input!(input as DeriveInput);
     let netabase_impl = generate_netabase_schema_key_trait(&derive_input);
