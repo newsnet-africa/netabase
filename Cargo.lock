@@ -1578,6 +1578,7 @@ dependencies = [
  "netabase_macros",
  "serde",
  "serde_json",
+ "sled",
  "uuid",
 ]
 

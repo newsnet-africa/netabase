@@ -6,10 +6,7 @@ pub mod name {
 pub mod schema {
     use bincode::{Decode, Encode};
     use netabase::traits::{NetabaseModel, NetabaseModelKey};
-    use netabase_macros::{
-        NetabaseModel as NetabaseModelMacro, NetabaseModelKeyMacro, key_derive, key_name,
-        key_schema,
-    };
+    use netabase_macros::{NetabaseModel as NetabaseModelMacro, NetabaseModelKeyMacro, key_name};
 
     #[derive(NetabaseModelMacro, Clone, Encode, Decode)]
     #[key_name(ThingKey)]
@@ -31,8 +28,7 @@ pub mod schema {
         use bincode::{Decode, Encode};
         use netabase::traits::{NetabaseModel, NetabaseModelKey};
         use netabase_macros::{
-            NetabaseModel as NetabaseModelMacro, NetabaseModelKeyMacro, key_derive, key_name,
-            key_schema,
+            NetabaseModel as NetabaseModelMacro, NetabaseModelKeyMacro, key_name,
         };
 
         #[derive(NetabaseModelMacro, Debug, Clone, Encode, Decode)]
@@ -45,11 +41,10 @@ pub mod schema {
             use bincode::{Decode, Encode};
             use netabase::traits::{NetabaseModel, NetabaseModelKey};
             use netabase_macros::{
-                NetabaseModel as NetabaseModelMacro, NetabaseModelKeyMacro, key_derive, key_name,
-                key_schema,
+                NetabaseModel as NetabaseModelMacro, NetabaseModelKeyMacro, key_name,
             };
 
-            #[derive(NetabaseModelMacro, Encode, Decode)]
+            #[derive(NetabaseModelMacro, Clone, Encode, Decode)]
             #[key_name(Shit)]
             pub struct Nested {
                 #[key]

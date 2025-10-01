@@ -1,13 +1,10 @@
 use proc_macro::TokenStream;
-use quote::{ToTokens, quote};
+use quote::quote;
 use syn::{DeriveInput, Ident, ItemMod, parse_macro_input, visit::Visit, visit_mut::VisitMut};
 
 use crate::{
     generators::{
-        append_ident,
-        models::impls::key_impl::{
-            generate_from_record_key, generate_into_record_key, generate_netabase_schema_key_trait,
-        },
+        append_ident, models::impls::key_impl::generate_netabase_model_key_trait,
         schema::model_enum::generate_module_schema,
     },
     visitors::{
@@ -26,14 +23,10 @@ pub fn netabase_derive(input: TokenStream) -> TokenStream {
     let mut visitor = NetabaseModelVisitor::default();
     visitor.visit_derive_input(&derive_input);
     let key = visitor.generate_key();
-    let netabase_impl = visitor.generate_netabase_schema_trait();
-    let into_rec = visitor.generate_into_record();
-    let from_rec = visitor.generate_from_record();
+    let netabase_impl = visitor.generate_netabase_model_trait();
     quote! {
         #key
         #netabase_impl
-        #into_rec
-        #from_rec
     }
     .into()
 }
@@ -41,13 +34,9 @@ pub fn netabase_derive(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(NetabaseModelKeyMacro)]
 pub fn netabase_key_derive(input: TokenStream) -> TokenStream {
     let derive_input = parse_macro_input!(input as DeriveInput);
-    let netabase_impl = generate_netabase_schema_key_trait(&derive_input);
-    let into_rec = generate_into_record_key(&derive_input);
-    let from_rec = generate_from_record_key(&derive_input);
+    let netabase_impl = generate_netabase_model_key_trait(&derive_input);
     quote! {
         #netabase_impl
-        #into_rec
-        #from_rec
     }
     .into()
 }
@@ -77,11 +66,17 @@ pub fn netabase_schema_module(name: TokenStream, input: TokenStream) -> TokenStr
     let mut visitor = SchemaModuleVisitor::new(schema_ident, key_ident);
     visitor.visit_item_mod(&input);
 
-    let (schema, key) = generate_module_schema(visitor);
+    let (schema, key, impls) = generate_module_schema(visitor);
     let temp_cont = input.content.unwrap();
     let mut new_vec = temp_cont.1;
     new_vec.push(syn::Item::Enum(schema));
     new_vec.push(syn::Item::Enum(key));
+
+    // Add all the generated implementations
+    for impl_item in impls {
+        new_vec.push(syn::Item::Impl(impl_item));
+    }
+
     input.content = Some((temp_cont.0, new_vec));
     quote! {
         #input

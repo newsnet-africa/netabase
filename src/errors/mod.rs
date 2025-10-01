@@ -21,3 +21,9 @@ impl From<bincode::error::EncodeError> for NetabaseError {
         Self::Conversion(ConversionError::MacroConversion)
     }
 }
+
+impl From<sled::Error> for NetabaseError {
+    fn from(_value: sled::Error) -> Self {
+        Self::Database
+    }
+}

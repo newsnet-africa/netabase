@@ -3,7 +3,7 @@ use syn::{ItemImpl, parse_quote};
 use crate::NetabaseModelVisitor;
 
 impl<'ast> NetabaseModelVisitor<'ast> {
-    pub fn generate_netabase_schema_trait(&self) -> ItemImpl {
+    pub fn generate_netabase_model_trait(&self) -> ItemImpl {
         let name = match self.name {
             Some(id) => id,
             None => panic!("Cannot find modl name"),
@@ -61,7 +61,7 @@ impl<'ast> NetabaseModelVisitor<'ast> {
 pub mod key_impl {
     use syn::{DeriveInput, ItemImpl, parse_quote};
 
-    pub fn generate_netabase_schema_key_trait(key_struct: &DeriveInput) -> ItemImpl {
+    pub fn generate_netabase_model_key_trait(key_struct: &DeriveInput) -> ItemImpl {
         let name = &key_struct.ident;
         parse_quote! {
             impl NetabaseModelKey for #name {
