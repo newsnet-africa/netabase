@@ -1,6 +1,6 @@
 use syn::{ItemEnum, ItemImpl, Variant, parse_quote};
 
-use crate::SchemaModuleVisitor;
+use crate::{SchemaModuleVisitor, append_ident};
 
 pub fn generate_module_schema(
     module_visitor: SchemaModuleVisitor,
@@ -23,7 +23,8 @@ pub fn generate_module_schema(
     let (schema_name, key_name) = (module_visitor.schema_name, module_visitor.schema_key_name);
 
     let schema_enum = parse_quote! {
-        #[derive(derive_more::From, derive_more::TryInto, Clone, Encode, Decode, Debug)]
+        #[derive(derive_more::From, derive_more::TryInto, Clone, Encode, Decode, Debug, strum::EnumDiscriminants)]
+        #[strum_discriminants(derive(strum::EnumIter, strum::AsRefStr, Hash))]
         pub enum #schema_name {
             #(#schemas),*
         }
@@ -40,8 +41,12 @@ pub fn generate_module_schema(
     let mut impls = vec![];
 
     // NetabaseSchema trait impl
+    let discriminant_ident = append_ident(&schema_name, "Discriminants");
+
     impls.push(parse_quote! {
-        impl netabase::traits::NetabaseSchema for #schema_name {}
+        impl netabase::traits::NetabaseSchema for #schema_name {
+            type SchemaDiscriminants = #discriminant_ident;
+        }
     });
 
     // TryFrom<SchemaEnum> for Record
@@ -125,6 +130,23 @@ pub fn generate_module_schema(
             type Error = netabase::errors::NetabaseError;
             fn try_from(value: sled::IVec) -> Result<Self, Self::Error> {
                 <#key_name as netabase::traits::NetabaseKeys>::from_ivec(value)
+            }
+        }
+    });
+
+    // Helper functions for getting discriminant lists (simplified without strum)
+    impls.push(parse_quote! {
+        impl #schema_name {
+            pub fn discriminants() -> Vec<&'static str> {
+                vec![] // Simplified for now, can be enhanced later
+            }
+        }
+    });
+
+    impls.push(parse_quote! {
+        impl #key_name {
+            pub fn discriminants() -> Vec<&'static str> {
+                vec![] // Simplified for now, can be enhanced later
             }
         }
     });

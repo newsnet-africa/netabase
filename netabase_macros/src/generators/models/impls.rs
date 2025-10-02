@@ -1,12 +1,15 @@
-use syn::{ItemImpl, parse_quote};
+use syn::{ItemImpl, ItemType, parse_quote};
 
-use crate::NetabaseModelVisitor;
+use crate::{
+    NetabaseModelVisitor, append_ident,
+    util::{netabase_error_type_path, netabase_model_trait_path, relational_link_type_path},
+};
 
 impl<'ast> NetabaseModelVisitor<'ast> {
     pub fn generate_netabase_model_trait(&self) -> ItemImpl {
         let name = match self.name {
             Some(id) => id,
-            None => panic!("Cannot find modl name"),
+            None => panic!("Cannot find model name"),
         };
 
         let key_field = match self.key_field {
@@ -19,25 +22,100 @@ impl<'ast> NetabaseModelVisitor<'ast> {
 
         let key_name = match &self.key_name {
             Some(k) => k,
-            None => panic!("Key has no name"),
-        }; // TODO: Support for Tuple Struct
+            None => {
+                // Generate default key name if not provided
+                match self.name {
+                    Some(name) => {
+                        eprintln!("Generating default key name for: {:?}", name);
+                        &append_ident(name, "Key")
+                    }
+                    None => {
+                        eprintln!("No model name available, using placeholder");
+                        &syn::Ident::new("PlaceholderKey", proc_macro2::Span::call_site())
+                    }
+                }
+            }
+        };
+
+        let _secondary_keys_name = append_ident(name, "SecondaryKeys");
+        let _relations_name = append_ident(name, "Relations");
+
+        // Generate secondary keys method
+        let secondary_key_names: Vec<proc_macro2::TokenStream> = self
+            .secondary_key_fields
+            .iter()
+            .filter_map(|field| {
+                field.ident.as_ref().map(|ident| {
+                    let ident_str = ident.to_string();
+                    quote::quote! { #ident_str }
+                })
+            })
+            .collect();
+
+        let secondary_keys_method: syn::ImplItemFn = parse_quote! {
+            fn secondary_keys() -> Vec<&'static str> {
+                vec![#(#secondary_key_names),*]
+            }
+        };
+
+        // Generate relations method (always empty now)
+        let relations_method: syn::ImplItemFn = parse_quote! {
+            fn relations() -> Vec<&'static str> {
+                vec![]
+            }
+        };
+
+        let relations_name = append_ident(name, "Relations");
+
+        // Generate discriminant type name for relations (always empty now)
+        let relations_discriminants = relations_name.clone();
+        let trait_path = netabase_model_trait_path();
 
         parse_quote! {
-            impl NetabaseModel for #name {
+            impl #trait_path for #name {
                 type Key = #key_name;
+                type RelationsDiscriminants = #relations_discriminants;
 
                 fn key(&self) -> Self::Key {
                     self.#key_field.clone().into()
+                }
+
+                #secondary_keys_method
+
+                #relations_method
+
+                fn relation_discriminants() -> Vec<Self::RelationsDiscriminants> {
+                    <Self::RelationsDiscriminants as strum::IntoEnumIterator>::iter().collect()
                 }
             }
         }
     }
 
+    pub fn generate_type_alias(&self) -> ItemType {
+        let name = match self.name {
+            Some(id) => id,
+            None => panic!("Cannot find model name"),
+        };
+
+        let key_name = match &self.key_name {
+            Some(k) => k,
+            None => &append_ident(name, "Key"),
+        };
+
+        let alias_name = append_ident(name, "Link");
+        let relational_link_path = relational_link_type_path();
+
+        parse_quote! {
+            pub type #alias_name = #relational_link_path<#key_name, #name>;
+        }
+    }
+
     pub fn generate_into_record(&self) -> ItemImpl {
         let name = self.name;
+        let error_path = netabase_error_type_path();
         parse_quote! {
             impl TryFrom<#name> for libp2p::kad::Record {
-                type Error = netabase::errors::NetabaseError;
+                type Error = #error_path;
                 fn try_from(value: #name) -> Result<Self, Self::Error> {
                     value.to_record()
                 }
@@ -47,9 +125,10 @@ impl<'ast> NetabaseModelVisitor<'ast> {
 
     pub fn generate_from_record(&self) -> ItemImpl {
         let name = self.name;
+        let error_path = netabase_error_type_path();
         parse_quote! {
             impl TryFrom<libp2p::kad::Record> for #name {
-                type Error = netabase::errors::NetabaseError;
+                type Error = #error_path;
                 fn try_from(value: libp2p::kad::Record) -> Result<Self, Self::Error> {
                     Self::from_record(value)
                 }
@@ -63,8 +142,9 @@ pub mod key_impl {
 
     pub fn generate_netabase_model_key_trait(key_struct: &DeriveInput) -> ItemImpl {
         let name = &key_struct.ident;
+        let trait_path = crate::util::netabase_model_key_trait_path();
         parse_quote! {
-            impl NetabaseModelKey for #name {
+            impl #trait_path for #name {
 
             }
         }
@@ -72,20 +152,23 @@ pub mod key_impl {
 
     pub fn generate_into_record_key(key_struct: &DeriveInput) -> ItemImpl {
         let name = &key_struct.ident;
+        let error_path = crate::util::netabase_error_type_path();
         parse_quote! {
             impl TryFrom<#name> for libp2p::kad::RecordKey {
-                type Error = netabase::errors::NetabaseError;
+                type Error = #error_path;
                 fn try_from(value: #name) -> Result<Self, Self::Error> {
                     value.to_record_key()
                 }
             }
         }
     }
+
     pub fn generate_from_record_key(key_struct: &DeriveInput) -> ItemImpl {
         let name = &key_struct.ident;
+        let error_path = crate::util::netabase_error_type_path();
         parse_quote! {
             impl TryFrom<libp2p::kad::RecordKey> for #name {
-                type Error = netabase::errors::NetabaseError;
+                type Error = #error_path;
                 fn try_from(value: libp2p::kad::RecordKey) -> Result<Self, Self::Error> {
                     Self::from_record_key(value)
                 }

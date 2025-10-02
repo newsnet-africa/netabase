@@ -8,9 +8,8 @@ use std::borrow::Cow;
 use libp2p::PeerId;
 use libp2p::kad::{ProviderRecord, Record, RecordKey, store::Error, store::Result};
 
-use crate::database::sled::{
-    NetabaseSledDatabase, NetabaseSledTree, ProvidedIter, RecordsIter, StoredProviderRecord,
-};
+use crate::database::sled::{NetabaseSledDatabase, NetabaseSledTree};
+use crate::database::{ProvidedIter, RecordsIter, StoredProviderRecord};
 use crate::errors::NetabaseError;
 use crate::traits::{NetabaseKeys, NetabaseModel, NetabaseModelKey, NetabaseSchema};
 
@@ -486,7 +485,6 @@ mod tests {
         use crate::traits::NetabaseModel;
         use crate::traits::NetabaseModelKey;
         use bincode::{Decode, Encode};
-        use netabase_macros::NetabaseModelKey;
         use netabase_macros::{NetabaseModel, key_name, netabase_schema_module};
 
         #[derive(NetabaseModel, Clone, Encode, Decode, Debug)]

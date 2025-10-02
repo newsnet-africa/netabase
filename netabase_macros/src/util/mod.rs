@@ -2,9 +2,66 @@ use std::{collections::HashMap, str::FromStr};
 
 use proc_macro2::TokenStream;
 use quote::ToTokens;
-use syn::{Ident, Item, ItemStruct, MetaList, Type, parse_quote};
+use syn::{Ident, Item, ItemStruct, MetaList, Path, Type, parse_quote};
 
 use crate::SchemaModuleVisitor;
+
+/// Generate the appropriate path for netabase traits - always use ::netabase:: for external usage
+pub fn netabase_traits_path() -> Path {
+    parse_quote! { ::netabase::traits }
+}
+
+/// Generate the appropriate path for netabase relational module - always use ::netabase:: for external usage
+pub fn netabase_relational_path() -> Path {
+    parse_quote! { ::netabase::relational }
+}
+
+/// Generate the appropriate path for netabase errors module - always use ::netabase:: for external usage
+pub fn netabase_errors_path() -> Path {
+    parse_quote! { ::netabase::errors }
+}
+
+/// Generate NetabaseModel trait path
+pub fn netabase_model_trait_path() -> Path {
+    let mut base = netabase_traits_path();
+    base.segments.push(parse_quote! { NetabaseModel });
+    base
+}
+
+/// Generate NetabaseModelKey trait path
+pub fn netabase_model_key_trait_path() -> Path {
+    let mut base = netabase_traits_path();
+    base.segments.push(parse_quote! { NetabaseModelKey });
+    base
+}
+
+/// Generate NetabaseSecondaryKeys trait path
+pub fn netabase_secondary_keys_trait_path() -> Path {
+    let mut base = netabase_traits_path();
+    base.segments.push(parse_quote! { NetabaseSecondaryKeys });
+    base
+}
+
+/// Generate NetabaseRelationalKeys trait path
+pub fn netabase_relational_keys_trait_path() -> Path {
+    let mut base = netabase_traits_path();
+    base.segments.push(parse_quote! { NetabaseRelationalKeys });
+    base
+}
+
+/// Generate RelationalLink type path
+pub fn relational_link_type_path() -> Path {
+    let mut base = netabase_relational_path();
+    base.segments.push(parse_quote! { RelationalLink });
+    base
+}
+
+/// Generate NetabaseError type path
+pub fn netabase_error_type_path() -> Path {
+    let mut base = netabase_errors_path();
+    base.segments.push(parse_quote! { NetabaseError });
+    base
+}
 
 pub trait NetabaseItemStruct<'ast> {
     fn is_schema(&'ast self) -> Option<Ident>;
@@ -31,7 +88,6 @@ impl<'ast> NetabaseItemStruct<'ast> for ItemStruct {
                         #tok
                     })
                 } else {
-                    // syn::Error::new(proc_macro2::Span::call_site(), "Struct is not Key")
                     None
                 }
             })
@@ -45,7 +101,6 @@ impl<'ast> NetabaseItemStruct<'ast> for ItemStruct {
             if att.path().is_ident("key_schema") {
                 att.meta.require_list().ok()
             } else {
-                // syn::Error::new(proc_macro2::Span::call_site(), "Struct is not Key")
                 None
             }
         })

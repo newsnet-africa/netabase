@@ -1,4 +1,3 @@
-use quote::ToTokens;
 use syn::{Field, Ident, MetaList, parse_quote, visit::Visit, visit_mut::VisitMut};
 
 use crate::append_ident;
@@ -9,11 +8,13 @@ pub struct NetabaseModelVisitor<'ast> {
     pub key_derive: Option<&'ast MetaList>,
     pub name: Option<&'ast Ident>,
     pub key_name: Option<Ident>,
+    pub secondary_key_fields: Vec<&'ast Field>,
 }
 
 impl<'ast> Visit<'ast> for NetabaseModelVisitor<'ast> {
     fn visit_derive_input(&mut self, i: &'ast syn::DeriveInput) {
         self.name = Some(&i.ident);
+
         self.key_derive = i.attrs.iter().find_map(|att| {
             if att.path().is_ident("key_derive")
                 && let syn::Meta::List(meta_list) = &att.meta
@@ -23,24 +24,48 @@ impl<'ast> Visit<'ast> for NetabaseModelVisitor<'ast> {
                 None
             }
         });
-        self.key_name = i.attrs.iter().find_map(|att| {
-            if att.path().is_ident("key_name")
-                && let syn::Meta::List(meta_list) = &att.meta
-            {
-                eprintln!("Visiting: {:?} with key: {:?}", self.name, self.key_name);
+
+        // Set key_name based on attribute or default
+        if let Some(key_name_attr) = i.attrs.iter().find(|att| att.path().is_ident("key_name")) {
+            if let syn::Meta::List(meta_list) = &key_name_attr.meta {
                 let tok = &meta_list.tokens;
-                Some(parse_quote! {#tok})
-            } else {
-                self.name.map(|name| append_ident(name, "Key"))
+                match syn::parse2::<syn::Ident>(tok.clone()) {
+                    Ok(parsed_key_name) => {
+                        self.key_name = Some(parsed_key_name);
+                    }
+                    Err(_) => {
+                        if let Some(name) = self.name {
+                            let default_key_name = append_ident(name, "Key");
+                            self.key_name = Some(default_key_name);
+                        }
+                    }
+                }
             }
-        });
-        if let syn::Data::Struct(data_struct) = &i.data
-            && let Some(field) = data_struct
+        } else if let Some(name) = self.name {
+            let default_key_name = append_ident(name, "Key");
+            self.key_name = Some(default_key_name);
+        }
+
+        if let syn::Data::Struct(data_struct) = &i.data {
+            // Find primary key field
+            if let Some(field) = data_struct
                 .fields
                 .iter()
                 .find(|f| f.attrs.iter().any(|attr| attr.path().is_ident("key")))
-        {
-            self.key_field = Some(field);
+            {
+                self.key_field = Some(field);
+            }
+
+            // Find secondary key fields
+            self.secondary_key_fields = data_struct
+                .fields
+                .iter()
+                .filter(|f| {
+                    f.attrs
+                        .iter()
+                        .any(|attr| attr.path().is_ident("secondary_key"))
+                })
+                .collect();
         }
     }
 }

@@ -17,18 +17,78 @@ mod generators;
 mod util;
 mod visitors;
 
-#[proc_macro_derive(NetabaseModel, attributes(key))]
+#[proc_macro_derive(NetabaseModel, attributes(key, secondary_key, key_name))]
 pub fn netabase_derive(input: TokenStream) -> TokenStream {
     let derive_input = parse_macro_input!(input as DeriveInput);
+
+    // Analyze the input without transformation
     let mut visitor = NetabaseModelVisitor::default();
     visitor.visit_derive_input(&derive_input);
-    let key = visitor.generate_key();
-    let netabase_impl = visitor.generate_netabase_model_trait();
-    quote! {
-        #key
-        #netabase_impl
+
+    // Check if we found the key field
+    if visitor.key_field.is_none() {
+        return quote! {
+            compile_error!("NetabaseModel requires a field marked with #[key]");
+        }
+        .into();
     }
-    .into()
+
+    // Generate each component with error handling
+    let (main_key_enum, secondary_keys_enum, primary_key_struct, relations_enum) =
+        visitor.generate_key();
+
+    let netabase_impl = visitor.generate_netabase_model_trait();
+
+    let main_key_impl = visitor.generate_main_key_impl();
+
+    let primary_key_impl = visitor.generate_primary_key_impl();
+
+    let primary_key_from_impl = visitor.generate_primary_key_from_impl();
+
+    let secondary_keys_impl = visitor.generate_secondary_keys_impl();
+
+    let secondary_keys_try_from_ivec_impl = visitor.generate_secondary_keys_try_from_ivec_impl();
+
+    let secondary_keys_try_into_ivec_impl = visitor.generate_secondary_keys_try_into_ivec_impl();
+
+    let secondary_keys_fn = visitor.generate_secondary_keys_fn();
+
+    let relations_impl = visitor.generate_relations_impl();
+
+    let relations_try_from_ivec_impl = visitor.generate_relations_try_from_ivec_impl();
+
+    let relations_try_into_ivec_impl = visitor.generate_relations_try_into_ivec_impl();
+
+    let relations_fn = visitor.generate_relations_fn();
+
+    let secondary_keys_placeholder_impls = visitor.generate_secondary_keys_placeholder_impls();
+    let relations_placeholder_impls = visitor.generate_relations_placeholder_impls();
+
+    let type_alias = visitor.generate_type_alias();
+
+    let final_tokens = quote! {
+        #primary_key_struct
+        #primary_key_impl
+        #primary_key_from_impl
+        #secondary_keys_enum
+        #secondary_keys_impl
+        #secondary_keys_try_from_ivec_impl
+        #secondary_keys_try_into_ivec_impl
+        #secondary_keys_placeholder_impls
+        #relations_enum
+        #relations_impl
+        #relations_try_from_ivec_impl
+        #relations_try_into_ivec_impl
+        #relations_placeholder_impls
+        #main_key_enum
+        #main_key_impl
+        #netabase_impl
+        #secondary_keys_fn
+        #relations_fn
+        #type_alias
+    };
+
+    final_tokens.into()
 }
 
 #[proc_macro_derive(NetabaseModelKey)]
@@ -85,11 +145,11 @@ pub fn netabase_schema_module(name: TokenStream, input: TokenStream) -> TokenStr
 }
 
 #[proc_macro_attribute]
-pub fn key_schema(item: TokenStream, input: TokenStream) -> TokenStream {
+pub fn key_schema(_item: TokenStream, input: TokenStream) -> TokenStream {
     input
 }
 
 #[proc_macro_attribute]
-pub fn key_name(item: TokenStream, input: TokenStream) -> TokenStream {
+pub fn key_name(_item: TokenStream, input: TokenStream) -> TokenStream {
     input
 }

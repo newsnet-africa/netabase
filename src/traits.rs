@@ -6,7 +6,24 @@ use crate::errors::NetabaseError;
 
 pub trait NetabaseModel: Encode + Decode<()> + Sized + Clone + Send + Sync + Debug {
     type Key: NetabaseModelKey;
+    type RelationsDiscriminants: strum::IntoEnumIterator + AsRef<str> + Clone + std::hash::Hash + Eq;
+
     fn key(&self) -> Self::Key;
+
+    /// Return an iterator of secondary keys for this model
+    fn secondary_keys() -> Vec<&'static str> {
+        Vec::new()
+    }
+
+    /// Return an iterator of relational links for this model
+    fn relations() -> Vec<&'static str> {
+        Vec::new()
+    }
+
+    /// Return discriminant enums for relations
+    fn relation_discriminants() -> Vec<Self::RelationsDiscriminants> {
+        <Self::RelationsDiscriminants as strum::IntoEnumIterator>::iter().collect()
+    }
 }
 
 pub trait NetabaseSchema:
@@ -22,10 +39,13 @@ pub trait NetabaseSchema:
     + Sync
     + std::fmt::Debug
     + 'static
-where
-    Self: TryFrom<sled::IVec>,
-    sled::IVec: TryFrom<Self>,
 {
+    type SchemaDiscriminants: strum::IntoEnumIterator + AsRef<str> + Clone + std::hash::Hash + Eq;
+
+    /// Return discriminant enums for schema types
+    fn all_schema_discriminants() -> Vec<Self::SchemaDiscriminants> {
+        <Self::SchemaDiscriminants as strum::IntoEnumIterator>::iter().collect()
+    }
     fn to_record(&self) -> Result<Record, NetabaseError>
     where
         <Self as TryInto<libp2p::kad::Record>>::Error: std::marker::Send,
@@ -59,6 +79,16 @@ where
 pub trait NetabaseModelKey:
     Encode + Decode<()> + Clone + Sized + Send + Sync + Debug + 'static
 {
+    type SecondaryKeysDiscriminants: strum::IntoEnumIterator
+        + AsRef<str>
+        + Clone
+        + std::hash::Hash
+        + Eq;
+
+    /// Return discriminant enums for secondary keys
+    fn secondary_key_discriminants() -> Vec<Self::SecondaryKeysDiscriminants> {
+        <Self::SecondaryKeysDiscriminants as strum::IntoEnumIterator>::iter().collect()
+    }
 }
 
 pub trait NetabaseKeys:
@@ -106,6 +136,56 @@ where
 }
 
 pub trait NetabaseDiscriminants: Into<&'static str> {}
+
+/// Trait for secondary key enums
+pub trait NetabaseSecondaryKeys:
+    Encode
+    + Decode<()>
+    + Sized
+    + TryInto<sled::IVec>
+    + TryFrom<sled::IVec>
+    + Clone
+    + Send
+    + Sync
+    + Debug
+    + 'static
+{
+    fn to_ivec(&self) -> Result<sled::IVec, crate::errors::NetabaseError> {
+        Ok(sled::IVec::from(bincode::encode_to_vec(
+            self,
+            bincode::config::standard(),
+        )?))
+    }
+
+    fn from_ivec(ivec: sled::IVec) -> Result<Self, crate::errors::NetabaseError> {
+        Ok(bincode::decode_from_slice::<Self, _>(&ivec, bincode::config::standard())?.0)
+    }
+}
+
+/// Trait for relational key enums
+pub trait NetabaseRelationalKeys:
+    Encode
+    + Decode<()>
+    + Sized
+    + TryInto<sled::IVec>
+    + TryFrom<sled::IVec>
+    + Clone
+    + Send
+    + Sync
+    + Debug
+    + 'static
+{
+    fn to_ivec(&self) -> Result<sled::IVec, crate::errors::NetabaseError> {
+        Ok(sled::IVec::from(bincode::encode_to_vec(
+            self,
+            bincode::config::standard(),
+        )?))
+    }
+
+    fn from_ivec(ivec: sled::IVec) -> Result<Self, crate::errors::NetabaseError> {
+        Ok(bincode::decode_from_slice::<Self, _>(&ivec, bincode::config::standard())?.0)
+    }
+}
 
 /// Iterator wrapper that automatically converts sled::Iter results to typed (K, V) pairs
 pub struct NetabaseIter<K, V> {
