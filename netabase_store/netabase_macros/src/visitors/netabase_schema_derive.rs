@@ -70,27 +70,27 @@ impl<'ast> Visit<'ast> for NetabaseModelVisitor<'ast> {
     }
 }
 
-/// A visitor that automatically adds `Encode` and `Decode` derives to struct definitions.
-///
-/// This visitor ensures that all structs have the necessary derive attributes for serialization,
-/// either by adding them to existing `#[derive(...)]` attributes or creating new ones.
-///
-/// # Example Usage
-/// ```rust
-/// use syn::{parse_quote, visit_mut::VisitMut};
-/// use crate::visitors::netabase_schema_derive::DeriveVisitor;
-///
-/// let mut ast: syn::DeriveInput = parse_quote! {
-///     #[derive(Debug, Clone)]
-///     struct MyStruct {
-///         field: String,
-///     }
-/// };
-///
-/// let mut visitor = DeriveVisitor::new();
-/// visitor.visit_derive_input_mut(&mut ast);
-/// // Now ast has #[derive(Debug, Clone, Encode, Decode)]
-/// ```
+// / A visitor that automatically adds `Encode` and `Decode` derives to struct definitions.
+// /
+// / This visitor ensures that all structs have the necessary derive attributes for serialization,
+// / either by adding them to existing `#[derive(...)]` attributes or creating new ones.
+// /
+// / # Example Usage
+// / ```rust
+// / use syn::{parse_quote, visit_mut::VisitMut};
+// / use crate::visitors::netabase_schema_derive::DeriveVisitor;
+// /
+// / let mut ast: syn::DeriveInput = parse_quote! {
+// /     #[derive(Debug, Clone)]
+// /     struct MyStruct {
+// /         field: String,
+// /     }
+// / };
+// /
+// / let mut visitor = DeriveVisitor::new();
+// / visitor.visit_derive_input_mut(&mut ast);
+// / // Now ast has #[derive(Debug, Clone, Encode, Decode)]
+// / ```
 pub struct DeriveVisitor;
 
 impl DeriveVisitor {
