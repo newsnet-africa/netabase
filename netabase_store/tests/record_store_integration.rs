@@ -1,15 +1,28 @@
+#[cfg(feature = "libp2p")]
 use bincode::{Decode, Encode};
+#[cfg(feature = "libp2p")]
 use libp2p::PeerId;
+#[cfg(feature = "libp2p")]
 use libp2p::kad::{ProviderRecord, Record};
+#[cfg(feature = "libp2p")]
 use libp2p::multihash::Multihash;
+#[cfg(feature = "libp2p")]
 use log::{debug, info};
-use netabase::traits::{NetabaseKeys, NetabaseModel, NetabaseSchema};
+#[cfg(feature = "libp2p")]
 use netabase_macros::{NetabaseModel, netabase_schema_module};
+#[cfg(feature = "libp2p")]
+use netabase_store::traits::{
+    NetabaseKeys, NetabaseKeysLibp2p, NetabaseModel, NetabaseSchema, NetabaseSchemaLibp2p,
+};
+#[cfg(feature = "libp2p")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "libp2p")]
 use std::sync::Once;
 
+#[cfg(feature = "libp2p")]
 static INIT: Once = Once::new();
 
+#[cfg(feature = "libp2p")]
 fn init_logger() {
     INIT.call_once(|| {
         env_logger::Builder::from_default_env()
@@ -18,16 +31,21 @@ fn init_logger() {
     });
 }
 
+#[cfg(feature = "libp2p")]
 const SHA_256_MH: u64 = 0x12;
 
+#[cfg(feature = "libp2p")]
 fn random_multihash() -> Multihash<64> {
     use rand::RngCore;
+
     let mut rng = rand::thread_rng();
     let mut bytes = [0u8; 32];
     rng.fill_bytes(&mut bytes);
+
     Multihash::wrap(SHA_256_MH, &bytes).unwrap()
 }
 
+#[cfg(feature = "libp2p")]
 #[netabase_schema_module(TestSchema, TestSchemaKeys)]
 pub mod test_schema {
     use super::*;
@@ -64,12 +82,26 @@ pub mod test_schema {
     }
 }
 
+#[cfg(feature = "libp2p")]
 use test_schema::*;
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "libp2p")]
     use super::*;
 
+    #[cfg(not(feature = "libp2p"))]
+    #[test]
+    fn test_libp2p_feature_not_enabled() {
+        // This test ensures the module compiles when libp2p feature is disabled
+        // The actual libp2p tests are conditionally compiled and won't run
+        assert!(
+            true,
+            "libp2p feature is not enabled - this is expected for some test runs"
+        );
+    }
+
+    #[cfg(feature = "libp2p")]
     #[test]
     fn test_record_conversion_single_type() -> Result<(), Box<dyn std::error::Error>> {
         init_logger();
@@ -121,6 +153,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "libp2p")]
     #[test]
     fn test_record_key_conversion() -> Result<(), Box<dyn std::error::Error>> {
         init_logger();
@@ -139,7 +172,7 @@ mod tests {
         debug!("Testing key conversion via schema keys");
         let test_key = test_record.key();
         let test_schema_key = TestSchemaKeys::TestRecordKey(test_key);
-        let record_key = test_schema_key.to_record_key()?;
+        let record_key = NetabaseKeysLibp2p::to_record_key(&test_schema_key)?;
         info!("✓ Key conversion to RecordKey successful");
 
         // Verify the key is not empty and has proper format
@@ -165,6 +198,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "libp2p")]
     #[test]
     fn test_multiple_record_types_conversion() -> Result<(), Box<dyn std::error::Error>> {
         info!("Starting test_multiple_record_types_conversion");
@@ -204,13 +238,13 @@ mod tests {
         // Convert all to Records
         debug!("Converting all types to Records");
         let record_schema = TestSchema::TestRecord(test_record.clone());
-        let record1 = record_schema.to_record()?;
+        let record1 = NetabaseSchemaLibp2p::to_record(&record_schema)?;
 
         let doc_schema = TestSchema::TestDocument(test_document.clone());
-        let record2 = doc_schema.to_record()?;
+        let record2 = NetabaseSchemaLibp2p::to_record(&doc_schema)?;
 
         let msg_schema = TestSchema::TestMessage(test_message.clone());
-        let record3 = msg_schema.to_record()?;
+        let record3 = NetabaseSchemaLibp2p::to_record(&msg_schema)?;
         info!("✓ All record types converted to Records successfully");
 
         // Convert back from Records
@@ -257,6 +291,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "libp2p")]
     #[test]
     fn test_record_serialization_formats() -> Result<(), Box<dyn std::error::Error>> {
         init_logger();
@@ -279,7 +314,7 @@ mod tests {
         // Convert to Record
         debug!("Converting to Record");
         let doc_schema = TestSchema::TestDocument(test_document.clone());
-        let record = doc_schema.to_record()?;
+        let record = NetabaseSchemaLibp2p::to_record(&doc_schema)?;
         info!("✓ Complex document converted to Record");
 
         // Convert back from Record to verify data integrity
@@ -303,6 +338,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "libp2p")]
     #[test]
     fn test_provider_record_integration() -> Result<(), Box<dyn std::error::Error>> {
         init_logger();
@@ -321,7 +357,7 @@ mod tests {
         debug!("Getting record key for provider operations");
         let test_key = test_record.key();
         let test_schema_key = TestSchemaKeys::TestRecordKey(test_key);
-        let record_key = test_schema_key.to_record_key()?;
+        let record_key = NetabaseKeysLibp2p::to_record_key(&test_schema_key)?;
         info!("✓ Record key obtained for provider operations");
 
         // Create a provider record
@@ -360,6 +396,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "libp2p")]
     #[test]
     fn test_edge_cases_and_error_handling() -> Result<(), Box<dyn std::error::Error>> {
         init_logger();
@@ -375,7 +412,7 @@ mod tests {
         };
 
         let empty_schema = TestSchema::TestRecord(empty_record.clone());
-        let empty_result = empty_schema.to_record();
+        let empty_result = NetabaseSchemaLibp2p::to_record(&empty_schema);
 
         // This should still work as empty keys might be valid in some contexts
         match empty_result {
@@ -402,7 +439,7 @@ mod tests {
         };
 
         let large_schema = TestSchema::TestRecord(large_record.clone());
-        let large_result = large_schema.to_record()?;
+        let large_result = NetabaseSchemaLibp2p::to_record(&large_schema)?;
         info!("✓ Large data conversion successful");
 
         // Verify large data integrity

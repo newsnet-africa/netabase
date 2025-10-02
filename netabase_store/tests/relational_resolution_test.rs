@@ -1,11 +1,11 @@
 use bincode::{Decode, Encode};
 use log::{debug, error, info, warn};
-use netabase::{
+use netabase_macros::{NetabaseModel, netabase_schema_module};
+use netabase_store::{
     database::{NetabaseSledDatabase, NetabaseSledTree},
     relational::RelationalLink,
     traits::NetabaseModel,
 };
-use netabase_macros::{NetabaseModel, netabase_schema_module};
 use serde::{Deserialize, Serialize};
 use std::sync::Once;
 use tempfile::TempDir;
