@@ -8,8 +8,8 @@ use std::borrow::Cow;
 use libp2p::PeerId;
 use libp2p::kad::{ProviderRecord, Record, RecordKey, store::Error, store::Result};
 
-use crate::database::sled::{NetabaseSledDatabase, NetabaseSledTree};
-use crate::database::{ProvidedIter, RecordsIter, StoredProviderRecord};
+use crate::database::sled::{NetabaseSledDatabase, NetabaseSledTreeLegacy};
+// use crate::database::{ProvidedIter, RecordsIter, StoredProviderRecord};
 use crate::errors::NetabaseError;
 use crate::traits::{NetabaseKeys, NetabaseModel, NetabaseModelKey, NetabaseSchema};
 
@@ -74,11 +74,11 @@ where
     /// The configuration of the store.
     config: SledRecordStoreConfig,
     /// Tree for storing regular records (enum-based storage)
-    records_tree: NetabaseSledTree<K, V>,
+    records_tree: NetabaseSledTreeLegacy<K, V>,
     /// Tree for storing provider lists (Key enum -> Vec<ProviderRecord>)
-    providers_tree: NetabaseSledTree<K, ProvidersListValue>,
+    providers_tree: NetabaseSledTreeLegacy<K, ProvidersListValue>,
     /// Tree for storing what the local node provides (Key enum -> ProviderRecord)
-    provided_tree: NetabaseSledTree<K, StoredProviderRecord>,
+    provided_tree: NetabaseSledTreeLegacy<K, StoredProviderRecord>,
 }
 
 /// Wrapper for storing a list of provider records
@@ -91,12 +91,25 @@ pub struct ProvidersListValue {
 #[derive(Clone, Debug, bincode::Encode, bincode::Decode)]
 pub struct ProvidersListKey;
 
-impl NetabaseModelKey for ProvidersListKey {}
+impl NetabaseModelKey for ProvidersListKey {
+    type SecondaryKeysDiscriminants = String;
+
+    fn secondary_key_discriminants() -> Vec<Self::SecondaryKeysDiscriminants> {
+        vec![]
+    }
+}
 
 impl NetabaseModel for ProvidersListValue {
     type Key = ProvidersListKey;
+    type RelationsDiscriminants = String;
+    type SchemaDiscriminant = &'static str;
+
     fn key(&self) -> Self::Key {
         ProvidersListKey
+    }
+
+    fn schema_discriminant() -> Self::SchemaDiscriminant {
+        "ProvidersListValue"
     }
 }
 
@@ -104,12 +117,25 @@ impl NetabaseModel for ProvidersListValue {
 #[derive(Clone, Debug, bincode::Encode, bincode::Decode)]
 pub struct StoredProviderKey;
 
-impl NetabaseModelKey for StoredProviderKey {}
+impl NetabaseModelKey for StoredProviderKey {
+    type SecondaryKeysDiscriminants = String;
+
+    fn secondary_key_discriminants() -> Vec<Self::SecondaryKeysDiscriminants> {
+        vec![]
+    }
+}
 
 impl NetabaseModel for StoredProviderRecord {
     type Key = StoredProviderKey;
+    type RelationsDiscriminants = String;
+    type SchemaDiscriminant = &'static str;
+
     fn key(&self) -> Self::Key {
         StoredProviderKey
+    }
+
+    fn schema_discriminant() -> Self::SchemaDiscriminant {
+        "StoredProviderRecord"
     }
 }
 
@@ -182,11 +208,11 @@ where
         local_peer_id: PeerId,
         config: SledRecordStoreConfig,
     ) -> std::result::Result<Self, NetabaseError> {
-        let db = NetabaseSledDatabase::new(db_path)?;
+        let db = NetabaseSledDatabase::new_with_name(db_path)?;
 
-        let records_tree = db.open_tree("records")?;
-        let providers_tree = db.open_tree("providers")?;
-        let provided_tree = db.open_tree("provided")?;
+        let records_tree = db.open_tree_with_discriminant(&db_path.parse().unwrap())?;
+        let providers_tree = db.open_tree_with_discriminant(&db_path.parse().unwrap())?;
+        let provided_tree = db.open_tree_with_discriminant(&db_path.parse().unwrap())?;
 
         Ok(Self {
             local_peer_id,

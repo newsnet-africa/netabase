@@ -1,5 +1,8 @@
 use bincode::{Decode, Encode};
-use netabase::{database::NetabaseSledDatabase, traits::NetabaseSchema};
+use netabase::{
+    database::{NetabaseSledDatabase, NetabaseSledTree},
+    traits::{NetabaseModel, NetabaseSchema},
+};
 use netabase_macros::NetabaseModel;
 use netabase_macros::netabase_schema_module;
 use serde::{Deserialize, Serialize};
@@ -41,7 +44,6 @@ pub mod test_schema {
 mod tests {
     use super::test_schema::*;
     use super::*;
-    use strum::IntoEnumIterator;
 
     #[test]
     fn debug_discriminants() {
@@ -75,50 +77,47 @@ mod tests {
     }
 
     #[test]
-    fn test_discriminant_based_tree_access() -> Result<(), Box<dyn std::error::Error>> {
-        println!("\n=== Testing Discriminant-based Tree Access ===");
+    fn test_model_based_tree_access() -> Result<(), Box<dyn std::error::Error>> {
+        println!("\n=== Testing Model-based Tree Access ===");
 
-        let mut db = NetabaseSledDatabase::<TestSchema>::new_with_name("test_discriminants")?;
+        let db = NetabaseSledDatabase::<TestSchema>::new_with_name("test_model_trees")?;
 
-        let discriminants = TestSchema::all_schema_discriminants();
-        db.initialize_trees_from_discriminants(&discriminants)?;
+        // Test User tree creation
+        println!("Creating User tree...");
+        let user_tree: NetabaseSledTree<test_schema::User, test_schema::UserKey> =
+            db.get_main_tree()?;
+        println!("  User tree length: {}", user_tree.len());
 
-        for discriminant in &discriminants {
-            println!("Testing discriminant: {:?}", discriminant);
-            let tree = db.get_main_tree(discriminant)?;
-            println!("  Tree length: {}", tree.len());
-        }
+        // Test Post tree creation
+        println!("Creating Post tree...");
+        let post_tree: NetabaseSledTree<test_schema::Post, test_schema::PostKey> =
+            db.get_main_tree()?;
+        println!("  Post tree length: {}", post_tree.len());
 
         Ok(())
     }
 
     #[test]
-    fn test_discriminant_access_by_model() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_model_discriminants() -> Result<(), Box<dyn std::error::Error>> {
         println!("\n=== Testing Model-specific Discriminant Access ===");
 
-        let discriminants = TestSchema::all_schema_discriminants();
-
-        // Find User discriminant
-        let user_discriminant = discriminants
-            .iter()
-            .find(|d| d.as_ref() == "User")
-            .ok_or("User discriminant not found")?;
-
-        // Find Post discriminant
-        let post_discriminant = discriminants
-            .iter()
-            .find(|d| d.as_ref() == "Post")
-            .ok_or("Post discriminant not found")?;
+        // Test that each model returns its own discriminant
+        let user_discriminant = test_schema::User::tree_name();
+        let post_discriminant = test_schema::Post::tree_name();
 
         println!("User discriminant: {:?}", user_discriminant);
         println!("Post discriminant: {:?}", post_discriminant);
 
-        // Test tree access with specific discriminants
-        let mut db = NetabaseSledDatabase::<TestSchema>::new_with_name("test_model_discriminants")?;
-        db.initialize_trees_from_discriminants(&discriminants)?;
+        assert_eq!(user_discriminant, "User");
+        assert_eq!(post_discriminant, "Post");
 
-        let user_tree = db.get_main_tree(user_discriminant)?;
-        let post_tree = db.get_main_tree(post_discriminant)?;
+        // Test that trees can be created using the model types directly
+        let db = NetabaseSledDatabase::<TestSchema>::new_with_name("test_model_discriminants")?;
+
+        let user_tree: NetabaseSledTree<test_schema::User, test_schema::UserKey> =
+            db.get_main_tree()?;
+        let post_tree: NetabaseSledTree<test_schema::Post, test_schema::PostKey> =
+            db.get_main_tree()?;
 
         println!("User tree length: {}", user_tree.len());
         println!("Post tree length: {}", post_tree.len());

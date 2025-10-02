@@ -57,9 +57,28 @@ where
         matches!(self, Self::Key(_))
     }
 
-    /// Resolve the link by replacing the key with an object
+    /// Resolve the link by replacing the key with an object (consuming version)
     pub fn resolve(self, object: T) -> Self {
         Self::Object(object)
+    }
+
+    /// Resolve the link in-place by mutating it to contain the object and return a reference
+    pub fn resolve_mut(&mut self, object: T) -> &T {
+        *self = Self::Object(object);
+        match self {
+            Self::Object(obj) => obj,
+            _ => unreachable!("We just set it to Object"),
+        }
+    }
+
+    /// Resolve the link in-place if it's currently unresolved, return reference to object
+    pub fn resolve_if_unresolved(&mut self, object: T) -> &T {
+        if self.is_unresolved() {
+            self.resolve_mut(object)
+        } else {
+            self.object()
+                .expect("Link should be resolved at this point")
+        }
     }
 
     /// Convert to key, consuming the link
@@ -72,6 +91,14 @@ where
 
     /// Convert to object, consuming the link
     pub fn into_object(self) -> Option<T> {
+        match self {
+            Self::Key(_) => None,
+            Self::Object(obj) => Some(obj),
+        }
+    }
+
+    /// Get a mutable reference to the object if resolved, or None if unresolved
+    pub fn object_mut(&mut self) -> Option<&mut T> {
         match self {
             Self::Key(_) => None,
             Self::Object(obj) => Some(obj),

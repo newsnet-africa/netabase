@@ -10,6 +10,9 @@ pub trait NetabaseModel: Encode + Decode<()> + Sized + Clone + Send + Sync + Deb
 
     fn key(&self) -> Self::Key;
 
+    /// Return the tree name for this specific model
+    fn tree_name() -> &'static str;
+
     /// Return an iterator of secondary keys for this model
     fn secondary_keys() -> Vec<&'static str> {
         Vec::new()
@@ -79,6 +82,8 @@ pub trait NetabaseSchema:
 pub trait NetabaseModelKey:
     Encode + Decode<()> + Clone + Sized + Send + Sync + Debug + 'static
 {
+    type PrimaryKey: Clone + Send + Sync + Debug + 'static;
+    type SecondaryKeys: Clone + Send + Sync + Debug + 'static;
     type SecondaryKeysDiscriminants: strum::IntoEnumIterator
         + AsRef<str>
         + Clone
@@ -89,6 +94,12 @@ pub trait NetabaseModelKey:
     fn secondary_key_discriminants() -> Vec<Self::SecondaryKeysDiscriminants> {
         <Self::SecondaryKeysDiscriminants as strum::IntoEnumIterator>::iter().collect()
     }
+
+    /// Extract and return the primary key from this key if it's a primary key variant
+    fn primary_keys(&self) -> Option<&Self::PrimaryKey>;
+
+    /// Extract and return the secondary key from this key if it's a secondary key variant
+    fn secondary_keys(&self) -> Option<&Self::SecondaryKeys>;
 }
 
 pub trait NetabaseKeys:

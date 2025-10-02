@@ -150,13 +150,31 @@ impl<'ast> NetabaseModelVisitor<'ast> {
             append_ident(&secondary_keys_name, "Discriminants")
         };
 
+        let primary_key_name = append_ident(name, "PrimaryKey");
+
         let trait_path = netabase_model_key_trait_path();
         parse_quote! {
             impl #trait_path for #key_name {
+                type PrimaryKey = #primary_key_name;
+                type SecondaryKeys = #secondary_keys_name;
                 type SecondaryKeysDiscriminants = #secondary_keys_discriminants;
 
                 fn secondary_key_discriminants() -> Vec<Self::SecondaryKeysDiscriminants> {
                     <Self::SecondaryKeysDiscriminants as strum::IntoEnumIterator>::iter().collect()
+                }
+
+                fn primary_keys(&self) -> Option<&Self::PrimaryKey> {
+                    match self {
+                        #key_name::Primary(pk) => Some(pk),
+                        _ => None,
+                    }
+                }
+
+                fn secondary_keys(&self) -> Option<&Self::SecondaryKeys> {
+                    match self {
+                        #key_name::Secondary(sk) => Some(sk),
+                        _ => None,
+                    }
                 }
             }
         }
@@ -399,6 +417,61 @@ impl<'ast> NetabaseModelVisitor<'ast> {
             impl AsRef<str> for #relations_name {
                 fn as_ref(&self) -> &str {
                     "_no_relations"
+                }
+            }
+        }
+    }
+
+    pub fn generate_main_key_ivec_impls(&self) -> proc_macro2::TokenStream {
+        let name = match self.name {
+            Some(r) => r,
+            None => panic!("Schema not found"),
+        };
+
+        let key_name = match &self.key_name {
+            Some(sp) => sp,
+            None => &append_ident(name, "Key"),
+        };
+
+        let error_path = netabase_error_type_path();
+
+        quote::quote! {
+            impl TryFrom<sled::IVec> for #key_name {
+                type Error = #error_path;
+                fn try_from(ivec: sled::IVec) -> Result<Self, Self::Error> {
+                    Ok(bincode::decode_from_slice::<Self, _>(&ivec, bincode::config::standard())?.0)
+                }
+            }
+
+            impl TryFrom<#key_name> for sled::IVec {
+                type Error = #error_path;
+                fn try_from(value: #key_name) -> Result<Self, Self::Error> {
+                    Ok(sled::IVec::from(bincode::encode_to_vec(&value, bincode::config::standard())?))
+                }
+            }
+        }
+    }
+
+    pub fn generate_model_ivec_impls(&self) -> proc_macro2::TokenStream {
+        let name = match self.name {
+            Some(r) => r,
+            None => panic!("Schema not found"),
+        };
+
+        let error_path = netabase_error_type_path();
+
+        quote::quote! {
+            impl TryFrom<sled::IVec> for #name {
+                type Error = #error_path;
+                fn try_from(ivec: sled::IVec) -> Result<Self, Self::Error> {
+                    Ok(bincode::decode_from_slice::<Self, _>(&ivec, bincode::config::standard())?.0)
+                }
+            }
+
+            impl TryFrom<#name> for sled::IVec {
+                type Error = #error_path;
+                fn try_from(value: #name) -> Result<Self, Self::Error> {
+                    Ok(sled::IVec::from(bincode::encode_to_vec(&value, bincode::config::standard())?))
                 }
             }
         }

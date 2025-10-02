@@ -66,6 +66,9 @@ pub fn netabase_derive(input: TokenStream) -> TokenStream {
 
     let type_alias = visitor.generate_type_alias();
 
+    let main_key_ivec_impls = visitor.generate_main_key_ivec_impls();
+    let model_ivec_impls = visitor.generate_model_ivec_impls();
+
     let final_tokens = quote! {
         #primary_key_struct
         #primary_key_impl
@@ -82,6 +85,8 @@ pub fn netabase_derive(input: TokenStream) -> TokenStream {
         #relations_placeholder_impls
         #main_key_enum
         #main_key_impl
+        #main_key_ivec_impls
+        #model_ivec_impls
         #netabase_impl
         #secondary_keys_fn
         #relations_fn

@@ -80,6 +80,10 @@ impl<'ast> NetabaseModelVisitor<'ast> {
                     self.#key_field.clone().into()
                 }
 
+                fn tree_name() -> &'static str {
+                    stringify!(#name)
+                }
+
                 #secondary_keys_method
 
                 #relations_method

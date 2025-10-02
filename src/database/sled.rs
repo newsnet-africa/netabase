@@ -78,25 +78,26 @@ where
         self.main_trees.get(schema_discriminant)
     }
 
-    /// Open a typed tree using a discriminant
-    pub fn open_tree_with_discriminant<K, V>(
+    /// Open a typed tree for a specific model
+    pub fn open_tree_for_model<Model, ModelKey>(
         &self,
-        discriminant: &M::SchemaDiscriminants,
-    ) -> Result<NetabaseSledTree<K, V>, NetabaseError>
+    ) -> Result<NetabaseSledTree<Model, ModelKey>, NetabaseError>
     where
-        K: TryFrom<sled::IVec> + Clone,
-        V: TryFrom<sled::IVec>,
-        sled::IVec: TryFrom<K>,
-        sled::IVec: TryFrom<V>,
+        Model: crate::traits::NetabaseModel<Key = ModelKey>
+            + TryFrom<sled::IVec>
+            + TryInto<sled::IVec>,
+        ModelKey:
+            crate::traits::NetabaseModelKey + TryFrom<sled::IVec> + TryInto<sled::IVec> + Clone,
     {
-        let tree_name = format!("schema_{}", discriminant.as_ref());
+        let discriminant_str = Model::tree_name();
+        let tree_name = format!("schema_{}", discriminant_str);
         let tree = self
             .db
             .open_tree(&tree_name)
             .map_err(|_| NetabaseError::Database)?;
         Ok(NetabaseSledTree {
             tree,
-            _phantom: PhantomData::<(K, V)>,
+            _phantom: PhantomData::<(Model, ModelKey)>,
         })
     }
 
@@ -127,100 +128,90 @@ where
         Ok(())
     }
 
-    /// Get main tree by discriminant as typed tree
-    pub fn get_main_tree<K, V>(
+    /// Get main tree for a specific model
+    pub fn get_main_tree<Model, ModelKey>(
         &self,
-        discriminant: &M::SchemaDiscriminants,
-    ) -> Result<NetabaseSledTree<K, V>, NetabaseError>
+    ) -> Result<NetabaseSledTree<Model, ModelKey>, NetabaseError>
     where
-        K: TryFrom<sled::IVec> + Clone,
-        V: TryFrom<sled::IVec>,
-        sled::IVec: TryFrom<K>,
-        sled::IVec: TryFrom<V>,
+        Model: crate::traits::NetabaseModel<Key = ModelKey>
+            + TryFrom<sled::IVec>
+            + TryInto<sled::IVec>,
+        ModelKey:
+            crate::traits::NetabaseModelKey + TryFrom<sled::IVec> + TryInto<sled::IVec> + Clone,
     {
-        let tree = if let Some(tree) = self.main_trees.get(discriminant) {
-            tree.clone()
-        } else {
-            let tree_name = format!("schema_{}", discriminant.as_ref());
-            self.db
-                .open_tree(&tree_name)
-                .map_err(|_| NetabaseError::Database)?
-        };
+        let discriminant_str = Model::tree_name();
+        let tree_name = format!("schema_{}", discriminant_str);
+        let tree = self
+            .db
+            .open_tree(&tree_name)
+            .map_err(|_| NetabaseError::Database)?;
         Ok(NetabaseSledTree {
             tree,
-            _phantom: PhantomData::<(K, V)>,
+            _phantom: PhantomData::<(Model, ModelKey)>,
         })
     }
 
-    /// Get secondary tree by discriminant as typed tree
-    pub fn get_secondary_tree<K, V>(
+    /// Get secondary tree for a specific model
+    pub fn get_secondary_tree<Model, ModelKey>(
         &self,
-        discriminant: &M::SchemaDiscriminants,
-    ) -> Result<NetabaseSledTree<K, V>, NetabaseError>
+    ) -> Result<NetabaseSledTree<Model, ModelKey>, NetabaseError>
     where
-        K: TryFrom<sled::IVec> + Clone,
-        V: TryFrom<sled::IVec>,
-        sled::IVec: TryFrom<K>,
-        sled::IVec: TryFrom<V>,
+        Model: crate::traits::NetabaseModel<Key = ModelKey>
+            + TryFrom<sled::IVec>
+            + TryInto<sled::IVec>,
+        ModelKey:
+            crate::traits::NetabaseModelKey + TryFrom<sled::IVec> + TryInto<sled::IVec> + Clone,
     {
-        let tree = if let Some(tree) = self.secondary_key_trees.get(discriminant) {
-            tree.clone()
-        } else {
-            let tree_name = format!("secondary_{}", discriminant.as_ref());
-            self.db
-                .open_tree(&tree_name)
-                .map_err(|_| NetabaseError::Database)?
-        };
+        let discriminant_str = Model::tree_name();
+        let tree_name = format!("secondary_{}", discriminant_str);
+        let tree = self
+            .db
+            .open_tree(&tree_name)
+            .map_err(|_| NetabaseError::Database)?;
         Ok(NetabaseSledTree {
             tree,
-            _phantom: PhantomData::<(K, V)>,
+            _phantom: PhantomData::<(Model, ModelKey)>,
         })
     }
 
-    /// Get relational tree by discriminant as typed tree
-    pub fn get_relational_tree<K, V>(
+    /// Get relational tree for a specific model
+    pub fn get_relational_tree<Model, ModelKey>(
         &self,
-        discriminant: &M::SchemaDiscriminants,
-    ) -> Result<NetabaseSledTree<K, V>, NetabaseError>
+    ) -> Result<NetabaseSledTree<Model, ModelKey>, NetabaseError>
     where
-        K: TryFrom<sled::IVec> + Clone,
-        V: TryFrom<sled::IVec>,
-        sled::IVec: TryFrom<K>,
-        sled::IVec: TryFrom<V>,
+        Model: crate::traits::NetabaseModel<Key = ModelKey>
+            + TryFrom<sled::IVec>
+            + TryInto<sled::IVec>,
+        ModelKey:
+            crate::traits::NetabaseModelKey + TryFrom<sled::IVec> + TryInto<sled::IVec> + Clone,
     {
-        let tree = if let Some(tree) = self.relational_trees.get(discriminant) {
-            tree.clone()
-        } else {
-            let tree_name = format!("relation_{}", discriminant.as_ref());
-            self.db
-                .open_tree(&tree_name)
-                .map_err(|_| NetabaseError::Database)?
-        };
+        let discriminant_str = Model::tree_name();
+        let tree_name = format!("relation_{}", discriminant_str);
+        let tree = self
+            .db
+            .open_tree(&tree_name)
+            .map_err(|_| NetabaseError::Database)?;
         Ok(NetabaseSledTree {
             tree,
-            _phantom: PhantomData::<(K, V)>,
+            _phantom: PhantomData::<(Model, ModelKey)>,
         })
     }
 }
 
 /// Enhanced typed tree wrapper that works with the enhanced database
-pub struct NetabaseSledTree<K, V>
+pub struct NetabaseSledTree<M, MK>
 where
-    K: TryFrom<sled::IVec> + Clone,
-    V: TryFrom<sled::IVec>,
-    sled::IVec: TryFrom<K>,
-    sled::IVec: TryFrom<V>,
+    M: crate::traits::NetabaseModel<Key = MK>,
+    MK: crate::traits::NetabaseModelKey,
 {
     tree: sled::Tree,
-    _phantom: PhantomData<(K, V)>,
+    _phantom: PhantomData<(M, MK)>,
 }
 
-impl<K, V> NetabaseSledTree<K, V>
+impl<M, MK> NetabaseSledTree<M, MK>
 where
-    K: TryFrom<sled::IVec> + Clone,
-    V: TryFrom<sled::IVec>,
-    sled::IVec: TryFrom<K>,
-    sled::IVec: TryFrom<V>,
+    M: crate::traits::NetabaseModel<Key = MK> + TryFrom<sled::IVec> + TryInto<sled::IVec>,
+    MK: crate::traits::NetabaseModelKey + TryFrom<sled::IVec> + TryInto<sled::IVec> + Clone,
 {
     /// Get a reference to the underlying sled tree
     pub fn tree(&self) -> &sled::Tree {
@@ -228,7 +219,7 @@ where
     }
 
     /// Insert a key-value pair
-    pub fn insert(&self, key: K, value: V) -> Result<Option<V>, NetabaseError> {
+    pub fn insert(&self, key: MK, value: M) -> Result<Option<M>, NetabaseError> {
         let key_ivec: sled::IVec = key.try_into().map_err(|_| {
             NetabaseError::Conversion(crate::errors::conversion::ConversionError::TraitConversion)
         })?;
@@ -238,7 +229,7 @@ where
 
         match self.tree.insert(key_ivec, value_ivec)? {
             Some(old_ivec) => {
-                let old_value = V::try_from(old_ivec).map_err(|_| {
+                let old_value = M::try_from(old_ivec).map_err(|_| {
                     NetabaseError::Conversion(
                         crate::errors::conversion::ConversionError::TraitConversion,
                     )
@@ -250,14 +241,14 @@ where
     }
 
     /// Get a value by key
-    pub fn get(&self, key: K) -> Result<Option<V>, NetabaseError> {
+    pub fn get(&self, key: MK) -> Result<Option<M>, NetabaseError> {
         let key_ivec: sled::IVec = key.try_into().map_err(|_| {
             NetabaseError::Conversion(crate::errors::conversion::ConversionError::TraitConversion)
         })?;
 
         match self.tree.get(key_ivec)? {
             Some(value_ivec) => {
-                let value = V::try_from(value_ivec).map_err(|_| {
+                let value = M::try_from(value_ivec).map_err(|_| {
                     NetabaseError::Conversion(
                         crate::errors::conversion::ConversionError::TraitConversion,
                     )
@@ -269,14 +260,14 @@ where
     }
 
     /// Remove a key-value pair
-    pub fn remove(&self, key: K) -> Result<Option<V>, NetabaseError> {
+    pub fn remove(&self, key: MK) -> Result<Option<M>, NetabaseError> {
         let key_ivec: sled::IVec = key.try_into().map_err(|_| {
             NetabaseError::Conversion(crate::errors::conversion::ConversionError::TraitConversion)
         })?;
 
         match self.tree.remove(key_ivec)? {
             Some(value_ivec) => {
-                let value = V::try_from(value_ivec).map_err(|_| {
+                let value = M::try_from(value_ivec).map_err(|_| {
                     NetabaseError::Conversion(
                         crate::errors::conversion::ConversionError::TraitConversion,
                     )
@@ -288,7 +279,7 @@ where
     }
 
     /// Check if a key exists
-    pub fn contains_key(&self, key: K) -> Result<bool, NetabaseError> {
+    pub fn contains_key(&self, key: MK) -> Result<bool, NetabaseError> {
         let key_ivec: sled::IVec = key.try_into().map_err(|_| {
             NetabaseError::Conversion(crate::errors::conversion::ConversionError::TraitConversion)
         })?;
@@ -318,7 +309,7 @@ where
     }
 
     /// Iterate over all key-value pairs
-    pub fn iter(&self) -> NetabaseIter<K, V> {
+    pub fn iter(&self) -> NetabaseIter<MK, M> {
         NetabaseIter {
             inner: Some(self.tree.iter()),
             _phantom: PhantomData,
@@ -327,29 +318,29 @@ where
 }
 
 /// Iterator for enhanced tree operations
-pub struct NetabaseIter<K, V> {
+pub struct NetabaseIter<MK, M> {
     inner: Option<sled::Iter>,
-    _phantom: PhantomData<(K, V)>,
+    _phantom: PhantomData<(MK, M)>,
 }
 
-impl<K, V> Iterator for NetabaseIter<K, V>
+impl<MK, M> Iterator for NetabaseIter<MK, M>
 where
-    K: TryFrom<sled::IVec>,
-    V: TryFrom<sled::IVec>,
+    MK: TryFrom<sled::IVec>,
+    M: TryFrom<sled::IVec>,
 {
-    type Item = Result<(K, V), NetabaseError>;
+    type Item = Result<(MK, M), NetabaseError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.as_mut()?.next().map(|result| {
             result
                 .map_err(NetabaseError::from)
                 .and_then(|(k_ivec, v_ivec)| {
-                    let k = K::try_from(k_ivec).map_err(|_| {
+                    let k = MK::try_from(k_ivec).map_err(|_| {
                         NetabaseError::Conversion(
                             crate::errors::conversion::ConversionError::TraitConversion,
                         )
                     })?;
-                    let v = V::try_from(v_ivec).map_err(|_| {
+                    let v = M::try_from(v_ivec).map_err(|_| {
                         NetabaseError::Conversion(
                             crate::errors::conversion::ConversionError::TraitConversion,
                         )
