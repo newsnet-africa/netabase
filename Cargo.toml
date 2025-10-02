@@ -26,8 +26,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow.workspace = true
 libp2p = { workspace = true, features = ["full", "kad"] }
 netabase_store = { path = "netabase_store" ,features = ["libp2p"]}
+thiserror.workspace = true
+tokio = { version = "1.47.1", features = ["full"] }
 
 [dev-dependencies]
 netabase_store = { path = "netabase_store", features = ["libp2p"] }

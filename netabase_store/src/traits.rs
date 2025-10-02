@@ -43,7 +43,16 @@ pub trait NetabaseSchema:
     + Sync
     + 'static
 {
-    type SchemaDiscriminants: strum::IntoEnumIterator + AsRef<str> + Clone + std::hash::Hash + Eq;
+    type SchemaDiscriminants: strum::IntoEnumIterator
+        + AsRef<str>
+        + Clone
+        + std::hash::Hash
+        + Eq
+        + Send
+        + Sync;
+    type Keys: NetabaseKeys;
+
+    fn keys() -> Self::Keys;
 
     /// Return discriminant enums for schema types
     fn all_schema_discriminants() -> Vec<Self::SchemaDiscriminants> {

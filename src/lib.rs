@@ -7,4 +7,9 @@
 //! This crate re-exports the core functionality from `netabase_store`.
 
 pub use netabase_store::*;
+pub mod errors;
 pub mod network;
+
+pub struct Netabase {
+    swarm_thread: tokio::task::JoinHandle<anyhow::Result<()>>,
+}

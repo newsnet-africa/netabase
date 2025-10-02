@@ -10,7 +10,7 @@ use netabase_store::traits::NetabaseSchema;
 
 use crate::network::behaviour::NetabaseBehaviourEvent;
 
-impl<S: NetabaseSchema> Clone for NetabaseBehaviourEvent<NetabaseSledDatabase<S>>
+impl<S: NetabaseSchema> Clone for NetabaseBehaviourEvent<S>
 where
     <S as netabase_store::traits::NetabaseSchema>::SchemaDiscriminants: std::marker::Send,
 {
@@ -58,13 +58,16 @@ where
                 }),
             },
             NetabaseBehaviourEvent::Mdns(mdns) => NetabaseBehaviourEvent::Mdns(mdns.clone()),
+            NetabaseBehaviourEvent::ConnectionLimit(i) => {
+                NetabaseBehaviourEvent::ConnectionLimit(*i)
+            }
         }
     }
 }
 
 #[repr(transparent)]
 #[derive(Debug)]
-pub struct NetabaseEvent(pub SwarmEvent<NetabaseBehaviourEvent>);
+pub struct NetabaseSwarmEvent<S: NetabaseSchema>(pub SwarmEvent<NetabaseBehaviourEvent<S>>);
 
 fn multiaddr_cloner(multi: &Multiaddr) -> Multiaddr {
     Multiaddr::try_from(multi.to_vec()).expect("MultiAddr clone error")
@@ -99,10 +102,10 @@ fn multi_trans_error_cloner(
         .collect()
 }
 
-impl Clone for NetabaseEvent {
+impl<S: NetabaseSchema> Clone for NetabaseSwarmEvent<S> {
     fn clone(&self) -> Self {
         match &self.0 {
-            SwarmEvent::Behaviour(nbe) => NetabaseEvent(SwarmEvent::Behaviour(nbe.clone())),
+            SwarmEvent::Behaviour(nbe) => NetabaseSwarmEvent(SwarmEvent::Behaviour(nbe.clone())),
             SwarmEvent::ConnectionEstablished {
                 peer_id,
                 connection_id,
@@ -110,14 +113,14 @@ impl Clone for NetabaseEvent {
                 num_established,
                 concurrent_dial_errors,
                 established_in,
-            } => NetabaseEvent(SwarmEvent::ConnectionEstablished {
+            } => NetabaseSwarmEvent(SwarmEvent::ConnectionEstablished {
                 peer_id: *peer_id,
                 connection_id: *connection_id,
                 endpoint: endpoint.clone(),
                 num_established: *num_established,
                 concurrent_dial_errors: concurrent_dial_errors
                     .as_ref()
-                    .map(|vect| multi_trans_error_cloner(vect)),
+                    .map(multi_trans_error_cloner),
                 established_in: *established_in,
             }),
             SwarmEvent::ConnectionClosed {
@@ -126,7 +129,7 @@ impl Clone for NetabaseEvent {
                 endpoint,
                 num_established,
                 cause,
-            } => NetabaseEvent(SwarmEvent::ConnectionClosed {
+            } => NetabaseSwarmEvent(SwarmEvent::ConnectionClosed {
                 peer_id: *peer_id,
                 connection_id: *connection_id,
                 endpoint: endpoint.clone(),
@@ -137,7 +140,7 @@ impl Clone for NetabaseEvent {
                 connection_id,
                 local_addr,
                 send_back_addr,
-            } => NetabaseEvent(SwarmEvent::IncomingConnection {
+            } => NetabaseSwarmEvent(SwarmEvent::IncomingConnection {
                 connection_id: *connection_id,
                 local_addr: multiaddr_cloner(&local_addr),
                 send_back_addr: multiaddr_cloner(&send_back_addr),
@@ -148,7 +151,7 @@ impl Clone for NetabaseEvent {
                 send_back_addr,
                 error,
                 peer_id,
-            } => NetabaseEvent(SwarmEvent::IncomingConnectionError {
+            } => NetabaseSwarmEvent(SwarmEvent::IncomingConnectionError {
                 connection_id: *connection_id,
                 local_addr: multiaddr_cloner(&local_addr),
                 send_back_addr: multiaddr_cloner(&send_back_addr),
@@ -188,7 +191,7 @@ impl Clone for NetabaseEvent {
                 connection_id,
                 peer_id,
                 error,
-            } => NetabaseEvent(SwarmEvent::OutgoingConnectionError {
+            } => NetabaseSwarmEvent(SwarmEvent::OutgoingConnectionError {
                 connection_id: *connection_id,
                 peer_id: *peer_id,
                 error: match error {
@@ -220,14 +223,14 @@ impl Clone for NetabaseEvent {
             SwarmEvent::NewListenAddr {
                 listener_id,
                 address,
-            } => NetabaseEvent(SwarmEvent::NewListenAddr {
+            } => NetabaseSwarmEvent(SwarmEvent::NewListenAddr {
                 listener_id: *listener_id,
                 address: multiaddr_cloner(address),
             }),
             SwarmEvent::ExpiredListenAddr {
                 listener_id,
                 address,
-            } => NetabaseEvent(SwarmEvent::ExpiredListenAddr {
+            } => NetabaseSwarmEvent(SwarmEvent::ExpiredListenAddr {
                 listener_id: *listener_id,
                 address: multiaddr_cloner(address),
             }),
@@ -235,7 +238,7 @@ impl Clone for NetabaseEvent {
                 listener_id,
                 addresses,
                 reason,
-            } => NetabaseEvent(SwarmEvent::ListenerClosed {
+            } => NetabaseSwarmEvent(SwarmEvent::ListenerClosed {
                 listener_id: *listener_id,
                 addresses: addresses
                     .iter()
@@ -247,7 +250,7 @@ impl Clone for NetabaseEvent {
                 },
             }),
             SwarmEvent::ListenerError { listener_id, error } => {
-                NetabaseEvent(SwarmEvent::ListenerError {
+                NetabaseSwarmEvent(SwarmEvent::ListenerError {
                     listener_id: *listener_id,
                     error: std::io::Error::from(error.kind()),
                 })
@@ -255,27 +258,27 @@ impl Clone for NetabaseEvent {
             SwarmEvent::Dialing {
                 peer_id,
                 connection_id,
-            } => NetabaseEvent(SwarmEvent::Dialing {
+            } => NetabaseSwarmEvent(SwarmEvent::Dialing {
                 peer_id: *peer_id,
                 connection_id: *connection_id,
             }),
             SwarmEvent::NewExternalAddrCandidate { address } => {
-                NetabaseEvent(SwarmEvent::NewExternalAddrCandidate {
+                NetabaseSwarmEvent(SwarmEvent::NewExternalAddrCandidate {
                     address: multiaddr_cloner(address),
                 })
             }
             SwarmEvent::ExternalAddrConfirmed { address } => {
-                NetabaseEvent(SwarmEvent::ExternalAddrConfirmed {
+                NetabaseSwarmEvent(SwarmEvent::ExternalAddrConfirmed {
                     address: multiaddr_cloner(address),
                 })
             }
             SwarmEvent::ExternalAddrExpired { address } => {
-                NetabaseEvent(SwarmEvent::ExternalAddrExpired {
+                NetabaseSwarmEvent(SwarmEvent::ExternalAddrExpired {
                     address: multiaddr_cloner(address),
                 })
             }
             SwarmEvent::NewExternalAddrOfPeer { peer_id, address } => {
-                NetabaseEvent(SwarmEvent::NewExternalAddrOfPeer {
+                NetabaseSwarmEvent(SwarmEvent::NewExternalAddrOfPeer {
                     peer_id: *peer_id,
                     address: multiaddr_cloner(address),
                 })

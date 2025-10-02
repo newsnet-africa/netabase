@@ -14,7 +14,7 @@ use crate::errors::NetabaseError;
 
 use std::num::NonZeroUsize;
 
-const K_VALUE: NonZeroUsize = unsafe { NonZeroUsize::new_unchecked(20) };
+const K_VALUE: NonZeroUsize = NonZeroUsize::new(20).unwrap();
 
 /// Configuration for a `SledRecordStore`.
 #[derive(Debug, Clone)]

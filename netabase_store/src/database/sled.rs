@@ -609,7 +609,7 @@ where
             })?;
 
             // Extract field values from the model using debug representation
-            let model_debug = format!("{:?}", model);
+            let mut model_debug = format!("{:?}", model);
 
             // Look for the field pattern in the debug output
             let field_pattern = format!("{}: ", field_name);
@@ -1299,17 +1299,13 @@ where
             .map_err(|_| NetabaseError::Database)?;
 
         let mut keys_to_remove = Vec::new();
-        for result in dht_records_tree.iter() {
-            if let Ok((key, value)) = result {
-                if let Ok((dht_record, _)) =
-                    bincode::decode_from_slice::<DhtRecord, _>(&value, bincode::config::standard())
-                {
-                    if let Ok(record) = dht_record.try_into() {
-                        if !record_predicate(&record) {
-                            keys_to_remove.push(key.to_vec());
-                        }
-                    }
-                }
+        for (key, value) in dht_records_tree.iter().flatten() {
+            if let Ok((dht_record, _)) =
+                bincode::decode_from_slice::<DhtRecord, _>(&value, bincode::config::standard())
+                && let Ok(record) = dht_record.try_into()
+                && !record_predicate(&record)
+            {
+                keys_to_remove.push(key.to_vec());
             }
         }
 
