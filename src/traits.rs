@@ -1,9 +1,10 @@
 use bincode::{Decode, Encode};
 use libp2p::kad::{Record, RecordKey};
+use std::fmt::Debug;
 
 use crate::errors::NetabaseError;
 
-pub trait NetabaseModel: Encode + Decode<()> + Sized + Clone + Send + Sync {
+pub trait NetabaseModel: Encode + Decode<()> + Sized + Clone + Send + Sync + Debug {
     type Key: NetabaseModelKey;
     fn key(&self) -> Self::Key;
 }
@@ -19,6 +20,7 @@ pub trait NetabaseSchema:
     + Clone
     + Send
     + Sync
+    + std::fmt::Debug
     + 'static
 where
     Self: TryFrom<sled::IVec>,
@@ -54,7 +56,10 @@ where
     }
 }
 
-pub trait NetabaseModelKey: Encode + Decode<()> + Clone + Sized + Send + Sync + 'static {}
+pub trait NetabaseModelKey:
+    Encode + Decode<()> + Clone + Sized + Send + Sync + Debug + 'static
+{
+}
 
 pub trait NetabaseKeys:
     Encode
@@ -65,6 +70,7 @@ pub trait NetabaseKeys:
     + TryInto<sled::IVec>
     + TryFrom<sled::IVec>
     + Clone
+    + std::fmt::Debug
     + Send
     + Sync
     + 'static
@@ -84,6 +90,10 @@ where
         )?))
     }
     fn from_record_key(record: RecordKey) -> Result<Self, NetabaseError> {
+        println!(
+            "AAAAAAAAAAAAAAAAAAAAAAaDecoded: {:?}",
+            bincode::decode_from_slice::<Self, _>(&record.to_vec(), bincode::config::standard())?.0
+        );
         Ok(bincode::decode_from_slice::<Self, _>(&record.to_vec(), bincode::config::standard())?.0)
     }
 
@@ -171,7 +181,7 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.as_mut()?.next().map(|result| {
             result
-                .map_err(|e| NetabaseError::from(e))
+                .map_err(NetabaseError::from)
                 .and_then(|(k_ivec, v_ivec)| {
                     let k = K::try_from(k_ivec).map_err(|_| {
                         NetabaseError::Conversion(

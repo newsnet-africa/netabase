@@ -23,14 +23,14 @@ pub fn generate_module_schema(
     let (schema_name, key_name) = (module_visitor.schema_name, module_visitor.schema_key_name);
 
     let schema_enum = parse_quote! {
-        #[derive(derive_more::From, derive_more::TryInto, Clone, Encode, Decode)]
+        #[derive(derive_more::From, derive_more::TryInto, Clone, Encode, Decode, Debug)]
         pub enum #schema_name {
             #(#schemas),*
         }
     };
 
     let key_enum = parse_quote! {
-        #[derive(derive_more::From, derive_more::TryInto, Clone, Encode, Decode)]
+        #[derive(derive_more::From, derive_more::TryInto, Clone, Encode, Decode, Debug)]
         pub enum #key_name {
             #(#keys),*
         }

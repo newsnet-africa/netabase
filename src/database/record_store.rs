@@ -327,6 +327,7 @@ where
 
         // Convert RecordKey to enum K
         let key = K::from_record_key(record.key.clone()).map_err(|_| Error::MaxProvidedKeys)?;
+        println!("Produced: {:?}", key.to_record_key());
 
         // Get or create the providers list
         let mut providers_list = self
@@ -448,9 +449,12 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::database::record_store::tests::test_schema::TestKey;
+    use crate::database::record_store::tests::test_schema::TestSchema;
+    use crate::database::record_store::tests::test_schema::TestSchemaKeys;
     use libp2p::kad::store::RecordStore;
     use libp2p::multihash::Multihash;
-    use rand::Rng;
+    use netabase_macros::netabase_schema_module;
     use std::time::Instant;
 
     const SHA_256_MH: u64 = 0x12;
@@ -463,30 +467,30 @@ mod tests {
         Multihash::wrap(SHA_256_MH, &bytes).unwrap()
     }
 
-    // Simple test enum types
-    #[derive(Clone, Debug, bincode::Encode, bincode::Decode)]
-    enum TestKey {
-        Record(Vec<u8>),
-    }
+    #[netabase_schema_module(TestSchema, TestSchemaKeys)]
+    pub mod test_schema {
+        use crate as netabase;
+        use crate::traits::NetabaseModel;
+        use crate::traits::NetabaseModelKey;
+        use bincode::{Decode, Encode};
+        use netabase_macros::NetabaseModelKey;
+        use netabase_macros::{NetabaseModel, key_name, netabase_schema_module};
 
-    impl NetabaseKeys for TestKey {}
-
-    #[derive(Clone, Debug, bincode::Encode, bincode::Decode)]
-    enum TestSchema {
-        TestRecord {
+        #[derive(NetabaseModel, Clone, Encode, Decode, Debug)]
+        #[key_name(TestKey)]
+        pub struct TestRecord {
+            #[key]
             key: Vec<u8>,
             value: Vec<u8>,
             publisher: Vec<u8>,
-        },
+        }
     }
-
-    impl NetabaseSchema for TestSchema {}
 
     #[test]
     fn put_get_remove_record() {
         let temp_dir = tempfile::tempdir().unwrap();
         let db_path = temp_dir.path().join("test_db");
-        let mut store: SledRecordStore<TestKey, TestSchema> =
+        let mut store: SledRecordStore<TestSchemaKeys, TestSchema> =
             SledRecordStore::new(db_path.to_str().unwrap(), PeerId::random()).unwrap();
 
         let record = Record {
@@ -512,7 +516,7 @@ mod tests {
     fn add_get_remove_provider() {
         let temp_dir = tempfile::tempdir().unwrap();
         let db_path = temp_dir.path().join("test_db");
-        let mut store: SledRecordStore<TestKey, TestSchema> =
+        let mut store: SledRecordStore<TestSchemaKeys, TestSchema> =
             SledRecordStore::new(db_path.to_str().unwrap(), PeerId::random()).unwrap();
 
         let key = RecordKey::from(random_multihash().to_bytes());
@@ -538,7 +542,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let db_path = temp_dir.path().join("test_db");
         let id = PeerId::random();
-        let mut store: SledRecordStore<TestKey, TestSchema> =
+        let mut store: SledRecordStore<TestSchemaKeys, TestSchema> =
             SledRecordStore::new(db_path.to_str().unwrap(), id).unwrap();
 
         let key = RecordKey::from(random_multihash().to_bytes());
@@ -548,8 +552,9 @@ mod tests {
             expires: None,
             addresses: vec![],
         };
-
-        assert!(store.add_provider(rec.clone()).is_ok());
+        let add_res = store.add_provider(rec.clone());
+        println!("Add provider test: {add_res:?}");
+        assert!(add_res.is_ok());
 
         let provided: Vec<_> = store.provided().collect();
         assert_eq!(provided.len(), 1);
@@ -562,7 +567,7 @@ mod tests {
     fn update_provider() {
         let temp_dir = tempfile::tempdir().unwrap();
         let db_path = temp_dir.path().join("test_db");
-        let mut store: SledRecordStore<TestKey, TestSchema> =
+        let mut store: SledRecordStore<TestSchemaKeys, TestSchema> =
             SledRecordStore::new(db_path.to_str().unwrap(), PeerId::random()).unwrap();
 
         let key = RecordKey::from(random_multihash().to_bytes());
@@ -589,7 +594,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let db_path = temp_dir.path().join("test_db");
         let prv = PeerId::random();
-        let mut store: SledRecordStore<TestKey, TestSchema> =
+        let mut store: SledRecordStore<TestSchemaKeys, TestSchema> =
             SledRecordStore::new(db_path.to_str().unwrap(), prv).unwrap();
 
         let key = RecordKey::from(random_multihash().to_bytes());
@@ -613,7 +618,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let db_path = temp_dir.path().join("test_db");
         let config = SledRecordStoreConfig::default();
-        let mut store: SledRecordStore<TestKey, TestSchema> = SledRecordStore::with_config(
+        let mut store: SledRecordStore<TestSchemaKeys, TestSchema> = SledRecordStore::with_config(
             db_path.to_str().unwrap(),
             PeerId::random(),
             config.clone(),
@@ -655,7 +660,7 @@ mod tests {
         let mut config = SledRecordStoreConfig::default();
         config.max_provided_keys = 5;
 
-        let mut store: SledRecordStore<TestKey, TestSchema> = SledRecordStore::with_config(
+        let mut store: SledRecordStore<TestSchemaKeys, TestSchema> = SledRecordStore::with_config(
             db_path.to_str().unwrap(),
             PeerId::random(),
             config.clone(),
@@ -697,7 +702,7 @@ mod tests {
         let mut config = SledRecordStoreConfig::default();
         config.max_records = 5;
 
-        let mut store: SledRecordStore<TestKey, TestSchema> = SledRecordStore::with_config(
+        let mut store: SledRecordStore<TestSchemaKeys, TestSchema> = SledRecordStore::with_config(
             db_path.to_str().unwrap(),
             PeerId::random(),
             config.clone(),
@@ -734,7 +739,7 @@ mod tests {
         let db_path = temp_dir.path().join("test_db");
         let config = SledRecordStoreConfig::default();
 
-        let mut store: SledRecordStore<TestKey, TestSchema> = SledRecordStore::with_config(
+        let mut store: SledRecordStore<TestSchemaKeys, TestSchema> = SledRecordStore::with_config(
             db_path.to_str().unwrap(),
             PeerId::random(),
             config.clone(),
@@ -758,7 +763,7 @@ mod tests {
     fn records_iter() {
         let temp_dir = tempfile::tempdir().unwrap();
         let db_path = temp_dir.path().join("test_db");
-        let mut store: SledRecordStore<TestKey, TestSchema> =
+        let mut store: SledRecordStore<TestSchemaKeys, TestSchema> =
             SledRecordStore::new(db_path.to_str().unwrap(), PeerId::random()).unwrap();
 
         // Add some records

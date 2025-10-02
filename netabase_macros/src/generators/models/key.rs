@@ -22,10 +22,11 @@ impl<'ast> NetabaseModelVisitor<'ast> {
         let mut key_derive = quote::quote!(
             Encode,
             Decode,
+            Debug,
             Clone,
             derive_more::From,
             derive_more::Into,
-            NetabaseModelKeyMacro
+            NetabaseModelKey
         );
         if let Some(keys) = self.key_derive {
             keys.tokens.clone().to_tokens(&mut key_derive);

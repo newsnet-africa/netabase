@@ -2,22 +2,21 @@ use netabase_macros::netabase_schema_module;
 pub mod name {
     struct Hi;
 }
-#[netabase_schema_module(MySchema, MyKey)]
+#[netabase_schema_module(MySchema, MyKeys)]
 pub mod schema {
     use bincode::{Decode, Encode};
     use netabase::traits::{NetabaseModel, NetabaseModelKey};
-    use netabase_macros::{NetabaseModel as NetabaseModelMacro, NetabaseModelKeyMacro, key_name};
+    use netabase_macros::{NetabaseModel, NetabaseModelKey, key_name};
 
-    #[derive(NetabaseModelMacro, Clone, Encode, Decode)]
+    #[derive(NetabaseModel, Debug, Clone, Encode, Decode)]
     #[key_name(ThingKey)]
     struct Thing {
         #[key]
         this_k: Vec<u8>,
     }
 
-    #[derive(NetabaseModelMacro, Debug, Clone, Encode, Decode)]
+    #[derive(NetabaseModel, Debug, Clone, Encode, Decode)]
     #[key_name(AnotherThingKey)]
-    //
     struct AnotherThing {
         #[key]
         id: u32,
@@ -27,11 +26,9 @@ pub mod schema {
     pub mod inner {
         use bincode::{Decode, Encode};
         use netabase::traits::{NetabaseModel, NetabaseModelKey};
-        use netabase_macros::{
-            NetabaseModel as NetabaseModelMacro, NetabaseModelKeyMacro, key_name,
-        };
+        use netabase_macros::{NetabaseModel, NetabaseModelKey, key_name};
 
-        #[derive(NetabaseModelMacro, Debug, Clone, Encode, Decode)]
+        #[derive(NetabaseModel, Debug, Clone, Encode, Decode)]
         #[key_name(OkayKey)]
         pub struct Inner {
             #[key]
@@ -40,11 +37,9 @@ pub mod schema {
         pub mod nested {
             use bincode::{Decode, Encode};
             use netabase::traits::{NetabaseModel, NetabaseModelKey};
-            use netabase_macros::{
-                NetabaseModel as NetabaseModelMacro, NetabaseModelKeyMacro, key_name,
-            };
+            use netabase_macros::{NetabaseModel, NetabaseModelKey, key_name};
 
-            #[derive(NetabaseModelMacro, Clone, Encode, Decode)]
+            #[derive(NetabaseModel, Debug, Clone, Encode, Decode)]
             #[key_name(Shit)]
             pub struct Nested {
                 #[key]
