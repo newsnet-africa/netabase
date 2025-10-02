@@ -1,4 +1,4 @@
-// pub mod record_store;  // Commented out due to API incompatibility with current traits
+pub mod record_store;
 pub mod sled;
 pub mod wrappers;
 

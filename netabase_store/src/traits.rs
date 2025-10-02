@@ -60,6 +60,26 @@ pub trait NetabaseSchema:
     fn from_ivec(ivec: sled::IVec) -> Result<Self, NetabaseError> {
         Ok(bincode::decode_from_slice::<Self, _>(&ivec, bincode::config::standard())?.0)
     }
+
+    // ===== libp2p Methods (available when libp2p feature is enabled) =====
+    // These methods are conditionally compiled to maintain trait separation
+    // while supporting macro-generated code that expects them on the base trait
+
+    #[cfg(feature = "libp2p")]
+    fn to_record(&self) -> Result<libp2p::kad::Record, NetabaseError> {
+        use libp2p::kad::{Record, RecordKey};
+        Ok(Record {
+            key: RecordKey::new(&bincode::encode_to_vec(self, bincode::config::standard())?),
+            value: bincode::encode_to_vec(self, bincode::config::standard())?,
+            publisher: None,
+            expires: None,
+        })
+    }
+
+    #[cfg(feature = "libp2p")]
+    fn from_record(record: libp2p::kad::Record) -> Result<Self, NetabaseError> {
+        Ok(bincode::decode_from_slice::<Self, _>(&record.value, bincode::config::standard())?.0)
+    }
 }
 
 #[cfg(feature = "libp2p")]
@@ -126,6 +146,24 @@ pub trait NetabaseKeys:
 
     fn from_ivec(ivec: sled::IVec) -> Result<Self, NetabaseError> {
         Ok(bincode::decode_from_slice::<Self, _>(&ivec, bincode::config::standard())?.0)
+    }
+
+    // ===== libp2p Methods (available when libp2p feature is enabled) =====
+    // These methods are conditionally compiled to maintain trait separation
+    // while supporting macro-generated code that expects them on the base trait
+
+    #[cfg(feature = "libp2p")]
+    fn to_record_key(&self) -> Result<libp2p::kad::RecordKey, NetabaseError> {
+        use libp2p::kad::RecordKey;
+        Ok(RecordKey::new(&bincode::encode_to_vec(
+            self,
+            bincode::config::standard(),
+        )?))
+    }
+
+    #[cfg(feature = "libp2p")]
+    fn from_record_key(record: libp2p::kad::RecordKey) -> Result<Self, NetabaseError> {
+        Ok(bincode::decode_from_slice::<Self, _>(&record.to_vec(), bincode::config::standard())?.0)
     }
 }
 

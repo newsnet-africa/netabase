@@ -172,7 +172,7 @@ mod tests {
         debug!("Testing key conversion via schema keys");
         let test_key = test_record.key();
         let test_schema_key = TestSchemaKeys::TestRecordKey(test_key);
-        let record_key = NetabaseKeysLibp2p::to_record_key(&test_schema_key)?;
+        let record_key = test_schema_key.to_record_key()?;
         info!("✓ Key conversion to RecordKey successful");
 
         // Verify the key is not empty and has proper format
@@ -238,13 +238,13 @@ mod tests {
         // Convert all to Records
         debug!("Converting all types to Records");
         let record_schema = TestSchema::TestRecord(test_record.clone());
-        let record1 = NetabaseSchemaLibp2p::to_record(&record_schema)?;
+        let record1 = record_schema.to_record()?;
 
         let doc_schema = TestSchema::TestDocument(test_document.clone());
-        let record2 = NetabaseSchemaLibp2p::to_record(&doc_schema)?;
+        let record2 = doc_schema.to_record()?;
 
         let msg_schema = TestSchema::TestMessage(test_message.clone());
-        let record3 = NetabaseSchemaLibp2p::to_record(&msg_schema)?;
+        let record3 = msg_schema.to_record()?;
         info!("✓ All record types converted to Records successfully");
 
         // Convert back from Records
@@ -314,7 +314,7 @@ mod tests {
         // Convert to Record
         debug!("Converting to Record");
         let doc_schema = TestSchema::TestDocument(test_document.clone());
-        let record = NetabaseSchemaLibp2p::to_record(&doc_schema)?;
+        let record = doc_schema.to_record()?;
         info!("✓ Complex document converted to Record");
 
         // Convert back from Record to verify data integrity
@@ -357,7 +357,7 @@ mod tests {
         debug!("Getting record key for provider operations");
         let test_key = test_record.key();
         let test_schema_key = TestSchemaKeys::TestRecordKey(test_key);
-        let record_key = NetabaseKeysLibp2p::to_record_key(&test_schema_key)?;
+        let record_key = test_schema_key.to_record_key()?;
         info!("✓ Record key obtained for provider operations");
 
         // Create a provider record
@@ -412,7 +412,7 @@ mod tests {
         };
 
         let empty_schema = TestSchema::TestRecord(empty_record.clone());
-        let empty_result = NetabaseSchemaLibp2p::to_record(&empty_schema);
+        let empty_result = empty_schema.to_record();
 
         // This should still work as empty keys might be valid in some contexts
         match empty_result {
@@ -439,7 +439,7 @@ mod tests {
         };
 
         let large_schema = TestSchema::TestRecord(large_record.clone());
-        let large_result = NetabaseSchemaLibp2p::to_record(&large_schema)?;
+        let large_result = large_schema.to_record()?;
         info!("✓ Large data conversion successful");
 
         // Verify large data integrity
