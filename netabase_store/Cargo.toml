@@ -6,6 +6,7 @@ edition = "2024"
 [features]
 default = []
 libp2p = ["dep:libp2p"]
+record-store = ["libp2p"]
 
 [dependencies]
 anyhow = "1.0.100"

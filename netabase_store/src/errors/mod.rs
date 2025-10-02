@@ -9,6 +9,8 @@ pub enum NetabaseError {
     Conversion(#[from] ConversionError),
     #[error("There was an error with the database")]
     Database,
+    #[error("There was an error with serialization")]
+    Serialization,
 }
 
 impl From<bincode::error::DecodeError> for NetabaseError {
