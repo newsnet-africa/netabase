@@ -1,5 +1,4 @@
-// pub mod record_store;  // Temporarily commented out due to iterator type conflicts
-// pub mod record_store;
+// pub mod record_store;  // Commented out due to API incompatibility with current traits
 pub mod sled;
 pub mod wrappers;
 

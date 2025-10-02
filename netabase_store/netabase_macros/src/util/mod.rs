@@ -8,17 +8,17 @@ use crate::SchemaModuleVisitor;
 
 /// Generate the appropriate path for netabase traits - always use ::netabase:: for external usage
 pub fn netabase_traits_path() -> Path {
-    parse_quote! { ::netabase::traits }
+    parse_quote! { ::netabase_store::traits }
 }
 
 /// Generate the appropriate path for netabase relational module - always use ::netabase:: for external usage
 pub fn netabase_relational_path() -> Path {
-    parse_quote! { ::netabase::relational }
+    parse_quote! { ::netabase_store::relational }
 }
 
 /// Generate the appropriate path for netabase errors module - always use ::netabase:: for external usage
 pub fn netabase_errors_path() -> Path {
-    parse_quote! { ::netabase::errors }
+    parse_quote! { ::netabase_store::errors }
 }
 
 /// Generate NetabaseModel trait path

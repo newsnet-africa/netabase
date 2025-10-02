@@ -1,4 +1,5 @@
 use bincode::{Decode, Encode};
+#[cfg(feature = "libp2p")]
 use libp2p::kad::{Record, RecordKey};
 use std::fmt::Debug;
 
@@ -33,14 +34,12 @@ pub trait NetabaseSchema:
     Encode
     + Decode<()>
     + Sized
-    + TryInto<Record>
-    + TryFrom<Record>
     + TryInto<sled::IVec>
     + TryFrom<sled::IVec>
     + Clone
+    + std::fmt::Debug
     + Send
     + Sync
-    + std::fmt::Debug
     + 'static
 {
     type SchemaDiscriminants: strum::IntoEnumIterator + AsRef<str> + Clone + std::hash::Hash + Eq;
@@ -49,6 +48,21 @@ pub trait NetabaseSchema:
     fn all_schema_discriminants() -> Vec<Self::SchemaDiscriminants> {
         <Self::SchemaDiscriminants as strum::IntoEnumIterator>::iter().collect()
     }
+
+    fn to_ivec(&self) -> Result<sled::IVec, NetabaseError> {
+        Ok(sled::IVec::from(bincode::encode_to_vec(
+            self,
+            bincode::config::standard(),
+        )?))
+    }
+
+    fn from_ivec(ivec: sled::IVec) -> Result<Self, NetabaseError> {
+        Ok(bincode::decode_from_slice::<Self, _>(&ivec, bincode::config::standard())?.0)
+    }
+}
+
+#[cfg(feature = "libp2p")]
+pub trait NetabaseSchemaLibp2p: NetabaseSchema + TryInto<Record> + TryFrom<Record> {
     fn to_record(&self) -> Result<Record, NetabaseError>
     where
         <Self as TryInto<libp2p::kad::Record>>::Error: std::marker::Send,
@@ -65,17 +79,6 @@ pub trait NetabaseSchema:
 
     fn from_record(record: Record) -> Result<Self, NetabaseError> {
         Ok(bincode::decode_from_slice::<Self, _>(&record.value, bincode::config::standard())?.0)
-    }
-
-    fn to_ivec(&self) -> Result<sled::IVec, NetabaseError> {
-        Ok(sled::IVec::from(bincode::encode_to_vec(
-            self,
-            bincode::config::standard(),
-        )?))
-    }
-
-    fn from_ivec(ivec: sled::IVec) -> Result<Self, NetabaseError> {
-        Ok(bincode::decode_from_slice::<Self, _>(&ivec, bincode::config::standard())?.0)
     }
 }
 
@@ -105,21 +108,33 @@ pub trait NetabaseModelKey:
 pub trait NetabaseKeys:
     Encode
     + Decode<()>
-    + Sized
-    + TryInto<RecordKey>
-    + TryFrom<RecordKey>
     + TryInto<sled::IVec>
     + TryFrom<sled::IVec>
+    + Sized
     + Clone
     + std::fmt::Debug
     + Send
     + Sync
-    + 'static
+{
+    fn to_ivec(&self) -> Result<sled::IVec, NetabaseError> {
+        Ok(sled::IVec::from(bincode::encode_to_vec(
+            self,
+            bincode::config::standard(),
+        )?))
+    }
+
+    fn from_ivec(ivec: sled::IVec) -> Result<Self, NetabaseError> {
+        Ok(bincode::decode_from_slice::<Self, _>(&ivec, bincode::config::standard())?.0)
+    }
+}
+
+#[cfg(feature = "libp2p")]
+pub trait NetabaseKeysLibp2p: NetabaseKeys + TryInto<RecordKey> + TryFrom<RecordKey>
 where
     libp2p::kad::RecordKey: TryFrom<Self>,
-    sled::IVec: TryFrom<Self>,
-    Self: TryFrom<sled::IVec>,
-    <Self as TryInto<libp2p::kad::RecordKey>>::Error: std::error::Error,
+    <libp2p::kad::RecordKey as TryFrom<Self>>::Error: std::marker::Send,
+    <libp2p::kad::RecordKey as TryFrom<Self>>::Error: std::marker::Sync,
+    <libp2p::kad::RecordKey as TryFrom<Self>>::Error: 'static,
     <Self as TryInto<libp2p::kad::RecordKey>>::Error: std::marker::Send,
     <Self as TryInto<libp2p::kad::RecordKey>>::Error: std::marker::Sync,
     <Self as TryInto<libp2p::kad::RecordKey>>::Error: 'static,
@@ -130,19 +145,9 @@ where
             bincode::config::standard(),
         )?))
     }
+
     fn from_record_key(record: RecordKey) -> Result<Self, NetabaseError> {
         Ok(bincode::decode_from_slice::<Self, _>(&record.to_vec(), bincode::config::standard())?.0)
-    }
-
-    fn to_ivec(&self) -> Result<sled::IVec, NetabaseError> {
-        Ok(sled::IVec::from(bincode::encode_to_vec(
-            self,
-            bincode::config::standard(),
-        )?))
-    }
-
-    fn from_ivec(ivec: sled::IVec) -> Result<Self, NetabaseError> {
-        Ok(bincode::decode_from_slice::<Self, _>(&ivec, bincode::config::standard())?.0)
     }
 }
 
@@ -287,6 +292,7 @@ where
 }
 
 pub mod database_traits {
+    #[cfg(feature = "libp2p")]
     use libp2p::kad::{Record, RecordKey};
 
     use crate::{
@@ -303,9 +309,6 @@ pub mod database_traits {
         ) -> Result<T, NetabaseError>
         where
             sled::IVec: std::convert::TryFrom<V>,
-            libp2p::kad::RecordKey: std::convert::TryFrom<K>,
-            libp2p::kad::Record: std::convert::TryFrom<V>,
-            libp2p::kad::RecordKey: std::convert::TryFrom<<V as NetabaseModel>::Key>,
         {
             match self.db().open_tree(name) {
                 Ok(k) => T::try_from(k).map_err(|_| {
@@ -319,9 +322,6 @@ pub mod database_traits {
     }
     pub trait NetabaseSledTree<K, V>: TryFrom<sled::Tree>
     where
-        RecordKey: TryFrom<K>,
-        Record: TryFrom<V>,
-        RecordKey: TryFrom<<V as NetabaseModel>::Key>,
         sled::IVec: std::convert::TryFrom<V>,
         K: NetabaseModelKey,
         V: NetabaseModel,

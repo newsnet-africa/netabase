@@ -118,6 +118,7 @@ impl<'ast> NetabaseModelVisitor<'ast> {
         let name = self.name;
         let error_path = netabase_error_type_path();
         parse_quote! {
+            #[cfg(feature = "libp2p")]
             impl TryFrom<#name> for libp2p::kad::Record {
                 type Error = #error_path;
                 fn try_from(value: #name) -> Result<Self, Self::Error> {
@@ -131,6 +132,7 @@ impl<'ast> NetabaseModelVisitor<'ast> {
         let name = self.name;
         let error_path = netabase_error_type_path();
         parse_quote! {
+            #[cfg(feature = "libp2p")]
             impl TryFrom<libp2p::kad::Record> for #name {
                 type Error = #error_path;
                 fn try_from(value: libp2p::kad::Record) -> Result<Self, Self::Error> {
@@ -158,6 +160,7 @@ pub mod key_impl {
         let name = &key_struct.ident;
         let error_path = crate::util::netabase_error_type_path();
         parse_quote! {
+            #[cfg(feature = "libp2p")]
             impl TryFrom<#name> for libp2p::kad::RecordKey {
                 type Error = #error_path;
                 fn try_from(value: #name) -> Result<Self, Self::Error> {
@@ -171,6 +174,7 @@ pub mod key_impl {
         let name = &key_struct.ident;
         let error_path = crate::util::netabase_error_type_path();
         parse_quote! {
+            #[cfg(feature = "libp2p")]
             impl TryFrom<libp2p::kad::RecordKey> for #name {
                 type Error = #error_path;
                 fn try_from(value: libp2p::kad::RecordKey) -> Result<Self, Self::Error> {

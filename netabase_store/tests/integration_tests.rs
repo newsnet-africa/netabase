@@ -1,12 +1,24 @@
 use bincode::{Decode, Encode};
-use netabase::{
-    database::{NetabaseSledDatabase, NetabaseSledTree},
-    traits::NetabaseModel,
-};
+use log::{debug, error, info, warn};
 use netabase_macros::{NetabaseModel, netabase_schema_module};
+use netabase_store::{
+    database::NetabaseSledDatabase,
+    traits::{NetabaseModel, NetabaseSchema},
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Once;
 use tempfile::TempDir;
+
+static INIT: Once = Once::new();
+
+fn init_logger() {
+    INIT.call_once(|| {
+        env_logger::Builder::from_default_env()
+            .filter_level(log::LevelFilter::Debug)
+            .init();
+    });
+}
 
 // Test schema module with proper relational data
 #[netabase_schema_module(BlogSchema, BlogSchemaKey)]
@@ -169,16 +181,30 @@ mod integration_tests {
     use anyhow::Result;
 
     fn create_blog_database() -> Result<(NetabaseSledDatabase<BlogSchema>, TempDir)> {
+        init_logger();
+        info!("Creating blog database in temporary directory");
+
         let temp_dir = TempDir::new()?;
         let db_path = temp_dir.path().join("blog_test_db");
+        debug!("Blog database path: {}", db_path.display());
+
         let db = NetabaseSledDatabase::new_with_name(&db_path.to_string_lossy())?;
+        info!("Blog database created successfully");
+
         Ok((db, temp_dir))
     }
 
     fn create_ecommerce_database() -> Result<(NetabaseSledDatabase<EcommerceSchema>, TempDir)> {
+        init_logger();
+        info!("Creating ecommerce database in temporary directory");
+
         let temp_dir = TempDir::new()?;
         let db_path = temp_dir.path().join("ecommerce_test_db");
+        debug!("Ecommerce database path: {}", db_path.display());
+
         let db = NetabaseSledDatabase::new_with_name(&db_path.to_string_lossy())?;
+        info!("Ecommerce database created successfully");
+
         Ok((db, temp_dir))
     }
 
@@ -238,180 +264,295 @@ mod integration_tests {
 
     #[test]
     fn test_database_initialization() -> Result<()> {
+        info!("Starting test_database_initialization");
+
         let (db, _temp_dir) = create_blog_database()?;
+        info!("Database created successfully for initialization test");
 
         // Test that database was created successfully
-        assert!(!db.db().was_recovered());
+        let was_recovered = db.db().was_recovered();
+        debug!("Database was_recovered: {}", was_recovered);
+        assert!(!was_recovered);
+        info!("✓ Database initialization check passed");
 
         // Test tree name generation
         let tree_names = db.tree_names();
+        debug!("Tree names: {:?}", tree_names);
         assert!(!tree_names.is_empty());
+        info!("✓ Tree name generation check passed");
 
+        info!("test_database_initialization completed successfully");
         Ok(())
     }
 
     #[test]
     fn test_model_specific_trees() -> Result<()> {
+        info!("Starting test_model_specific_trees");
+
         let (db, _temp_dir) = create_blog_database()?;
+        info!("Database created successfully for model specific trees test");
 
         // Test that each model can create its own tree using the new type-safe API
-        let user_tree: NetabaseSledTree<blog_schema::User, blog_schema::UserKey> =
-            db.get_main_tree()?;
+        debug!("Creating User tree");
+        let user_tree: netabase_store::database::NetabaseSledTree<
+            blog_schema::User,
+            blog_schema::UserKey,
+        > = db.get_main_tree()?;
         assert_eq!(user_tree.len(), 0);
+        info!("✓ User tree created and verified empty");
 
-        let post_tree: NetabaseSledTree<blog_schema::Post, blog_schema::PostKey> =
-            db.get_main_tree()?;
+        debug!("Creating Post tree");
+        let post_tree: netabase_store::database::NetabaseSledTree<
+            blog_schema::Post,
+            blog_schema::PostKey,
+        > = db.get_main_tree()?;
         assert_eq!(post_tree.len(), 0);
+        info!("✓ Post tree created and verified empty");
 
-        let comment_tree: NetabaseSledTree<blog_schema::Comment, blog_schema::CommentKey> =
-            db.get_main_tree()?;
+        debug!("Creating Comment tree");
+        let comment_tree: netabase_store::database::NetabaseSledTree<
+            blog_schema::Comment,
+            blog_schema::CommentKey,
+        > = db.get_main_tree()?;
         assert_eq!(comment_tree.len(), 0);
+        info!("✓ Comment tree created and verified empty");
 
-        let profile_tree: NetabaseSledTree<blog_schema::Profile, blog_schema::ProfileKey> =
-            db.get_main_tree()?;
+        debug!("Creating Profile tree");
+        let profile_tree: netabase_store::database::NetabaseSledTree<
+            blog_schema::Profile,
+            blog_schema::ProfileKey,
+        > = db.get_main_tree()?;
         assert_eq!(profile_tree.len(), 0);
+        info!("✓ Profile tree created and verified empty");
 
+        info!("test_model_specific_trees completed successfully");
         Ok(())
     }
 
     #[test]
     fn test_relational_link_functionality() -> Result<()> {
+        info!("Starting test_relational_link_functionality");
+
         let user = create_sample_user(1);
+        debug!("Created sample user with id: {}", user.id);
+
         let post = create_sample_post(1, user.id);
+        debug!(
+            "Created sample post with id: {} and author_id: {}",
+            post.id, post.author_id
+        );
 
         // Test that the macro transformed the fields correctly
+        debug!("Testing initial relational link state");
         assert!(post.author.is_unresolved());
+        info!("✓ Author link is initially unresolved as expected");
+
         assert_eq!(post.author.key(), Some(&user.key()));
+        info!("✓ Author link key matches user key");
 
         // Test resolving the author link
+        debug!("Testing relational link resolution");
         let resolved_author = post.author.clone().resolve(user.clone());
         assert!(resolved_author.is_resolved());
-        assert_eq!(resolved_author.object().unwrap().id, user.id);
+        info!("✓ Author link resolved successfully");
 
+        assert_eq!(resolved_author.object().unwrap().id, user.id);
+        info!("✓ Resolved author object matches expected user");
+
+        info!("test_relational_link_functionality completed successfully");
         Ok(())
     }
 
     #[test]
     fn test_storing_and_loading_relational_data() -> Result<()> {
+        info!("Starting test_storing_and_loading_relational_data");
+
         let (db, _temp_dir) = create_blog_database()?;
+        info!("Database created successfully for storing and loading test");
 
         // Create trees using the new type-safe API
-        let user_tree: NetabaseSledTree<blog_schema::User, blog_schema::UserKey> =
-            db.get_main_tree()?;
-        let post_tree: NetabaseSledTree<blog_schema::Post, blog_schema::PostKey> =
-            db.get_main_tree()?;
-        let profile_tree: NetabaseSledTree<blog_schema::Profile, blog_schema::ProfileKey> =
-            db.get_main_tree()?;
+        debug!("Creating type-safe trees");
+        let user_tree: netabase_store::database::NetabaseSledTree<
+            blog_schema::User,
+            blog_schema::UserKey,
+        > = db.get_main_tree()?;
+        let post_tree: netabase_store::database::NetabaseSledTree<
+            blog_schema::Post,
+            blog_schema::PostKey,
+        > = db.get_main_tree()?;
+        let profile_tree: netabase_store::database::NetabaseSledTree<
+            blog_schema::Profile,
+            blog_schema::ProfileKey,
+        > = db.get_main_tree()?;
+        info!("✓ All trees created successfully");
 
         // Create sample data
+        debug!("Creating sample data entities");
         let user = create_sample_user(1);
         let profile = create_sample_profile(1, user.id);
         let post1 = create_sample_post(1, user.id);
         let post2 = create_sample_post(2, user.id);
+        info!("✓ Sample data created (1 user, 1 profile, 2 posts)");
 
         // Store all entities
+        debug!("Storing entities in database");
         user_tree.insert(user.key(), user.clone())?;
+        debug!("User stored with id: {}", user.id);
+
         profile_tree.insert(profile.key(), profile.clone())?;
+        debug!("Profile stored with id: {}", profile.id);
+
         post_tree.insert(post1.key(), post1.clone())?;
+        debug!("Post1 stored with id: {}", post1.id);
+
         post_tree.insert(post2.key(), post2.clone())?;
+        debug!("Post2 stored with id: {}", post2.id);
+        info!("✓ All entities stored successfully");
 
         // Load and verify data storage
+        debug!("Loading and verifying stored data");
         let loaded_user = user_tree.get(user.key())?.unwrap();
         assert_eq!(loaded_user.id, user.id);
         assert_eq!(loaded_user.name, user.name);
+        info!("✓ User loaded and verified successfully");
 
         let loaded_profile = profile_tree.get(profile.key())?.unwrap();
         assert_eq!(loaded_profile.id, profile.id);
         assert_eq!(loaded_profile.user_id, user.id);
+        info!("✓ Profile loaded and verified successfully");
 
         let loaded_post1 = post_tree.get(post1.key())?.unwrap();
         assert_eq!(loaded_post1.id, post1.id);
         assert_eq!(loaded_post1.author_id, user.id);
+        info!("✓ Post1 loaded and verified successfully");
 
+        info!("test_storing_and_loading_relational_data completed successfully");
         Ok(())
     }
 
     #[test]
     fn test_resolving_relational_links() -> Result<()> {
+        info!("Starting test_resolving_relational_links");
+
         let (db, _temp_dir) = create_blog_database()?;
+        info!("Database created successfully for resolving relational links test");
 
         // Create trees using the new type-safe API
-        let user_tree: NetabaseSledTree<blog_schema::User, blog_schema::UserKey> =
-            db.get_main_tree()?;
-        let post_tree: NetabaseSledTree<blog_schema::Post, blog_schema::PostKey> =
-            db.get_main_tree()?;
-        let comment_tree: NetabaseSledTree<blog_schema::Comment, blog_schema::CommentKey> =
-            db.get_main_tree()?;
+        debug!("Creating type-safe trees for resolution test");
+        let user_tree: netabase_store::database::NetabaseSledTree<
+            blog_schema::User,
+            blog_schema::UserKey,
+        > = db.get_main_tree()?;
+        let post_tree: netabase_store::database::NetabaseSledTree<
+            blog_schema::Post,
+            blog_schema::PostKey,
+        > = db.get_main_tree()?;
+        let comment_tree: netabase_store::database::NetabaseSledTree<
+            blog_schema::Comment,
+            blog_schema::CommentKey,
+        > = db.get_main_tree()?;
+        info!("✓ All trees created successfully");
 
         // Create and store test data
+        debug!("Creating test entities for resolution");
         let user = create_sample_user(1);
         let post = create_sample_post(1, user.id);
         let comment = create_sample_comment(1, post.id, user.id);
+        info!("✓ Test entities created (user, post, comment)");
 
+        debug!("Storing test entities in database");
         user_tree.insert(user.key(), user.clone())?;
+        debug!("User stored with id: {}", user.id);
+
         post_tree.insert(post.key(), post.clone())?;
+        debug!("Post stored with id: {}", post.id);
+
         comment_tree.insert(comment.key(), comment.clone())?;
+        debug!("Comment stored with id: {}", comment.id);
+        info!("✓ All entities stored successfully");
 
         // Load post and resolve its author relation
+        debug!("Loading post for author resolution");
         let mut loaded_post = post_tree.get(post.key())?.unwrap();
         assert!(loaded_post.author.is_unresolved());
+        info!("✓ Post loaded with unresolved author link as expected");
 
         // Resolve the author link in-place (improved pattern)
+        debug!("Resolving post author relation");
         let author_key = loaded_post.author.key().unwrap();
         let author = user_tree.get(author_key.clone())?.unwrap();
         {
             let resolved_author_ref = loaded_post.author.resolve_mut(author.clone());
             // Verify reference points to correct data
             assert_eq!(resolved_author_ref.id, user.id);
+            debug!("Author resolved with id: {}", resolved_author_ref.id);
         }
 
         // Verify the post's author field is now resolved (after reference is out of scope)
         assert!(loaded_post.author.is_resolved());
         assert_eq!(loaded_post.author.object().unwrap().id, user.id);
+        info!("✓ Post author relation resolved and verified successfully");
 
         // Load comment and resolve its relations
+        debug!("Loading comment for multiple relation resolution");
         let mut loaded_comment = comment_tree.get(comment.key())?.unwrap();
 
         // Resolve comment's post relation in-place (improved pattern)
+        debug!("Resolving comment post relation");
         let comment_post_key = loaded_comment.post.key().unwrap();
         let comment_post = post_tree.get(comment_post_key.clone())?.unwrap();
         {
             let resolved_post_ref = loaded_comment.post.resolve_mut(comment_post);
             // Verify reference points to correct data
             assert_eq!(resolved_post_ref.id, post.id);
+            debug!("Comment post resolved with id: {}", resolved_post_ref.id);
         }
 
         // Verify the comment's post field is now resolved (after reference is out of scope)
         assert!(loaded_comment.post.is_resolved());
         assert_eq!(loaded_comment.post.object().unwrap().id, post.id);
+        info!("✓ Comment post relation resolved and verified successfully");
 
+        info!("test_resolving_relational_links completed successfully");
         Ok(())
     }
 
     #[test]
     fn test_empty_relations() -> Result<()> {
+        info!("Starting test_empty_relations");
         // Test that relation discriminants are properly generated
 
         // Test User relations - User has no direct relational fields
+        debug!("Testing User relations");
         let user_relations: Vec<&str> = User::relations();
         assert_eq!(user_relations.len(), 0);
+        info!("✓ User relations correctly empty");
 
         // Test Post relations - Post has relational fields but relations() returns empty (new behavior)
+        debug!("Testing Post relations");
         let post_relations: Vec<&str> = Post::relations();
         assert_eq!(post_relations.len(), 0);
+        info!("✓ Post relations correctly empty (new behavior)");
 
         // Test Comment relations - Comment has relational fields but relations() returns empty (new behavior)
+        debug!("Testing Comment relations");
         let comment_relations: Vec<&str> = Comment::relations();
         assert_eq!(comment_relations.len(), 0);
+        info!("✓ Comment relations correctly empty (new behavior)");
 
         // Test Profile relations - Profile has relational fields but relations() returns empty (new behavior)
+        debug!("Testing Profile relations");
         let profile_relations: Vec<&str> = Profile::relations();
         assert_eq!(profile_relations.len(), 0);
+        info!("✓ Profile relations correctly empty (new behavior)");
 
         // Test ecommerce relations - Customer has no direct relational fields
+        debug!("Testing Customer relations");
         let customer_relations: Vec<&str> = Customer::relations();
         assert_eq!(customer_relations.len(), 0);
+        info!("✓ Customer relations correctly empty");
 
+        info!("test_empty_relations completed successfully");
         Ok(())
     }
 
@@ -446,13 +587,15 @@ mod integration_tests {
         let (db, _temp_dir) = create_ecommerce_database()?;
 
         // Create trees using the new type-safe API
-        let customer_tree: NetabaseSledTree<
+        let customer_tree: netabase_store::database::NetabaseSledTree<
             ecommerce_schema::Customer,
             ecommerce_schema::CustomerKey,
         > = db.get_main_tree()?;
-        let order_tree: NetabaseSledTree<ecommerce_schema::Order, ecommerce_schema::OrderKey> =
-            db.get_main_tree()?;
-        let order_item_tree: NetabaseSledTree<
+        let order_tree: netabase_store::database::NetabaseSledTree<
+            ecommerce_schema::Order,
+            ecommerce_schema::OrderKey,
+        > = db.get_main_tree()?;
+        let order_item_tree: netabase_store::database::NetabaseSledTree<
             ecommerce_schema::OrderItem,
             ecommerce_schema::OrderItemKey,
         > = db.get_main_tree()?;

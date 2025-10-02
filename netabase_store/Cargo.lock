@@ -1118,19 +1118,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "netabase"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bincode",
- "env_logger 0.10.2",
- "log",
- "netabase_store",
- "serde",
- "tempfile",
-]
-
-[[package]]
 name = "netabase_macros"
 version = "0.1.0"
 dependencies = [
@@ -1798,9 +1785,9 @@ dependencies = [
 
 [[package]]
 name = "typenum"
-version = "1.18.0"
+version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1dccffe3ce07af9386bfd29e80c0ab1a8205a2fc34e4bcd40364df902cfa8f3f"
+checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 
 [[package]]
 name = "uint"

@@ -1,8 +1,22 @@
 use bincode::{Decode, Encode};
-
+use log::{debug, info};
 use netabase_macros::NetabaseModel;
-
+use netabase_store::{
+    database::NetabaseSledDatabase,
+    traits::{NetabaseModel, NetabaseSchema},
+};
 use std::collections::HashMap;
+use std::sync::Once;
+
+static INIT: Once = Once::new();
+
+fn init_logger() {
+    INIT.call_once(|| {
+        env_logger::Builder::from_default_env()
+            .filter_level(log::LevelFilter::Debug)
+            .init();
+    });
+}
 
 // Simple model without relations (baseline)
 #[derive(NetabaseModel, Clone, Encode, Decode, Debug, PartialEq)]
@@ -72,23 +86,32 @@ mod tests {
 
     #[test]
     fn test_no_relations_baseline() {
+        init_logger();
+        info!("Starting test_no_relations_baseline");
+
         // Test that models without relations work normally
         let user = User {
             id: 1,
             name: "Test User".to_string(),
             email: "test@example.com".to_string(),
         };
+        debug!("Created user: id={}, name={}", user.id, user.name);
 
         // Should have no relations
+        debug!("Testing user relations");
         let relations = User::relations();
         assert!(relations.is_empty());
+        info!("✓ User has no relations as expected");
 
         // Should encode/decode normally
+        debug!("Testing serialization");
         let encoded = bincode::encode_to_vec(&user, bincode::config::standard()).unwrap();
         let (decoded, _): (User, usize) =
             bincode::decode_from_slice(&encoded, bincode::config::standard()).unwrap();
-
         assert_eq!(user, decoded);
+        info!("✓ Serialization works correctly");
+
+        info!("test_no_relations_baseline completed successfully");
     }
 
     #[test]
@@ -115,15 +138,20 @@ mod tests {
         assert_eq!(post.author.key(), Some(&expected_key));
 
         // Test resolving the relation
+        debug!("Testing relation resolution");
         let user = User {
-            id: 1,
+            id: 123,
             name: "Author".to_string(),
             email: "author@example.com".to_string(),
         };
+        debug!("Created author user: id={}, name={}", user.id, user.name);
 
         let resolved_author = post.author.resolve(user.clone());
         assert!(resolved_author.is_resolved());
         assert_eq!(resolved_author.object().unwrap().name, "Author");
+        info!("✓ Author relation resolved successfully");
+
+        info!("test_single_relation_transformation completed successfully");
     }
 
     #[test]
