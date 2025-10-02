@@ -90,10 +90,6 @@ where
         )?))
     }
     fn from_record_key(record: RecordKey) -> Result<Self, NetabaseError> {
-        println!(
-            "AAAAAAAAAAAAAAAAAAAAAAaDecoded: {:?}",
-            bincode::decode_from_slice::<Self, _>(&record.to_vec(), bincode::config::standard())?.0
-        );
         Ok(bincode::decode_from_slice::<Self, _>(&record.to_vec(), bincode::config::standard())?.0)
     }
 

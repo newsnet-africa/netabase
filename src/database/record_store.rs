@@ -327,7 +327,6 @@ where
 
         // Convert RecordKey to enum K
         let key = K::from_record_key(record.key.clone()).map_err(|_| Error::MaxProvidedKeys)?;
-        println!("Produced: {:?}", key.to_record_key());
 
         // Get or create the providers list
         let mut providers_list = self
@@ -467,6 +466,20 @@ mod tests {
         Multihash::wrap(SHA_256_MH, &bytes).unwrap()
     }
 
+    fn create_test_key(key_data: &[u8]) -> RecordKey {
+        use crate::database::record_store::tests::test_schema::TestRecord;
+        use crate::traits::NetabaseKeys;
+
+        let test_record = TestRecord {
+            key: key_data.to_vec(),
+            value: b"test_value".to_vec(),
+            publisher: b"test_publisher".to_vec(),
+        };
+        let test_key = test_record.key();
+        let test_schema_key = TestSchemaKeys::TestKey(test_key);
+        test_schema_key.to_record_key().unwrap()
+    }
+
     #[netabase_schema_module(TestSchema, TestSchemaKeys)]
     pub mod test_schema {
         use crate as netabase;
@@ -480,25 +493,30 @@ mod tests {
         #[key_name(TestKey)]
         pub struct TestRecord {
             #[key]
-            key: Vec<u8>,
-            value: Vec<u8>,
-            publisher: Vec<u8>,
+            pub key: Vec<u8>,
+            pub value: Vec<u8>,
+            pub publisher: Vec<u8>,
         }
     }
 
     #[test]
     fn put_get_remove_record() {
+        use crate::database::record_store::tests::test_schema::TestRecord;
+        use crate::traits::{NetabaseKeys, NetabaseSchema};
+
         let temp_dir = tempfile::tempdir().unwrap();
         let db_path = temp_dir.path().join("test_db");
         let mut store: SledRecordStore<TestSchemaKeys, TestSchema> =
             SledRecordStore::new(db_path.to_str().unwrap(), PeerId::random()).unwrap();
 
-        let record = Record {
-            key: RecordKey::from(b"test_key".to_vec()),
+        // Create a proper TestRecord and convert to Record
+        let test_record = TestRecord {
+            key: b"test_key".to_vec(),
             value: b"test_value".to_vec(),
-            publisher: Some(PeerId::random()),
-            expires: None,
+            publisher: b"test_publisher".to_vec(),
         };
+        let test_schema = TestSchema::TestRecord(test_record);
+        let record = test_schema.to_record().unwrap();
 
         assert!(store.put(record.clone()).is_ok());
 
@@ -514,12 +532,24 @@ mod tests {
 
     #[test]
     fn add_get_remove_provider() {
+        use crate::database::record_store::tests::test_schema::TestRecord;
+        use crate::traits::NetabaseKeys;
+
         let temp_dir = tempfile::tempdir().unwrap();
         let db_path = temp_dir.path().join("test_db");
         let mut store: SledRecordStore<TestSchemaKeys, TestSchema> =
             SledRecordStore::new(db_path.to_str().unwrap(), PeerId::random()).unwrap();
 
-        let key = RecordKey::from(random_multihash().to_bytes());
+        // Create a proper TestRecord and get its key
+        let test_record = TestRecord {
+            key: b"test_key".to_vec(),
+            value: b"test_value".to_vec(),
+            publisher: b"test_publisher".to_vec(),
+        };
+        let test_key = test_record.key();
+        let test_schema_key = TestSchemaKeys::TestKey(test_key);
+        let key = test_schema_key.to_record_key().unwrap();
+
         let provider = PeerId::random();
         let record = ProviderRecord {
             key: key.clone(),
@@ -539,13 +569,25 @@ mod tests {
 
     #[test]
     fn provided() {
+        use crate::database::record_store::tests::test_schema::TestRecord;
+        use crate::traits::NetabaseKeys;
+
         let temp_dir = tempfile::tempdir().unwrap();
         let db_path = temp_dir.path().join("test_db");
         let id = PeerId::random();
         let mut store: SledRecordStore<TestSchemaKeys, TestSchema> =
             SledRecordStore::new(db_path.to_str().unwrap(), id).unwrap();
 
-        let key = RecordKey::from(random_multihash().to_bytes());
+        // Create a proper TestRecord and get its key
+        let test_record = TestRecord {
+            key: b"test_key".to_vec(),
+            value: b"test_value".to_vec(),
+            publisher: b"test_publisher".to_vec(),
+        };
+        let test_key = test_record.key();
+        let test_schema_key = TestSchemaKeys::TestKey(test_key);
+        let key = test_schema_key.to_record_key().unwrap();
+
         let rec = ProviderRecord {
             key: key.clone(),
             provider: id,
@@ -553,7 +595,6 @@ mod tests {
             addresses: vec![],
         };
         let add_res = store.add_provider(rec.clone());
-        println!("Add provider test: {add_res:?}");
         assert!(add_res.is_ok());
 
         let provided: Vec<_> = store.provided().collect();
@@ -570,7 +611,7 @@ mod tests {
         let mut store: SledRecordStore<TestSchemaKeys, TestSchema> =
             SledRecordStore::new(db_path.to_str().unwrap(), PeerId::random()).unwrap();
 
-        let key = RecordKey::from(random_multihash().to_bytes());
+        let key = create_test_key(b"update_provider_key");
         let prv = PeerId::random();
         let mut rec = ProviderRecord {
             key: key.clone(),
@@ -597,7 +638,7 @@ mod tests {
         let mut store: SledRecordStore<TestSchemaKeys, TestSchema> =
             SledRecordStore::new(db_path.to_str().unwrap(), prv).unwrap();
 
-        let key = RecordKey::from(random_multihash().to_bytes());
+        let key = create_test_key(b"update_provided_key");
         let mut rec = ProviderRecord {
             key: key.clone(),
             provider: prv,
@@ -625,7 +666,7 @@ mod tests {
         )
         .unwrap();
 
-        let key = RecordKey::from(random_multihash().to_bytes());
+        let key = create_test_key(b"max_providers_key");
 
         // Add max providers
         for _ in 0..config.max_providers_per_key {
@@ -697,6 +738,9 @@ mod tests {
 
     #[test]
     fn max_records() {
+        use crate::database::record_store::tests::test_schema::TestRecord;
+        use crate::traits::NetabaseSchema;
+
         let temp_dir = tempfile::tempdir().unwrap();
         let db_path = temp_dir.path().join("test_db");
         let mut config = SledRecordStoreConfig::default();
@@ -709,25 +753,26 @@ mod tests {
         )
         .unwrap();
 
-        // Fill up to the limit
-        for i in 0..config.max_records {
-            let record = Record {
-                key: RecordKey::from(format!("key_{}", i).into_bytes()),
-                value: b"test_value".to_vec(),
-                publisher: Some(PeerId::random()),
-                expires: None,
+        for i in 0..5 {
+            let test_record = TestRecord {
+                key: format!("key_{}", i).into_bytes(),
+                value: format!("value_{}", i).into_bytes(),
+                publisher: b"test_publisher".to_vec(),
             };
+            let test_schema = TestSchema::TestRecord(test_record);
+            let record = test_schema.to_record().unwrap();
             assert!(store.put(record).is_ok());
         }
 
         // Try to add one more - should fail
-        let record = Record {
-            key: RecordKey::from(b"extra_key".to_vec()),
-            value: b"test_value".to_vec(),
-            publisher: Some(PeerId::random()),
-            expires: None,
+        let extra_test_record = TestRecord {
+            key: b"extra_key".to_vec(),
+            value: b"extra_value".to_vec(),
+            publisher: b"test_publisher".to_vec(),
         };
-        match store.put(record) {
+        let extra_test_schema = TestSchema::TestRecord(extra_test_record);
+        let extra_record = extra_test_schema.to_record().unwrap();
+        match store.put(extra_record) {
             Err(Error::MaxRecords) => {}
             _ => panic!("Expected MaxRecords error"),
         }
@@ -761,6 +806,9 @@ mod tests {
 
     #[test]
     fn records_iter() {
+        use crate::database::record_store::tests::test_schema::TestRecord;
+        use crate::traits::NetabaseSchema;
+
         let temp_dir = tempfile::tempdir().unwrap();
         let db_path = temp_dir.path().join("test_db");
         let mut store: SledRecordStore<TestSchemaKeys, TestSchema> =
@@ -768,15 +816,15 @@ mod tests {
 
         // Add some records
         for i in 0..5 {
-            let record = Record {
-                key: RecordKey::from(format!("key_{}", i).into_bytes()),
+            let test_record = TestRecord {
+                key: format!("key_{}", i).into_bytes(),
                 value: format!("value_{}", i).into_bytes(),
-                publisher: Some(PeerId::random()),
-                expires: None,
+                publisher: b"test_publisher".to_vec(),
             };
+            let test_schema = TestSchema::TestRecord(test_record);
+            let record = test_schema.to_record().unwrap();
             assert!(store.put(record).is_ok());
         }
-
         // Iterate and count
         let count = store.records().count();
         assert_eq!(count, 5);
