@@ -2,6 +2,7 @@ use bincode::{Decode, Encode};
 #[cfg(feature = "libp2p")]
 use libp2p::kad::{Record, RecordKey};
 use std::fmt::Debug;
+use std::marker::PhantomData;
 
 use crate::errors::NetabaseError;
 
@@ -86,7 +87,7 @@ pub trait NetabaseModelKey:
     Encode + Decode<()> + Clone + Sized + Send + Sync + Debug + 'static
 {
     type PrimaryKey: Clone + Send + Sync + Debug + 'static;
-    type SecondaryKeys: Clone + Send + Sync + Debug + 'static;
+    type SecondaryKeys: Clone + Send + Sync + Debug + 'static + TryInto<sled::IVec>;
     type SecondaryKeysDiscriminants: strum::IntoEnumIterator
         + AsRef<str>
         + Clone
@@ -268,20 +269,20 @@ where
     K: TryFrom<sled::IVec>,
     V: TryFrom<sled::IVec>,
 {
-    type Item = Result<(K, V), NetabaseError>;
+    type Item = Result<(K, V), crate::errors::NetabaseError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.as_mut()?.next().map(|result| {
             result
-                .map_err(NetabaseError::from)
+                .map_err(crate::errors::NetabaseError::from)
                 .and_then(|(k_ivec, v_ivec)| {
                     let k = K::try_from(k_ivec).map_err(|_| {
-                        NetabaseError::Conversion(
+                        crate::errors::NetabaseError::Conversion(
                             crate::errors::conversion::ConversionError::TraitConversion,
                         )
                     })?;
                     let v = V::try_from(v_ivec).map_err(|_| {
-                        NetabaseError::Conversion(
+                        crate::errors::NetabaseError::Conversion(
                             crate::errors::conversion::ConversionError::TraitConversion,
                         )
                     })?;
@@ -289,6 +290,164 @@ where
                 })
         })
     }
+}
+
+/// Iterator specifically for secondary key queries
+pub struct SecondaryKeyIter<K, V> {
+    inner: Option<sled::Iter>,
+    _phantom: PhantomData<(K, V)>,
+}
+
+impl<K, V> SecondaryKeyIter<K, V> {
+    pub fn new(iter: sled::Iter) -> Self {
+        Self {
+            inner: Some(iter),
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<K, V> Iterator for SecondaryKeyIter<K, V>
+where
+    K: TryFrom<sled::IVec>,
+    V: TryFrom<sled::IVec>,
+{
+    type Item = Result<(K, V), crate::errors::NetabaseError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let result = self.inner.as_mut()?.next()?;
+
+        match result {
+            Ok((k_ivec, v_ivec)) => {
+                let k = K::try_from(k_ivec).map_err(|_| {
+                    crate::errors::NetabaseError::Conversion(
+                        crate::errors::conversion::ConversionError::TraitConversion,
+                    )
+                });
+                let v = V::try_from(v_ivec).map_err(|_| {
+                    crate::errors::NetabaseError::Conversion(
+                        crate::errors::conversion::ConversionError::TraitConversion,
+                    )
+                });
+
+                match (k, v) {
+                    (Ok(key), Ok(value)) => Some(Ok((key, value))),
+                    (Err(e), _) | (_, Err(e)) => Some(Err(e)),
+                }
+            }
+            Err(e) => Some(Err(crate::errors::NetabaseError::from(e))),
+        }
+    }
+}
+
+/// Trait for secondary key querying capabilities
+pub trait NetabaseSecondaryKeyQuery<M, MK>
+where
+    M: NetabaseModel<Key = MK>,
+    MK: NetabaseModelKey,
+{
+    /// Query models by a specific secondary key
+    fn query_by_secondary_key<SK>(
+        &self,
+        secondary_key: SK,
+    ) -> Result<Vec<M>, crate::errors::NetabaseError>
+    where
+        SK: NetabaseSecondaryKeys + TryInto<sled::IVec> + Clone + std::fmt::Debug + PartialEq;
+
+    /// Get all secondary key values for a specific field
+    fn get_secondary_key_values(
+        &self,
+        field_name: &str,
+    ) -> Result<Vec<sled::IVec>, crate::errors::NetabaseError>;
+
+    /// Create an index for a secondary key field
+    fn create_secondary_key_index(
+        &self,
+        field_name: &str,
+    ) -> Result<(), crate::errors::NetabaseError>;
+
+    /// Remove an index for a secondary key field
+    fn remove_secondary_key_index(
+        &self,
+        field_name: &str,
+    ) -> Result<(), crate::errors::NetabaseError>;
+}
+
+/// Trait for relational querying capabilities
+pub trait NetabaseRelationalQuery<M, MK>
+where
+    M: NetabaseModel<Key = MK>,
+    MK: NetabaseModelKey,
+{
+    /// Find all models that reference a specific key through relational links
+    fn find_referencing_models<TargetKey>(
+        &self,
+        target_key: TargetKey,
+    ) -> Result<Vec<M>, crate::errors::NetabaseError>
+    where
+        TargetKey: NetabaseModelKey + PartialEq;
+
+    /// Get all models that have unresolved relational links
+    fn get_unresolved_relations(&self) -> Result<Vec<(MK, M)>, crate::errors::NetabaseError>;
+
+    /// Resolve relational links in a model using a custom resolver function
+    fn resolve_relations<RelatedModel, RelatedKey>(
+        &self,
+        model: &mut M,
+        resolver: impl Fn(
+            &crate::relational::RelationalLink<RelatedKey, RelatedModel>,
+        ) -> Option<RelatedModel>,
+    ) -> Result<(), crate::errors::NetabaseError>
+    where
+        RelatedModel: Clone + std::fmt::Debug,
+        RelatedKey: NetabaseModelKey;
+
+    /// Batch resolve relations for multiple models
+    fn batch_resolve_relations<RelatedModel, RelatedKey>(
+        &self,
+        models: &mut [M],
+        resolver: impl Fn(
+            &crate::relational::RelationalLink<RelatedKey, RelatedModel>,
+        ) -> Option<RelatedModel>,
+    ) -> Result<(), crate::errors::NetabaseError>
+    where
+        RelatedModel: Clone + std::fmt::Debug,
+        RelatedKey: NetabaseModelKey;
+}
+
+/// Trait for advanced querying capabilities
+pub trait NetabaseAdvancedQuery<M, MK>
+where
+    M: NetabaseModel<Key = MK>,
+    MK: NetabaseModelKey,
+{
+    /// Range query by key prefix
+    fn range_by_prefix(&self, prefix: &[u8]) -> Result<Vec<(MK, M)>, crate::errors::NetabaseError>;
+
+    /// Batch insert with automatic indexing
+    fn batch_insert_with_indexing(
+        &self,
+        items: Vec<(MK, M)>,
+    ) -> Result<(), crate::errors::NetabaseError>;
+
+    /// Query with custom filter function
+    fn query_with_filter<F>(&self, filter: F) -> Result<Vec<(MK, M)>, crate::errors::NetabaseError>
+    where
+        F: Fn(&M) -> bool;
+
+    /// Count models matching a condition
+    fn count_where<F>(&self, condition: F) -> Result<usize, crate::errors::NetabaseError>
+    where
+        F: Fn(&M) -> bool;
+}
+
+/// Combined trait for all query capabilities
+pub trait NetabaseQuery<M, MK>:
+    NetabaseSecondaryKeyQuery<M, MK> + NetabaseRelationalQuery<M, MK> + NetabaseAdvancedQuery<M, MK>
+where
+    M: NetabaseModel<Key = MK>,
+    MK: NetabaseModelKey,
+{
 }
 
 pub mod database_traits {

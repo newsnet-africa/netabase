@@ -39,6 +39,8 @@ impl<'ast> NetabaseModelVisitor<'ast> {
             Debug,
             Clone,
             PartialEq,
+            Eq,
+            Hash,
             derive_more::From,
             derive_more::Into,
             serde::Serialize,
@@ -113,7 +115,7 @@ impl<'ast> NetabaseModelVisitor<'ast> {
 
         // Generate main key enum with Primary and Secondary variants
         let main_key_enum: ItemEnum = parse_quote! {
-            #[derive(bincode::Encode, bincode::Decode, Debug, Clone, PartialEq, derive_more::From, derive_more::TryInto, serde::Serialize, serde::Deserialize)]
+            #[derive(bincode::Encode, bincode::Decode, Debug, Clone, PartialEq, Eq, Hash, derive_more::From, derive_more::TryInto, serde::Serialize, serde::Deserialize)]
             pub enum #key_name {
                 Primary(#primary_key_name),
                 Secondary(#secondary_keys_name),
