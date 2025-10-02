@@ -7,7 +7,7 @@
 //! - Secondary key indexing and querying
 //! - Relational query functionality
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 
 use crate::errors::NetabaseError;
@@ -357,24 +357,47 @@ where
     where
         SK: std::fmt::Debug + PartialEq,
     {
-        // Use a debug string-based approach to match secondary key values
-        // This works by extracting the value from the secondary key enum variant
-        // and checking if it appears in the model's debug representation
-
+        // Use a more robust debug string-based approach to match secondary key values
         let model_debug = format!("{:?}", model);
         let query_debug = format!("{:?}", query_key);
 
         // Extract the value from the secondary key enum variant
-        // Format: "VariantName("value")" -> extract "value"
+        // Format: "VariantName("value")" or "VariantName(value)" -> extract value
         if let Some(value_start) = query_debug.find('(') {
             if let Some(value_end) = query_debug.rfind(')') {
                 let query_value = &query_debug[value_start + 1..value_end];
-                // Remove surrounding quotes if present
-                let clean_query_value = query_value.trim_matches('"');
+                // Handle both quoted and unquoted values
+                let clean_query_value = query_value.trim_matches('"').trim_matches('\'');
 
-                // Check if the model's debug representation contains this value
-                // This works because the model's debug output includes field values
-                return model_debug.contains(clean_query_value);
+                // For more precise matching, we need to match field-value pairs
+                // Look for patterns like 'field_name: "value"' or 'field_name: value'
+
+                // Extract field name from the secondary key enum variant name
+                let variant_name = &query_debug[0..value_start];
+
+                // Convert CamelCase to snake_case field names
+                let field_name = if variant_name.ends_with("Key") {
+                    let without_key = &variant_name[0..variant_name.len() - 3];
+                    // Convert from CamelCase to snake_case
+                    let mut snake_case = String::new();
+                    for (i, c) in without_key.chars().enumerate() {
+                        if i > 0 && c.is_uppercase() {
+                            snake_case.push('_');
+                        }
+                        snake_case.push(c.to_lowercase().next().unwrap());
+                    }
+                    snake_case
+                } else {
+                    variant_name.to_lowercase()
+                };
+
+                // Look for field: value patterns in the model debug output
+                let field_pattern = format!("{}: \"{}\"", field_name, clean_query_value);
+                let field_pattern_unquoted = format!("{}: {}", field_name, clean_query_value);
+
+                // Only match on exact field patterns, remove the dangerous fallback
+                return model_debug.contains(&field_pattern)
+                    || model_debug.contains(&field_pattern_unquoted);
             }
         }
 
@@ -558,9 +581,10 @@ where
 
     fn get_secondary_key_values(
         &self,
-        _field_name: &str,
+        field_name: &str,
     ) -> Result<Vec<sled::IVec>, crate::errors::NetabaseError> {
         let mut values = Vec::new();
+        let mut seen_values = HashSet::new();
 
         for result in self.tree.iter() {
             let (_key_ivec, value_ivec) = result?;
@@ -570,11 +594,28 @@ where
                 )
             })?;
 
-            let model_key = model.key();
-            if let Some(secondary_keys) = model_key.secondary_keys() {
-                if let Ok(secondary_ivec) = secondary_keys.clone().try_into() {
-                    let secondary_ivec: sled::IVec = secondary_ivec;
-                    values.push(secondary_ivec);
+            // Extract field values from the model using debug representation
+            let model_debug = format!("{:?}", model);
+
+            // Look for the field pattern in the debug output
+            let field_pattern = format!("{}: ", field_name);
+            if let Some(field_start) = model_debug.find(&field_pattern) {
+                let value_start = field_start + field_pattern.len();
+                let rest_of_string = &model_debug[value_start..];
+
+                // Find the end of the value (next comma or closing brace)
+                let value_end = rest_of_string
+                    .find(',')
+                    .or_else(|| rest_of_string.find(" }"))
+                    .unwrap_or(rest_of_string.len());
+
+                let field_value = &rest_of_string[0..value_end];
+                let clean_value = field_value.trim_matches('"').trim_matches('\'');
+
+                // Convert to IVec and add if not already seen
+                if seen_values.insert(clean_value.to_string()) {
+                    let value_bytes = clean_value.as_bytes();
+                    values.push(sled::IVec::from(value_bytes));
                 }
             }
         }
@@ -733,6 +774,34 @@ where
         }
 
         Ok(count)
+    }
+}
+
+/// Implementation of TryFrom<sled::Tree> for NetabaseSledTree
+impl<M, MK> TryFrom<sled::Tree> for NetabaseSledTree<M, MK>
+where
+    M: crate::traits::NetabaseModel<Key = MK>,
+    MK: crate::traits::NetabaseModelKey,
+{
+    type Error = NetabaseError;
+
+    fn try_from(tree: sled::Tree) -> Result<Self, Self::Error> {
+        Ok(NetabaseSledTree {
+            tree,
+            _phantom: PhantomData,
+        })
+    }
+}
+
+/// Implementation of database_traits::NetabaseSledTree for NetabaseSledTree
+impl<M, MK> crate::traits::database_traits::NetabaseSledTree<MK, M> for NetabaseSledTree<M, MK>
+where
+    M: crate::traits::NetabaseModel<Key = MK> + TryFrom<sled::IVec> + TryInto<sled::IVec>,
+    MK: crate::traits::NetabaseModelKey + TryFrom<sled::IVec> + TryInto<sled::IVec> + Clone,
+    sled::IVec: TryFrom<M>,
+{
+    fn tree(&self) -> &sled::Tree {
+        &self.tree
     }
 }
 
