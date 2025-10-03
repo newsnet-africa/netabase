@@ -20,7 +20,10 @@ pub fn generate_module_schema(
             )
         })
         .unzip();
-    let (schema_name, key_name) = (module_visitor.schema_name, module_visitor.schema_key_name);
+    let (schema_name, key_name) = (
+        module_visitor.schema_name.clone(),
+        module_visitor.schema_key_name.clone(),
+    );
 
     let schema_enum = parse_quote! {
         #[derive(derive_more::From, derive_more::TryInto, Clone, Encode, Decode, Debug, strum::EnumDiscriminants)]
@@ -43,9 +46,29 @@ pub fn generate_module_schema(
     // NetabaseSchema trait impl
     let discriminant_ident = append_ident(&schema_name, "Discriminants");
 
+    // Generate match arms for the keys() method
+    let key_match_arms: Vec<syn::Arm> = module_visitor
+        .format_paths()
+        .iter()
+        .map(
+            |((_model_full_path, model_variant), (_key_full_path, model_key_variant))| {
+                parse_quote! {
+                    Self::#model_variant(model) => Self::Keys::#model_key_variant(model.key())
+                }
+            },
+        )
+        .collect();
+
     impls.push(parse_quote! {
         impl netabase_store::traits::NetabaseSchema for #schema_name {
             type SchemaDiscriminants = #discriminant_ident;
+            type Keys = #key_name;
+
+            fn keys(&self) -> Self::Keys {
+                match self {
+                    #(#key_match_arms),*
+                }
+            }
         }
     });
 

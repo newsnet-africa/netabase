@@ -18,9 +18,23 @@ pub struct NetabaseBehaviour<S: NetabaseSchema> {
 
 impl<S: NetabaseSchema> NetabaseBehaviour<S> {
     pub fn new(keypair: &Keypair) -> Result<Self, crate::errors::Error> {
+        Self::new_with_name(keypair, None)
+    }
+
+    pub fn new_with_name(
+        keypair: &Keypair,
+        name: Option<String>,
+    ) -> Result<Self, crate::errors::Error> {
         let pub_key = keypair.public();
         let peer_id = PeerId::from_public_key(&pub_key);
-        let kad = libp2p::kad::Behaviour::new(peer_id.clone(), NetabaseSledDatabase::<S>::new()?);
+
+        let database = if let Some(name) = name {
+            NetabaseSledDatabase::<S>::new_with_path(&name)?
+        } else {
+            NetabaseSledDatabase::<S>::new()?
+        };
+
+        let kad = libp2p::kad::Behaviour::new(peer_id.clone(), database);
         let identify_config = libp2p::identify::Config::new("/newsnet/0.0.1".to_string(), pub_key);
         let identify = libp2p::identify::Behaviour::new(identify_config);
         let mdns_config = libp2p::mdns::Config::default();

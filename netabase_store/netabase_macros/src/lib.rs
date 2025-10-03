@@ -1,3 +1,38 @@
+//! # Netabase Macros
+//!
+//! This crate provides procedural macros for the Netabase distributed database system.
+//! It generates type-safe database models, keys, and schemas with support for primary keys,
+//! secondary keys, and relational queries.
+//!
+//! ## Main Macros
+//!
+//! - [`NetabaseModel`] - Derive macro for creating database models
+//! - [`netabase_schema_module`] - Attribute macro for organizing models into schemas
+//! - [`NetabaseModelKey`] - Derive macro for custom key types
+//!
+//! ## Basic Usage
+//!
+//! ```rust
+//! use netabase_macros::{NetabaseModel, netabase_schema_module};
+//! use serde::{Serialize, Deserialize};
+//! use bincode::{Encode, Decode};
+//!
+//! #[netabase_schema_module(BlogSchema, BlogKeys)]
+//! mod blog {
+//!     use super::*;
+//!
+//!     #[derive(NetabaseModel, Clone, Encode, Decode, Debug, Serialize, Deserialize)]
+//!     #[key_name(UserKey)]
+//!     pub struct User {
+//!         #[key]
+//!         pub id: u64,
+//!         pub name: String,
+//!         #[secondary_key]
+//!         pub email: String,
+//!     }
+//! }
+//! ```
+
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{DeriveInput, Ident, ItemMod, parse_macro_input, visit::Visit, visit_mut::VisitMut};
@@ -17,6 +52,77 @@ mod generators;
 mod util;
 mod visitors;
 
+/// Derive macro for creating Netabase database models.
+///
+/// This macro generates all the necessary types and trait implementations to make a struct
+/// work as a Netabase model, including key types, serialization support, and query capabilities.
+///
+/// ## Required Attributes
+///
+/// - `#[key]` - Must be applied to exactly one field to mark it as the primary key
+/// - `#[key_name(KeyTypeName)]` - Must be applied to the struct to name the generated key type
+///
+/// ## Optional Attributes
+///
+/// - `#[secondary_key]` - Applied to fields that should be indexed for efficient querying
+///
+/// ## Generated Types
+///
+/// For a struct named `User` with `#[key_name(UserKey)]`:
+///
+/// - `UserKey` - Main key enum with `Primary` and `Secondary` variants
+/// - `UserPrimaryKey` - Newtype wrapper for the primary key value
+/// - `UserSecondaryKeys` - Enum containing all secondary key variants
+/// - `UserRelations` - Enum for relational keys (if any relations are defined)
+///
+/// ## Generated Trait Implementations
+///
+/// - `NetabaseModel` - Core model trait with key extraction and metadata methods
+/// - Serialization traits for storage (`TryFrom<IVec>`, `TryInto<IVec>`)
+/// - Network serialization support (when libp2p feature is enabled)
+///
+/// ## Example
+///
+/// ```rust
+/// use netabase_macros::NetabaseModel;
+/// use serde::{Serialize, Deserialize};
+/// use bincode::{Encode, Decode};
+///
+/// #[derive(NetabaseModel, Clone, Encode, Decode, Debug, Serialize, Deserialize)]
+/// #[key_name(UserKey)]
+/// pub struct User {
+///     #[key]
+///     pub id: u64,                    // Primary key
+///     pub name: String,
+///     #[secondary_key]
+///     pub email: String,              // Indexed for efficient queries
+///     #[secondary_key]
+///     pub department: String,         // Another indexed field
+///     pub created_at: u64,
+/// }
+///
+/// // Generated usage:
+/// let user = User { id: 1, name: "Alice".into(), email: "alice@example.com".into(),
+///                   department: "Engineering".into(), created_at: 1234567890 };
+/// let key = user.key(); // Returns UserKey::Primary(UserPrimaryKey(1))
+///
+/// // Secondary key queries:
+/// let email_key = UserSecondaryKeys::EmailKey("alice@example.com".into());
+/// let dept_key = UserSecondaryKeys::DepartmentKey("Engineering".into());
+/// ```
+///
+/// ## Error Cases
+///
+/// The macro will produce a compile error if:
+/// - No field is marked with `#[key]`
+/// - Multiple fields are marked with `#[key]`
+/// - The `#[key_name]` attribute is missing
+///
+/// ## Performance Notes
+///
+/// - Primary key access is O(log n)
+/// - Secondary key queries are O(m) where m is the number of matching records
+/// - Each secondary key adds storage and indexing overhead
 #[proc_macro_derive(NetabaseModel, attributes(key, secondary_key, key_name))]
 pub fn netabase_derive(input: TokenStream) -> TokenStream {
     let derive_input = parse_macro_input!(input as DeriveInput);
@@ -96,6 +202,28 @@ pub fn netabase_derive(input: TokenStream) -> TokenStream {
     final_tokens.into()
 }
 
+/// Derive macro for creating custom Netabase key types.
+///
+/// This macro is used for advanced scenarios where you need custom key behavior.
+/// Most users should use the `NetabaseModel` derive macro instead, which automatically
+/// generates appropriate key types.
+///
+/// ## Usage
+///
+/// ```rust
+/// use netabase_macros::NetabaseModelKey;
+///
+/// #[derive(NetabaseModelKey)]
+/// pub struct CustomKey {
+///     pub field1: String,
+///     pub field2: u64,
+/// }
+/// ```
+///
+/// ## Generated Implementations
+///
+/// - `NetabaseModelKey` trait implementation
+/// - Serialization support for storage and networking
 #[proc_macro_derive(NetabaseModelKey)]
 pub fn netabase_key_derive(input: TokenStream) -> TokenStream {
     let derive_input = parse_macro_input!(input as DeriveInput);
@@ -106,6 +234,9 @@ pub fn netabase_key_derive(input: TokenStream) -> TokenStream {
     .into()
 }
 
+/// Internal attribute macro for key derivation.
+///
+/// This is an implementation detail used by other macros and should not be used directly.
 #[proc_macro_attribute]
 pub fn key_derive(_derives: TokenStream, input: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(input as DeriveInput);
@@ -114,6 +245,105 @@ pub fn key_derive(_derives: TokenStream, input: TokenStream) -> TokenStream {
     quote::quote!(#input).into()
 }
 
+/// Attribute macro for creating Netabase schema modules.
+///
+/// This macro transforms a module containing Netabase models into a unified schema
+/// with centralized types for all models and their keys. It enables type-safe
+/// operations across multiple model types and provides network serialization support.
+///
+/// ## Syntax
+///
+/// ```rust
+/// #[netabase_schema_module(SchemaName, SchemaKeysName)]
+/// mod module_name {
+///     // Model definitions here
+/// }
+/// ```
+///
+/// ## Parameters
+///
+/// - `SchemaName` - Name for the generated schema enum containing all models
+/// - `SchemaKeysName` - Name for the generated keys enum containing all key types
+///
+/// ## Generated Types
+///
+/// For `#[netabase_schema_module(BlogSchema, BlogKeys)]`:
+///
+/// - `BlogSchema` - Enum with variants for each model type (e.g., `User(User)`, `Post(Post)`)
+/// - `BlogKeys` - Enum with variants for each key type (e.g., `UserKey(UserKey)`, `PostKey(PostKey)`)
+///
+/// ## Generated Implementations
+///
+/// - `NetabaseSchema` trait for the schema enum
+/// - `From` implementations to convert models to schema variants
+/// - `From` implementations to convert keys to schema key variants
+/// - Serialization support for storage and networking
+/// - libp2p integration (when libp2p feature is enabled)
+///
+/// ## Example
+///
+/// ```rust
+/// use netabase_macros::{NetabaseModel, netabase_schema_module};
+/// use serde::{Serialize, Deserialize};
+/// use bincode::{Encode, Decode};
+///
+/// #[netabase_schema_module(BlogSchema, BlogKeys)]
+/// mod blog {
+///     use super::*;
+///
+///     #[derive(NetabaseModel, Clone, Encode, Decode, Debug, Serialize, Deserialize)]
+///     #[key_name(UserKey)]
+///     pub struct User {
+///         #[key] pub id: u64,
+///         pub name: String,
+///         #[secondary_key] pub email: String,
+///     }
+///
+///     #[derive(NetabaseModel, Clone, Encode, Decode, Debug, Serialize, Deserialize)]
+///     #[key_name(PostKey)]
+///     pub struct Post {
+///         #[key] pub id: u64,
+///         pub title: String,
+///         #[secondary_key] pub author_id: u64,
+///     }
+/// }
+///
+/// use blog::*;
+///
+/// // Usage:
+/// let user = User { id: 1, name: "Alice".into(), email: "alice@example.com".into() };
+/// let schema_item = BlogSchema::User(user);  // Automatic conversion
+///
+/// let user_key = UserKey::Primary(UserPrimaryKey(1));
+/// let schema_key = BlogKeys::UserKey(user_key);  // Key unification
+/// ```
+///
+/// ## Database Integration
+///
+/// Schema modules integrate with the database layer:
+///
+/// ```rust
+/// use netabase_store::database::NetabaseSledDatabase;
+///
+/// let db = NetabaseSledDatabase::<BlogSchema>::new()?;
+/// let user_tree = db.get_main_tree::<User, UserKey>()?;
+/// let post_tree = db.get_main_tree::<Post, PostKey>()?;
+/// ```
+///
+/// ## Network Integration
+///
+/// Schema modules enable distributed operations:
+///
+/// ```rust
+/// use netabase::Netabase;
+///
+/// let mut netabase = Netabase::<BlogSchema>::new()?;
+/// netabase.start_swarm().await?;
+///
+/// // Put any model type into the DHT
+/// netabase.put_record(user).await?;
+/// netabase.put_record(post).await?;
+/// ```
 #[proc_macro_attribute]
 pub fn netabase_schema_module(name: TokenStream, input: TokenStream) -> TokenStream {
     // let name = parse_macro_input!(name as Ident);
@@ -149,11 +379,33 @@ pub fn netabase_schema_module(name: TokenStream, input: TokenStream) -> TokenStr
     .into()
 }
 
+/// Attribute macro for marking relational key schemas.
+///
+/// This is used in advanced relational scenarios to mark fields that reference
+/// other model types. It's primarily used internally by the macro system.
+///
+/// ## Usage
+///
+/// ```rust
+/// #[key_schema]
+/// pub some_field: RelatedModelKey,
+/// ```
 #[proc_macro_attribute]
 pub fn key_schema(_item: TokenStream, input: TokenStream) -> TokenStream {
     input
 }
 
+/// Attribute macro for specifying custom key names in relational contexts.
+///
+/// This is an internal attribute used by the macro system for advanced
+/// relational key naming. Most users won't need to use this directly.
+///
+/// ## Usage
+///
+/// ```rust
+/// #[key_name(CustomKeyName)]
+/// pub field: SomeType,
+/// ```
 #[proc_macro_attribute]
 pub fn key_name(_item: TokenStream, input: TokenStream) -> TokenStream {
     input

@@ -10,6 +10,7 @@
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
+use std::path::Path;
 
 #[cfg(feature = "libp2p")]
 use libp2p::PeerId;
@@ -49,12 +50,13 @@ where
 {
     /// Create a new enhanced database with default name
     pub fn new() -> Result<Self, NetabaseError> {
-        Self::new_with_name("netabase")
+        let temp_dir = std::env::temp_dir().join("netabase");
+        Self::new_with_path(temp_dir)
     }
 
-    /// Create a new enhanced database with custom name
-    pub fn new_with_name(name: &str) -> Result<Self, NetabaseError> {
-        let db = sled::open(name).map_err(|_| NetabaseError::Database)?;
+    /// Create a new enhanced database with custom path
+    pub fn new_with_path<P: AsRef<Path>>(path: P) -> Result<Self, NetabaseError> {
+        let db = sled::open(path).map_err(|_| NetabaseError::Database)?;
 
         let database = Self {
             db,

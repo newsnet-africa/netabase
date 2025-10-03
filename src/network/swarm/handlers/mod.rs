@@ -3,7 +3,7 @@ use netabase_store::traits::NetabaseSchema;
 
 use crate::network::{
     behaviour::{NetabaseBehaviour, clone_impl::NetabaseSwarmEvent},
-    swarm::handlers::command_events::Command,
+    swarm::handlers::command_events::{Command, handle_command_events},
 };
 pub mod command_events;
 pub mod swarm_events;
@@ -17,16 +17,16 @@ pub async fn start_swarm_loop<S: NetabaseSchema>(
         tokio::select! {
             Some(command) = command_event_listener.recv() => {
                 println!("Swarm Received command: {command:?}");
-                handle_command_events(command);
+                handle_command_events(&mut swarm, command);
             },
             Some(event) = swarm.next() => {
                 println!("Swarm Event received: {event:?}");
-                handle_swarm_events(NetabaseSwarmEvent(event));
+                let event = NetabaseSwarmEvent(event);
+                let result = swarm_event_sender.send(event.clone());
+                println!("Sending Event: {result:?}");
+                swarm_events::handle_swarm_events(event);
             }
 
         }
     }
 }
-
-pub fn handle_swarm_events<S: NetabaseSchema>(event: NetabaseSwarmEvent<S>) {}
-pub fn handle_command_events<S: NetabaseSchema>(command: Command<S>) {}

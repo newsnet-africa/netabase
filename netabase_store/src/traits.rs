@@ -1,3 +1,38 @@
+//! # Netabase Traits
+//!
+//! This module contains the core traits that define the behavior of Netabase models,
+//! schemas, keys, and database operations. These traits are typically implemented
+//! automatically by the derive macros, but can also be implemented manually for
+//! custom behavior.
+//!
+//! ## Key Traits
+//!
+//! - [`NetabaseModel`] - Core trait for all database models
+//! - [`NetabaseSchema`] - Trait for schema enums containing multiple models
+//! - [`NetabaseModelKey`] - Trait for model key types
+//! - [`NetabaseSecondaryKeyQuery`] - Secondary key querying capabilities
+//! - [`NetabaseAdvancedQuery`] - Advanced querying operations
+//!
+//! ## Usage
+//!
+//! Most users will interact with these traits through the generated implementations
+//! from the derive macros:
+//!
+//! ```rust
+//! use netabase_macros::{NetabaseModel, netabase_schema_module};
+//! use netabase_store::traits::NetabaseModel;
+//!
+//! #[derive(NetabaseModel)]
+//! #[key_name(UserKey)]
+//! struct User {
+//!     #[key] id: u64,
+//!     name: String,
+//! }
+//!
+//! let user = User { id: 1, name: "Alice".into() };
+//! let key = user.key(); // Uses NetabaseModel trait
+//! ```
+
 use bincode::{Decode, Encode};
 #[cfg(feature = "libp2p")]
 use libp2p::kad::{Record, RecordKey};
@@ -6,31 +41,216 @@ use std::marker::PhantomData;
 
 use crate::errors::NetabaseError;
 
+/// Core trait for all Netabase database models.
+///
+/// This trait defines the fundamental operations and properties that every model
+/// must support. It's typically implemented automatically via the `NetabaseModel`
+/// derive macro.
+///
+/// ## Associated Types
+///
+/// - `Key` - The key type used to identify and query this model
+/// - `RelationsDiscriminants` - Enum representing different types of relations
+///
+/// ## Required Methods
+///
+/// - [`key()`](NetabaseModel::key) - Extract the primary key from a model instance
+/// - [`tree_name()`](NetabaseModel::tree_name) - Get the storage tree name for this model type
+///
+/// ## Generated Implementation
+///
+/// When using the derive macro, implementations are generated automatically:
+///
+/// ```rust
+/// use netabase_macros::NetabaseModel;
+///
+/// #[derive(NetabaseModel)]
+/// #[key_name(UserKey)]
+/// struct User {
+///     #[key] id: u64,
+///     name: String,
+///     #[secondary_key] email: String,
+/// }
+///
+/// // Generated implementation provides:
+/// let user = User { id: 1, name: "Alice".into(), email: "alice@example.com".into() };
+/// let key = user.key(); // Returns UserKey::Primary(UserPrimaryKey(1))
+/// let tree_name = User::tree_name(); // Returns "User"
+/// let secondary_keys = User::secondary_keys(); // Returns ["email"]
+/// ```
+///
+/// ## Manual Implementation
+///
+/// For custom behavior, you can implement this trait manually:
+///
+/// ```rust
+/// use netabase_store::traits::NetabaseModel;
+///
+/// struct CustomModel {
+///     id: String,
+///     data: Vec<u8>,
+/// }
+///
+/// #[derive(Clone, Debug)]
+/// enum CustomKey {
+///     Primary(String),
+/// }
+///
+/// impl NetabaseModel for CustomModel {
+///     type Key = CustomKey;
+///     type RelationsDiscriminants = (); // No relations
+///
+///     fn key(&self) -> Self::Key {
+///         CustomKey::Primary(self.id.clone())
+///     }
+///
+///     fn tree_name() -> &'static str {
+///         "CustomModel"
+///     }
+/// }
+/// ```
 pub trait NetabaseModel: Encode + Decode<()> + Sized + Clone + Send + Sync + Debug {
+    /// The key type used to identify and query instances of this model.
+    ///
+    /// This is typically an enum with `Primary` and `Secondary` variants,
+    /// generated automatically by the derive macro.
     type Key: NetabaseModelKey;
+
+    /// Enum representing the different types of relations this model can have.
+    ///
+    /// Used for type-safe relational queries and foreign key relationships.
     type RelationsDiscriminants: strum::IntoEnumIterator + AsRef<str> + Clone + std::hash::Hash + Eq;
 
+    /// Extract the primary key from this model instance.
+    ///
+    /// Returns the key that uniquely identifies this model in the database.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// let user = User { id: 1, name: "Alice".into() };
+    /// let key = user.key(); // Returns UserKey::Primary(UserPrimaryKey(1))
+    /// ```
     fn key(&self) -> Self::Key;
 
-    /// Return the tree name for this specific model
+    /// Return the tree name for this specific model type.
+    ///
+    /// This determines which storage tree the model's data will be stored in.
+    /// By default, this returns the struct name as a string.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// assert_eq!(User::tree_name(), "User");
+    /// ```
     fn tree_name() -> &'static str;
 
-    /// Return an iterator of secondary keys for this model
+    /// Return the names of all secondary key fields for this model.
+    ///
+    /// Secondary keys are fields marked with `#[secondary_key]` that can be
+    /// used for efficient querying without knowing the primary key.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// // For a User model with #[secondary_key] on email and department
+    /// assert_eq!(User::secondary_keys(), vec!["email", "department"]);
+    /// ```
     fn secondary_keys() -> Vec<&'static str> {
         Vec::new()
     }
 
-    /// Return an iterator of relational links for this model
+    /// Return the names of all relational fields for this model.
+    ///
+    /// These are fields that reference other models, enabling foreign key
+    /// relationships and join-like operations.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// // For a Post model with relations to User and Category
+    /// assert_eq!(Post::relations(), vec!["author", "category"]);
+    /// ```
     fn relations() -> Vec<&'static str> {
         Vec::new()
     }
 
-    /// Return discriminant enums for relations
+    /// Return discriminant enums for all relation types.
+    ///
+    /// This provides type-safe access to the different types of relations
+    /// this model can participate in.
     fn relation_discriminants() -> Vec<Self::RelationsDiscriminants> {
         <Self::RelationsDiscriminants as strum::IntoEnumIterator>::iter().collect()
     }
 }
 
+/// Trait for schema enums that contain multiple model types.
+///
+/// A schema represents a collection of related models organized into a single
+/// namespace. This trait is implemented automatically by the `netabase_schema_module`
+/// attribute macro.
+///
+/// ## Purpose
+///
+/// Schemas serve several important purposes:
+/// - **Type Unification**: Combine multiple model types into a single enum
+/// - **Network Serialization**: Enable sending any model type over the network
+/// - **Database Organization**: Group related models together logically
+/// - **Query Interface**: Provide unified access to all model types
+///
+/// ## Generated Implementation
+///
+/// The `netabase_schema_module` macro generates schema enums automatically:
+///
+/// ```rust
+/// use netabase_macros::{NetabaseModel, netabase_schema_module};
+///
+/// #[netabase_schema_module(BlogSchema, BlogKeys)]
+/// mod blog {
+///     #[derive(NetabaseModel)]
+///     #[key_name(UserKey)]
+///     pub struct User { #[key] id: u64, name: String }
+///
+///     #[derive(NetabaseModel)]
+///     #[key_name(PostKey)]
+///     pub struct Post { #[key] id: u64, title: String }
+/// }
+///
+/// // Generated BlogSchema enum:
+/// // enum BlogSchema {
+/// //     User(User),
+/// //     Post(Post),
+/// // }
+///
+/// // Usage:
+/// let user = User { id: 1, name: "Alice".into() };
+/// let schema_item = BlogSchema::User(user); // Automatic conversion
+/// ```
+///
+/// ## Network Integration
+///
+/// Schemas enable distributed operations across model types:
+///
+/// ```rust
+/// use netabase::Netabase;
+///
+/// let mut netabase = Netabase::<BlogSchema>::new()?;
+///
+/// // Can store any model type in the schema
+/// netabase.put_record(user).await?;
+/// netabase.put_record(post).await?;
+/// ```
+///
+/// ## Type Safety
+///
+/// Schemas maintain type safety while providing flexibility:
+///
+/// ```rust
+/// match schema_item {
+///     BlogSchema::User(user) => handle_user(user),
+///     BlogSchema::Post(post) => handle_post(post),
+/// }
+/// ```
 pub trait NetabaseSchema:
     Encode
     + Decode<()>
@@ -43,6 +263,9 @@ pub trait NetabaseSchema:
     + Sync
     + 'static
 {
+    /// Enum representing all model variants in this schema.
+    ///
+    /// Used for type-safe iteration and discrimination between model types.
     type SchemaDiscriminants: strum::IntoEnumIterator
         + AsRef<str>
         + Clone
@@ -52,7 +275,7 @@ pub trait NetabaseSchema:
         + Sync;
     type Keys: NetabaseKeys;
 
-    fn keys() -> Self::Keys;
+    fn keys(&self) -> Self::Keys;
 
     /// Return discriminant enums for schema types
     fn all_schema_discriminants() -> Vec<Self::SchemaDiscriminants> {
@@ -387,13 +610,81 @@ where
     }
 }
 
-/// Trait for secondary key querying capabilities
+/// Trait for secondary key querying capabilities.
+///
+/// This trait provides efficient querying of models using secondary keys (fields marked
+/// with `#[secondary_key]`). Secondary keys enable fast lookups without knowing the primary
+/// key, supporting common query patterns like "find all users by email" or "get all posts
+/// by author".
+///
+/// ## Query Performance
+///
+/// - Secondary key queries are O(m) where m is the number of matching records
+/// - Much faster than scanning all records for most use cases
+/// - Indexes are automatically maintained during insert/update/delete operations
+///
+/// ## Usage Examples
+///
+/// ```rust
+/// use netabase_store::traits::NetabaseSecondaryKeyQuery;
+///
+/// // Query users by email
+/// let users = user_tree.query_by_secondary_key(
+///     UserSecondaryKeys::EmailKey("alice@example.com".to_string())
+/// )?;
+///
+/// // Query posts by category
+/// let tech_posts = post_tree.query_by_secondary_key(
+///     PostSecondaryKeys::CategoryKey("Technology".to_string())
+/// )?;
+///
+/// // Query by boolean secondary key
+/// let published_posts = post_tree.query_by_secondary_key(
+///     PostSecondaryKeys::PublishedKey(true)
+/// )?;
+/// ```
+///
+/// ## Index Management
+///
+/// Secondary key indexes are typically managed automatically, but can be controlled manually:
+///
+/// ```rust
+/// // Create index for better query performance
+/// tree.create_secondary_key_index("email")?;
+///
+/// // Remove index to save space (queries will be slower)
+/// tree.remove_secondary_key_index("email")?;
+/// ```
 pub trait NetabaseSecondaryKeyQuery<M, MK>
 where
     M: NetabaseModel<Key = MK>,
     MK: NetabaseModelKey,
 {
-    /// Query models by a specific secondary key
+    /// Query models by a specific secondary key value.
+    ///
+    /// This method efficiently finds all models where a secondary key field matches
+    /// the specified value. It returns a vector of matching models.
+    ///
+    /// # Arguments
+    ///
+    /// * `secondary_key` - The secondary key variant with the value to search for
+    ///
+    /// # Returns
+    ///
+    /// A vector of all models that match the secondary key criteria.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// // Find all users in the Engineering department
+    /// let engineers = user_tree.query_by_secondary_key(
+    ///     UserSecondaryKeys::DepartmentKey("Engineering".to_string())
+    /// )?;
+    ///
+    /// for user in engineers {
+    ///     println!("Engineer: {}", user.name);
+    /// }
+    /// ```
     fn query_by_secondary_key<SK>(
         &self,
         secondary_key: SK,
@@ -401,32 +692,140 @@ where
     where
         SK: NetabaseSecondaryKeys + TryInto<sled::IVec> + Clone + std::fmt::Debug + PartialEq;
 
-    /// Get all secondary key values for a specific field
+    /// Get all unique values for a specific secondary key field.
+    ///
+    /// This method returns all distinct values that exist for a secondary key field
+    /// across all records. Useful for building filters, dropdowns, or analytics.
+    ///
+    /// # Arguments
+    ///
+    /// * `field_name` - The name of the secondary key field (e.g., "email", "department")
+    ///
+    /// # Returns
+    ///
+    /// A vector of all unique values for the specified field.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// // Get all departments that have users
+    /// let departments = user_tree.get_secondary_key_values("department")?;
+    /// for dept_bytes in departments {
+    ///     let dept = String::from_utf8(dept_bytes.to_vec())?;
+    ///     println!("Department: {}", dept);
+    /// }
+    /// ```
     fn get_secondary_key_values(
         &self,
         field_name: &str,
     ) -> Result<Vec<sled::IVec>, crate::errors::NetabaseError>;
 
-    /// Create an index for a secondary key field
+    /// Create an index for a secondary key field.
+    ///
+    /// Manually create or rebuild an index for faster secondary key queries.
+    /// Indexes are usually created automatically, but this can be used for
+    /// rebuilding corrupted indexes or creating indexes for existing data.
+    ///
+    /// # Arguments
+    ///
+    /// * `field_name` - The name of the secondary key field to index
+    ///
+    /// # Performance Note
+    ///
+    /// Creating an index requires scanning all existing records, which can be
+    /// slow for large datasets.
     fn create_secondary_key_index(
         &self,
         field_name: &str,
     ) -> Result<(), crate::errors::NetabaseError>;
 
-    /// Remove an index for a secondary key field
+    /// Remove an index for a secondary key field.
+    ///
+    /// Removes the index to save storage space. Secondary key queries will still
+    /// work but will be much slower as they'll require full table scans.
+    ///
+    /// # Arguments
+    ///
+    /// * `field_name` - The name of the secondary key field to remove index for
+    ///
+    /// # Warning
+    ///
+    /// After removing an index, secondary key queries on that field will be O(n)
+    /// instead of O(m) where n is total records and m is matching records.
     fn remove_secondary_key_index(
         &self,
         field_name: &str,
     ) -> Result<(), crate::errors::NetabaseError>;
 }
 
-/// Trait for relational querying capabilities
+/// Trait for relational querying capabilities.
+///
+/// This trait enables foreign key relationships and join-like operations between
+/// different model types. It supports finding models that reference other models
+/// and resolving those relationships to load related data.
+///
+/// ## Relational Concepts
+///
+/// - **Foreign Keys**: Fields that reference the primary key of another model
+/// - **Referencing Models**: Models that contain foreign keys pointing to other models
+/// - **Resolution**: The process of loading related models using foreign key values
+///
+/// ## Usage Examples
+///
+/// ```rust
+/// use netabase_store::traits::NetabaseRelationalQuery;
+///
+/// // Find all comments that reference a specific post
+/// let post_key = PostKey::Primary(PostPrimaryKey(1));
+/// let comments = comment_tree.find_referencing_models(post_key)?;
+///
+/// // Find all posts by a specific author
+/// let user_key = UserKey::Primary(UserPrimaryKey(42));
+/// let user_posts = post_tree.find_referencing_models(user_key)?;
+/// ```
+///
+/// ## Relation Resolution
+///
+/// Relations can be resolved to load complete related data:
+///
+/// ```rust
+/// // Resolve author information for a post
+/// let mut post = get_post(post_id)?;
+/// post_tree.resolve_relations(&mut post, |link| {
+///     // Load user data for the author_id
+///     user_tree.get(link.foreign_key()).ok().flatten()
+/// })?;
+/// ```
 pub trait NetabaseRelationalQuery<M, MK>
 where
     M: NetabaseModel<Key = MK>,
     MK: NetabaseModelKey,
 {
-    /// Find all models that reference a specific key through relational links
+    /// Find all models that reference a specific target through relational links.
+    ///
+    /// This method performs a reverse lookup to find all models that have foreign
+    /// keys pointing to the specified target key. It's equivalent to a "WHERE
+    /// foreign_key = target_key" query in SQL.
+    ///
+    /// # Arguments
+    ///
+    /// * `target_key` - The key of the target model to find references to
+    ///
+    /// # Returns
+    ///
+    /// A vector of all models that reference the target key.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// // Find all comments on a specific post
+    /// let post_key = PostKey::Primary(PostPrimaryKey(1));
+    /// let comments = comment_tree.find_referencing_models(post_key)?;
+    ///
+    /// // Find all posts by a specific author
+    /// let author_key = UserKey::Primary(UserPrimaryKey(42));
+    /// let author_posts = post_tree.find_referencing_models(author_key)?;
+    /// ```
     fn find_referencing_models<TargetKey>(
         &self,
         target_key: TargetKey,
@@ -434,10 +833,40 @@ where
     where
         TargetKey: NetabaseModelKey + PartialEq;
 
-    /// Get all models that have unresolved relational links
+    /// Get all models that have unresolved relational links.
+    ///
+    /// Returns models that have foreign key references but where the referenced
+    /// models may not exist or may need to be loaded. Useful for data integrity
+    /// checks and lazy loading scenarios.
+    ///
+    /// # Returns
+    ///
+    /// A vector of (key, model) pairs for models with unresolved relations.
     fn get_unresolved_relations(&self) -> Result<Vec<(MK, M)>, crate::errors::NetabaseError>;
 
-    /// Resolve relational links in a model using a custom resolver function
+    /// Resolve relational links in a model using a custom resolver function.
+    ///
+    /// This method allows you to populate foreign key relationships by providing
+    /// a resolver function that loads the related data. The resolver is called
+    /// for each relational link in the model.
+    ///
+    /// # Arguments
+    ///
+    /// * `model` - The model to resolve relations for (modified in place)
+    /// * `resolver` - Function that takes a relational link and returns the related model
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// let mut post = get_post(1)?;
+    /// post_tree.resolve_relations(&mut post, |link| {
+    ///     match link.relation_type() {
+    ///         "author" => user_tree.get(link.foreign_key()).ok().flatten(),
+    ///         "category" => category_tree.get(link.foreign_key()).ok().flatten(),
+    ///         _ => None,
+    ///     }
+    /// })?;
+    /// ```
     fn resolve_relations<RelatedModel, RelatedKey>(
         &self,
         model: &mut M,
@@ -449,7 +878,20 @@ where
         RelatedModel: Clone + std::fmt::Debug,
         RelatedKey: NetabaseModelKey;
 
-    /// Batch resolve relations for multiple models
+    /// Batch resolve relations for multiple models efficiently.
+    ///
+    /// Similar to `resolve_relations` but operates on multiple models at once,
+    /// allowing for optimizations like batched loading and caching of related data.
+    ///
+    /// # Arguments
+    ///
+    /// * `models` - Slice of models to resolve relations for (modified in place)
+    /// * `resolver` - Function that takes a relational link and returns the related model
+    ///
+    /// # Performance Note
+    ///
+    /// This method can be more efficient than calling `resolve_relations` multiple
+    /// times as it can batch load related data and avoid duplicate queries.
     fn batch_resolve_relations<RelatedModel, RelatedKey>(
         &self,
         models: &mut [M],
@@ -462,28 +904,183 @@ where
         RelatedKey: NetabaseModelKey;
 }
 
-/// Trait for advanced querying capabilities
+/// Trait for advanced querying capabilities.
+///
+/// This trait provides powerful querying operations beyond basic CRUD and secondary
+/// key queries. It includes range queries, custom filtering, batch operations, and
+/// aggregation functions.
+///
+/// ## Query Types
+///
+/// - **Range Queries**: Efficiently query records within a key range
+/// - **Custom Filters**: Apply arbitrary predicates to filter records
+/// - **Batch Operations**: Perform bulk operations efficiently
+/// - **Aggregations**: Count and analyze data without loading full records
+///
+/// ## Performance Characteristics
+///
+/// - Range queries: O(log n + m) where n is total records, m is results
+/// - Custom filters: O(n) - requires scanning all records
+/// - Batch operations: Much faster than individual operations
+/// - Count operations: O(n) but without memory allocation for results
+///
+/// ## Usage Examples
+///
+/// ```rust
+/// use netabase_store::traits::NetabaseAdvancedQuery;
+///
+/// // Range query by key prefix
+/// let prefix = b"user_2023_";
+/// let recent_users = user_tree.range_by_prefix(prefix)?;
+///
+/// // Custom filter query
+/// let adults = user_tree.query_with_filter(|user| user.age >= 18)?;
+///
+/// // Count matching records
+/// let active_count = user_tree.count_where(|user| user.active)?;
+///
+/// // Batch insert for efficiency
+/// let users = vec![(user1_key, user1), (user2_key, user2)];
+/// user_tree.batch_insert_with_indexing(users)?;
+/// ```
 pub trait NetabaseAdvancedQuery<M, MK>
 where
     M: NetabaseModel<Key = MK>,
     MK: NetabaseModelKey,
 {
-    /// Range query by key prefix
+    /// Execute a range query using a key prefix.
+    ///
+    /// This method efficiently finds all records whose keys start with the
+    /// specified prefix. It's useful for hierarchical data, time-based queries,
+    /// or any scenario where keys have a meaningful prefix structure.
+    ///
+    /// # Arguments
+    ///
+    /// * `prefix` - The byte prefix to search for in keys
+    ///
+    /// # Returns
+    ///
+    /// A vector of (key, model) pairs for all matching records.
+    ///
+    /// # Performance
+    ///
+    /// Range queries are O(log n + m) where n is total records and m is results,
+    /// making them very efficient for prefix-based searches.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// // Find all users created in 2023 (assuming keys include date)
+    /// let prefix = b"user_2023_";
+    /// let users_2023 = user_tree.range_by_prefix(prefix)?;
+    ///
+    /// // Find all posts in a specific category (assuming hierarchical keys)
+    /// let tech_prefix = b"post_technology_";
+    /// let tech_posts = post_tree.range_by_prefix(tech_prefix)?;
+    /// ```
     fn range_by_prefix(&self, prefix: &[u8]) -> Result<Vec<(MK, M)>, crate::errors::NetabaseError>;
 
-    /// Batch insert with automatic indexing
+    /// Batch insert multiple records with automatic secondary key indexing.
+    ///
+    /// This method efficiently inserts multiple records at once, automatically
+    /// maintaining all secondary key indexes. It's much faster than individual
+    /// insert operations for bulk data loading.
+    ///
+    /// # Arguments
+    ///
+    /// * `items` - Vector of (key, model) pairs to insert
+    ///
+    /// # Performance
+    ///
+    /// Batch operations are significantly faster than individual inserts because:
+    /// - Reduced transaction overhead
+    /// - Bulk index updates
+    /// - Optimized disk I/O patterns
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// let users = vec![
+    ///     (UserKey::Primary(UserPrimaryKey(1)), user1),
+    ///     (UserKey::Primary(UserPrimaryKey(2)), user2),
+    ///     (UserKey::Primary(UserPrimaryKey(3)), user3),
+    /// ];
+    /// user_tree.batch_insert_with_indexing(users)?;
+    /// ```
     fn batch_insert_with_indexing(
         &self,
         items: Vec<(MK, M)>,
     ) -> Result<(), crate::errors::NetabaseError>;
 
-    /// Query with custom filter function
+    /// Query records using a custom filter predicate.
+    ///
+    /// This method applies a custom function to every record and returns those
+    /// that match the predicate. It's very flexible but requires scanning all
+    /// records, so it should be used judiciously on large datasets.
+    ///
+    /// # Arguments
+    ///
+    /// * `filter` - Function that takes a model and returns true if it should be included
+    ///
+    /// # Returns
+    ///
+    /// A vector of (key, model) pairs for all records that match the filter.
+    ///
+    /// # Performance Warning
+    ///
+    /// This operation is O(n) and loads all records into memory for filtering.
+    /// Consider using secondary key queries when possible for better performance.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// // Find all users with specific criteria
+    /// let premium_users = user_tree.query_with_filter(|user| {
+    ///     user.subscription_type == "Premium" && user.active
+    /// })?;
+    ///
+    /// // Find posts with high engagement
+    /// let popular_posts = post_tree.query_with_filter(|post| {
+    ///     post.likes > 100 && post.comments > 50
+    /// })?;
+    /// ```
     fn query_with_filter<F>(&self, filter: F) -> Result<Vec<(MK, M)>, crate::errors::NetabaseError>
     where
         F: Fn(&M) -> bool;
 
-    /// Count models matching a condition
-    fn count_where<F>(&self, condition: F) -> Result<usize, crate::errors::NetabaseError>
+    /// Count records that match a predicate without loading them into memory.
+    ///
+    /// This method counts records that match a predicate function without
+    /// allocating memory for the results. It's more memory-efficient than
+    /// `query_with_filter` when you only need the count.
+    ///
+    /// # Arguments
+    ///
+    /// * `predicate` - Function that takes a model and returns true if it should be counted
+    ///
+    /// # Returns
+    ///
+    /// The number of records that match the predicate.
+    ///
+    /// # Performance
+    ///
+    /// While still O(n), this method is more memory-efficient than loading
+    /// all matching records since it only keeps a counter.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// // Count active users
+    /// let active_count = user_tree.count_where(|user| user.active)?;
+    ///
+    /// // Count published posts
+    /// let published_count = post_tree.count_where(|post| post.published)?;
+    ///
+    /// // Count recent posts (using timestamps)
+    /// let recent_threshold = chrono::Utc::now().timestamp() - 86400; // 24 hours ago
+    /// let recent_count = post_tree.count_where(|post| post.created_at > recent_threshold)?;
+    /// ```
+    fn count_where<F>(&self, predicate: F) -> Result<usize, crate::errors::NetabaseError>
     where
         F: Fn(&M) -> bool;
 }

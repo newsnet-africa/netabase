@@ -1,15 +1,1458 @@
 #![feature(impl_trait_in_assoc_type)]
 
-//! # Netabase
+//! # Netabase - Distributed Database System
 //!
-//! A distributed database built on top of sled with libp2p integration.
+//! Netabase is a distributed, peer-to-peer database system built on top of [sled](https://github.com/spacejam/sled)
+//! with [libp2p](https://libp2p.io/) integration. It provides a type-safe, macro-driven approach to
+//! defining database schemas and models with support for primary keys, secondary keys, and relational queries.
 //!
-//! This crate re-exports the core functionality from `netabase_store`.
-
+//! ## Key Features
+//!
+//! - **Type-Safe Models**: Automatic code generation for database models using derive macros
+//! - **Primary & Secondary Keys**: Efficient indexing and querying capabilities
+//! - **Distributed Architecture**: Peer-to-peer networking with DHT-based record storage
+//! - **Relational Support**: Foreign key relationships and join-like operations
+//! - **Network Transparency**: Seamless data synchronization across network nodes
+//!
+//! ## Quick Start
+//!
+//! ```rust
+//! use netabase::Netabase;
+//! use netabase_macros::{NetabaseModel, netabase_schema_module};
+//! use netabase::traits::NetabaseModel;
+//! use serde::{Serialize, Deserialize};
+//! use bincode::{Encode, Decode};
+//!
+//! // Define your data models
+//! #[netabase_schema_module(BlogSchema, BlogKeys)]
+//! mod blog {
+//!     use super::*;
+//!
+//!     #[derive(NetabaseModel, Clone, Encode, Decode, Debug, Serialize, Deserialize)]
+//!     #[key_name(UserKey)]
+//!     pub struct User {
+//!         #[key]
+//!         pub id: u64,
+//!         pub name: String,
+//!         #[secondary_key]
+//!         pub email: String,
+//!     }
+//! }
+//!
+//! use blog::*;
+//!
+//! #[tokio::main]
+//! async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     // Create a distributed database instance
+//!     let mut netabase = Netabase::<BlogSchema>::new()?;
+//!     netabase.start_swarm().await?;
+//!
+//!     // Create and store a user
+//!     let user = User {
+//!         id: 1,
+//!         name: "Alice".to_string(),
+//!         email: "alice@example.com".to_string(),
+//!     };
+//!
+//!     // Store in the distributed hash table
+//!     netabase.put_record(user).await?;
+//!
+//!     // Retrieve from the network
+//!     let user_key = UserKey::Primary(UserPrimaryKey(1));
+//!     let result = netabase.get_record(user_key).await?;
+//!
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ## Architecture Overview
+//!
+//! Netabase consists of three main layers:
+//!
+//! ### 1. Storage Layer (`netabase_store`)
+//! - Embedded database operations using sled
+//! - CRUD operations and indexing
+//! - Secondary key and relational queries
+//! - Local data persistence
+//!
+//! ### 2. Macro Layer (`netabase_macros`)
+//! - Procedural macros for code generation
+//! - Type-safe model and schema definitions
+//! - Automatic key type generation
+//! - Serialization trait implementations
+//!
+//! ### 3. Network Layer (`netabase`)
+//! - Peer-to-peer networking with libp2p
+//! - Distributed hash table (DHT) operations
+//! - Record replication and discovery
+//! - Event broadcasting and subscription
+//!
+//! ## Local Database Usage
+//!
+//! For local-only database operations without networking:
+//!
+//! ```rust
+//! use netabase_store::database::{NetabaseSledDatabase, NetabaseSledTree};
+//! use netabase_store::traits::{NetabaseModel, NetabaseSecondaryKeyQuery};
+//! use netabase_macros::netabase_schema_module;
+//!
+// Define your data models
+//! #[netabase_schema_module(BlogSchema, BlogKeys)]
+//! mod blog {
+//!     use super::*;
+//!     use netabase_macros::NetabaseModel;
+//!     use bincode::{Encode, Decode};
+//!     use serde::{Serialize, Deserialize};
+//!     use netabase::traits::NetabaseModel;
+//!
+//!
+//!     #[derive(NetabaseModel, Clone, Encode, Decode, Debug, Serialize, Deserialize)]
+//!     #[key_name(UserKey)]
+//!     pub struct User {
+//!         #[key]
+//!         pub id: u64,
+//!         pub name: String,
+//!         #[secondary_key]
+//!         pub email: String,
+//!     }
+//! }
+//!
+//! // Example schema and types would be defined with macros
+//! // See examples/ directory for complete working examples
+//!
+//! // Create local database
+//! let db = NetabaseSledDatabase::<blog::BlogSchema>::new_with_path("my_local_db").unwrap();
+//! let user_tree: NetabaseSledTree<blog::User, blog::UserKey> = db.get_main_tree().unwrap();
+//!
+//! let user = blog::User { id: 1, name: "Some Name".to_string(), email: "some@email.com".to_string() };
+//!
+//! // Standard CRUD operations
+//! user_tree.insert(user.key(), user.clone()).unwrap();
+//! let retrieved = user_tree.get(user.key()).unwrap().unwrap();
+//!
+//! // Secondary key queries
+//! let users_by_email = user_tree.query_by_secondary_key(
+//!     blog::UserSecondaryKeys::EmailKey("alice@example.com".to_string())
+//! ).unwrap();
+//! ```
+//!
+//! ## Distributed Network Usage
+//!
+//! For distributed operations across multiple nodes:
+//!
+//! ```rust, ignore
+//! use bincode::{Decode, Encode};
+//! use netabase::Netabase;
+//! use netabase_macros::{NetabaseModel, netabase_schema_module};
+//! use netabase_store::traits::NetabaseModel;
+//! use serde::{Deserialize, Serialize};
+//! use tokio::main;
+//!
+//! /// Example schema module for testing netabase functionality
+//! #[netabase_schema_module(TestSchema, TestSchemaKeys)]
+//! mod test_schema {
+//!     use super::*;
+//!     use bincode::{Decode, Encode};
+//!     use serde::{Serialize, Deserialize};
+//!     use netabase_macros::{NetabaseModel, key_name};
+//!
+//!     /// Test user model
+//!     #[derive(NetabaseModel, Clone, Encode, Decode, Debug, PartialEq, Serialize, Deserialize)]
+//!     #[key_name(TestUserKey)]
+//!     pub struct TestUser {
+//!         #[key]
+//!         pub id: u64,
+//!         pub name: String,
+//!     }
+//! }
+//! #[tokio::main]
+//! pub async fn main() {
+//!     // Create distributed instance
+//!     let mut netabase = Netabase::<test_schema::TestSchema>::new_with_path("./node_data").expect("Failed to initialise database for some reason");
+//!     let user = test_schema::TestUser { id:1, name:"Some Name".to_string() };
+//!     let key = user.key();
+//!     let start_swarm_result = netabase.start_swarm().await;
+//!
+//!     // Network operations
+//!     let bootstrap_result = netabase.bootstrap().await; // Join the network
+//!     let put_record_result = netabase.put_record(user).await; // Store data
+//!     let get_record_result = netabase.get_record(key.clone()).await; // Retrieve data
+//!
+//!     // Provider operations
+//!     let provider_result = netabase.start_providing(key.clone()).await;
+//!     let providers_result = netabase.get_providers(key).await;
+//!
+//!     // Subscribe to network events
+//!     let mut receiver = netabase.subscribe_to_broadcasts();
+//!     while let Ok(event) = receiver.recv().await {
+//!         println!("Network event: {:?}", event);
+//!     }
+//! }
+//! ```
+//!
+//! ## Data Modeling Best Practices
+//!
+//! ### Primary Keys
+//! - Use simple, immutable types (u64, String, UUID)
+//! - Ensure uniqueness across all records
+//! - Consider using auto-incrementing integers or UUIDs
+//!
+//! ### Secondary Keys
+//! - Index frequently queried fields
+//! - Balance query performance vs. storage/write overhead
+//! - Use for fields with reasonable cardinality
+//!
+//! ### Relations
+//! - Use foreign key fields to reference other models
+//! - Enable efficient joins and referential integrity
+//! - Consider using `NetabaseRelationalQuery` for complex relationships
+///
+/// ## Performance Considerations
+///
+/// - **Secondary Key Queries**: O(m) where m is matching records
+/// - **Primary Key Access**: O(log n) where n is total records
+/// - **Range Queries**: O(log n + m) for efficient prefix searches
+/// - **Batch Operations**: Much faster than individual operations
+/// - **Network Operations**: May timeout in single-node setups
+///
+/// ## Testing
+///
+/// Use unique database paths for tests to avoid conflicts:
+///
+/// ```rust
+/// use tempfile::TempDir;
+///
+/// #[cfg(test)]
+/// mod tests {
+///     #[test]
+///     fn test_database_operations() {
+///         let temp_dir = TempDir::new().unwrap();
+///         let db_path = temp_dir.path().join("test_db");
+///         let db = NetabaseSledDatabase::new_with_name(&db_path.to_string_lossy()).unwrap();
+///         // Test operations...
+///     }
+/// }
+/// ```
+///
+/// This crate re-exports the core functionality from `netabase_store` for convenience.
 pub use netabase_store::*;
 pub mod errors;
 pub mod network;
 
-pub struct Netabase {
-    swarm_thread: tokio::task::JoinHandle<anyhow::Result<()>>,
+use libp2p::kad::QueryResult;
+use netabase_store::traits::{NetabaseModel, NetabaseModelKey, NetabaseSchema as NetabaseSchemaT};
+use tokio::sync::{broadcast, mpsc, oneshot};
+
+/// Main Netabase instance that manages the distributed database.
+///
+/// This is the primary interface for interacting with a Netabase distributed database.
+/// It manages both local storage (via sled) and peer-to-peer networking (via libp2p),
+/// providing a unified API for distributed data operations.
+///
+/// ## Architecture
+///
+/// The `Netabase` instance coordinates several components:
+/// - **Local Database**: Embedded sled database for local storage
+/// - **P2P Swarm**: libp2p swarm for network communication
+/// - **DHT**: Kademlia DHT for distributed record storage and discovery
+/// - **Event System**: Broadcast channels for network event notifications
+///
+/// ## Lifecycle
+///
+/// 1. **Creation**: Use `new()` or `new_with_path()` to create an instance
+/// 2. **Startup**: Call `start_swarm()` to begin network operations
+/// 3. **Operations**: Use `put_record()`, `get_record()`, etc. for data operations
+/// 4. **Shutdown**: Call `stop_swarm()` or let the instance drop for cleanup
+///
+/// ## Thread Safety
+///
+/// The `Netabase` instance is thread-safe and can be shared across async tasks.
+/// Network operations are handled by a background task that communicates via
+/// message passing channels.
+///
+/// ## Example
+///
+/// ```rust,ignore
+/// use netabase::Netabase;
+/// use netabase_macros::{NetabaseModel, netabase_schema_module};
+///
+/// #[netabase_schema_module(MySchema, MyKeys)]
+/// mod schema {
+///     use super::*;
+///
+///     #[derive(NetabaseModel)]
+///     #[key_name(UserKey)]
+///     pub struct User {
+///         #[key] pub id: u64,
+///         pub name: String,
+///     }
+/// }
+///
+/// use schema::*;
+///
+/// // Create and start the distributed database
+/// let mut netabase = Netabase::<MySchema>::new().unwrap();
+/// netabase.start_swarm().await.unwrap();
+///
+/// // Store data in the distributed network
+/// let user = User { id: 1, name: "Alice".to_string() };
+/// netabase.put_record(user).await.unwrap();
+///
+/// // Retrieve data from the network
+/// let key = UserKey::Primary(UserPrimaryKey(1));
+/// let result = netabase.get_record(key).await.unwrap();
+///
+/// netabase.stop_swarm().await.unwrap();
+/// ```
+pub struct Netabase<S: NetabaseSchemaT> {
+    /// Handle to the background swarm task
+    swarm_thread: Option<tokio::task::JoinHandle<anyhow::Result<()>>>,
+    /// Channel for sending commands to the swarm
+    command_sender: mpsc::Sender<network::swarm::handlers::command_events::Command<S>>,
+    /// Channel for receiving broadcast events from the network
+    broadcast_receiver: broadcast::Receiver<network::behaviour::clone_impl::NetabaseSwarmEvent<S>>,
+    /// Optional custom database path
+    database_path: Option<String>,
+}
+
+impl<S: NetabaseSchemaT + 'static> Netabase<S> {
+    /// Create a new Netabase instance with default settings.
+    ///
+    /// This creates a new distributed database instance with:
+    /// - Default database path (system-dependent)
+    /// - Uninitialized network swarm (call `start_swarm()` to activate)
+    /// - Fresh command and broadcast channels
+    ///
+    /// # Returns
+    ///
+    /// A new `Netabase` instance ready for network startup.
+    ///
+    /// # Errors
+    ///
+    /// Currently this method doesn't fail, but returns `Result` for future compatibility.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use netabase::Netabase;
+    /// use netabase_macros::netabase_schema_module;
+    ///
+    /// #[netabase_schema_module(MySchema, MyKeys)]
+    /// mod my_schema {}
+    ///
+    /// let netabase = Netabase::<MySchema>::new().unwrap();
+    /// ```
+    pub fn new() -> anyhow::Result<Self> {
+        let (command_sender, _command_receiver) = mpsc::channel(100);
+        let (_broadcast_sender, broadcast_receiver) = broadcast::channel(1000);
+
+        Ok(Self {
+            swarm_thread: None,
+            command_sender,
+            broadcast_receiver,
+            database_path: None,
+        })
+    }
+
+    /// Create a new Netabase instance with a custom database path.
+    ///
+    /// This allows you to specify where the local sled database will be stored,
+    /// which is useful for:
+    /// - Custom data directories
+    /// - Testing with isolated databases
+    /// - Multiple database instances
+    /// - Docker volume mounting
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The filesystem path where the database should be stored
+    ///
+    /// # Returns
+    ///
+    /// A new `Netabase` instance configured to use the specified database path.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use netabase::Netabase;
+    /// use std::path::Path;
+    /// use netabase_macros::netabase_schema_module;
+    ///
+    /// #[netabase_schema_module(MySchema, MyKeys)]
+    /// mod my_schema {}
+    ///
+    /// // Use a custom database path
+    /// let netabase = Netabase::<MySchema>::new_with_path("./my_app_data").unwrap();
+    ///
+    /// // For testing with temporary directories
+    /// let temp_dir = tempfile::TempDir::new().unwrap();
+    /// let netabase = Netabase::<MySchema>::new_with_path(temp_dir.path()).unwrap();
+    /// ```
+    pub fn new_with_path<P: AsRef<std::path::Path>>(path: P) -> anyhow::Result<Self> {
+        let (command_sender, _command_receiver) = mpsc::channel(100);
+        let (_broadcast_sender, broadcast_receiver) = broadcast::channel(1000);
+
+        Ok(Self {
+            swarm_thread: None,
+            command_sender,
+            broadcast_receiver,
+            database_path: Some(path.as_ref().to_string_lossy().to_string()),
+        })
+    }
+
+    /// Start the swarm thread to enable network operations.
+    ///
+    /// This method initializes and starts the background libp2p swarm that handles
+    /// all network communication, including:
+    /// - DHT participation for record storage and discovery
+    /// - Peer discovery and connection management
+    /// - Network event processing and broadcasting
+    ///
+    /// After calling this method, the instance can perform distributed operations
+    /// like `put_record()`, `get_record()`, and provider management.
+    ///
+    /// # State Changes
+    ///
+    /// - Spawns a background async task for swarm management
+    /// - Initializes fresh command and broadcast channels
+    /// - Starts listening for network connections
+    /// - Begins DHT bootstrap process (if peers are available)
+    ///
+    /// # Errors
+    ///
+    /// - Returns error if swarm is already running
+    /// - May fail if unable to bind to network ports
+    /// - Database path issues (if custom path was specified)
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use netabase::Netabase;
+    /// use netabase_macros::netabase_schema_module;
+    ///
+    /// #[netabase_schema_module(MySchema, MyKeys)]
+    /// mod my_schema {}
+    ///
+    /// let mut netabase = Netabase::<MySchema>::new().unwrap();
+    ///
+    /// // Start network operations
+    /// netabase.start_swarm().await.unwrap();
+    /// ```
+    ///
+    /// # Thread Safety
+    ///
+    /// The swarm runs in a separate async task, so this method doesn't block.
+    /// Multiple concurrent operations can be performed safely after startup.
+    pub async fn start_swarm(&mut self) -> anyhow::Result<()> {
+        if self.swarm_thread.is_some() {
+            return Err(anyhow::anyhow!("Swarm is already running"));
+        }
+
+        let (command_sender, command_receiver) = mpsc::channel(100);
+        let (broadcast_sender, broadcast_receiver) = broadcast::channel(1000);
+
+        // Update internal channels
+        self.command_sender = command_sender;
+        self.broadcast_receiver = broadcast_receiver;
+
+        // Generate and start swarm
+        let swarm = network::swarm::generate_swarm_with_name::<S>(self.database_path.clone())?;
+
+        let handle = tokio::spawn(async move {
+            network::swarm::start_swarm(swarm, broadcast_sender, command_receiver).await
+        });
+
+        self.swarm_thread = Some(handle);
+        Ok(())
+    }
+
+    /// Stop the swarm thread and shutdown network operations.
+    ///
+    /// This method gracefully shuts down the background swarm task and terminates
+    /// all network operations. After calling this method, distributed operations
+    /// will no longer work until `start_swarm()` is called again.
+    ///
+    /// # Cleanup Operations
+    ///
+    /// - Aborts the background swarm task
+    /// - Closes network connections
+    /// - Stops DHT participation
+    /// - Flushes any pending operations
+    ///
+    /// # Graceful Shutdown
+    ///
+    /// The method waits for the swarm task to complete or handles cancellation
+    /// gracefully. It's safe to call this method multiple times.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use netabase::Netabase;
+    /// use netabase_macros::netabase_schema_module;
+    ///
+    /// #[netabase_schema_module(MySchema, MyKeys)]
+    /// mod my_schema {}
+    ///
+    /// let mut netabase = Netabase::<MySchema>::new().unwrap();
+    /// netabase.start_swarm().await.unwrap();
+    ///
+    /// // Perform operations...
+    ///
+    /// // Shutdown gracefully
+    /// netabase.stop_swarm().await.unwrap();
+    /// ```
+    ///
+    /// # Automatic Cleanup
+    ///
+    /// The swarm is also automatically stopped when the `Netabase` instance
+    /// is dropped, so explicit shutdown is optional but recommended for
+    /// graceful application termination.
+    pub async fn stop_swarm(&mut self) -> anyhow::Result<()> {
+        if let Some(handle) = self.swarm_thread.take() {
+            handle.abort();
+            match handle.await {
+                Ok(result) => result?,
+                Err(e) if e.is_cancelled() => {
+                    // Expected when we abort the task
+                }
+                Err(e) => return Err(anyhow::anyhow!("Swarm thread error: {}", e)),
+            }
+        }
+        Ok(())
+    }
+
+    /// Subscribe to network event broadcasts.
+    ///
+    /// This method returns a receiver that can be used to monitor network events
+    /// such as peer connections, DHT operations, record discoveries, and other
+    /// swarm activities. Each subscription creates an independent receiver.
+    ///
+    /// # Event Types
+    ///
+    /// The receiver will get events including:
+    /// - Peer connection/disconnection events
+    /// - DHT query results and updates
+    /// - Record put/get operations
+    /// - Provider advertisement events
+    /// - Network errors and status changes
+    ///
+    /// # Multiple Subscriptions
+    ///
+    /// Multiple receivers can be created and will each receive all events
+    /// independently. This allows different parts of your application to
+    /// monitor network activity simultaneously.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use netabase::Netabase;
+    /// use netabase_macros::netabase_schema_module;
+    ///
+    /// #[netabase_schema_module(MySchema, MyKeys)]
+    /// mod my_schema {}
+    ///
+    /// let mut netabase = Netabase::<MySchema>::new().unwrap();
+    /// let mut receiver = netabase.subscribe_to_broadcasts();
+    ///
+    /// // Start the swarm first
+    /// netabase.start_swarm().await.unwrap();
+    ///
+    /// // Monitor network events in a background task
+    /// tokio::spawn(async move {
+    ///     while let Ok(event) = receiver.recv().await {
+    ///         println!("Network event: {:?}", event);
+    ///     }
+    /// });
+    /// ```
+    ///
+    /// # Performance Note
+    ///
+    /// If events are not consumed fast enough, the receiver may lag behind
+    /// and miss events. Use bounded channels and appropriate buffering for
+    /// high-throughput scenarios.
+    pub fn subscribe_to_broadcasts(
+        &self,
+    ) -> broadcast::Receiver<network::behaviour::clone_impl::NetabaseSwarmEvent<S>> {
+        self.broadcast_receiver.resubscribe()
+    }
+
+    /// Store a record in the distributed hash table (DHT).
+    ///
+    /// This method takes any model that implements `NetabaseModel` and stores it
+    /// in the distributed network. The model is automatically wrapped in the
+    /// schema enum and serialized for network transmission.
+    ///
+    /// # Type Safety
+    ///
+    /// The model type `M` must be convertible to the schema type `S` via the
+    /// automatically generated `From` implementations. This ensures type safety
+    /// across the network.
+    ///
+    /// # Network Behavior
+    ///
+    /// - The record is stored in the local DHT and propagated to nearby peers
+    /// - Multiple nodes may store copies for redundancy
+    /// - The operation may timeout if no peers are available
+    /// - Records have a TTL and may expire if not refreshed
+    ///
+    /// # Arguments
+    ///
+    /// * `model` - The model instance to store in the network
+    ///
+    /// # Returns
+    ///
+    /// A `QueryResult` containing the outcome of the DHT operation, including
+    /// information about which peers stored the record.
+    ///
+    /// # Errors
+    ///
+    /// - Network timeout if no peers respond
+    /// - Serialization errors if the model can't be encoded
+    /// - Swarm not started (must call `start_swarm()` first)
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use libp2p::kad::QueryResult;
+    ///
+    /// let user = User {
+    ///     id: 1,
+    ///     name: "Alice".to_string(),
+    ///     email: "alice@example.com".to_string(),
+    /// };
+    ///
+    /// match netabase.put_record(user).await {
+    ///     Ok(result) => println!("Stored successfully: {:?}", result),
+    ///     Err(e) => eprintln!("Storage failed: {}", e),
+    /// }
+    /// ```
+    ///
+    /// # Performance Note
+    ///
+    /// DHT operations are asynchronous and may take time to complete,
+    /// especially during network partitions or with limited peers.
+    pub async fn put_record<M: NetabaseModel>(&self, model: M) -> anyhow::Result<QueryResult>
+    where
+        S: From<M>,
+    {
+        let schema = S::from(model);
+
+        let (response_tx, response_rx) = oneshot::channel();
+
+        let command = network::swarm::handlers::command_events::Command::Kademlia(
+            network::swarm::handlers::command_events::KademliaCommand::PutRecord {
+                record: schema,
+                response_channel: response_tx,
+            },
+        );
+
+        self.command_sender.send(command).await?;
+
+        match response_rx.await? {
+            Ok(result) => Ok(result),
+            Err(e) => Err(anyhow::anyhow!("Put record failed: {:?}", e)),
+        }
+    }
+
+    /// Retrieve a record from the distributed hash table (DHT).
+    ///
+    /// This method searches the distributed network for a record matching the
+    /// specified key. It queries multiple peers and returns the first valid
+    /// record found, or an error if the record cannot be located.
+    ///
+    /// # Type Safety
+    ///
+    /// The key type `K` must be convertible to the schema keys type `S::Keys`
+    /// via automatically generated `From` implementations.
+    ///
+    /// # Network Behavior
+    ///
+    /// - Queries are sent to multiple peers simultaneously
+    /// - Returns as soon as the first valid record is found
+    /// - May timeout if no peers have the record or are reachable
+    /// - Checks record validity and authenticity
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The key of the record to retrieve from the network
+    ///
+    /// # Returns
+    ///
+    /// A `QueryResult` containing either the found record or information
+    /// about why the query failed.
+    ///
+    /// # Errors
+    ///
+    /// - Record not found in the network
+    /// - Network timeout if no peers respond
+    /// - Deserialization errors if record data is corrupted
+    /// - Swarm not started (must call `start_swarm()` first)
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use libp2p::kad::QueryResult;
+    ///
+    /// match netabase.get_record(user_key).await {
+    ///     Ok(QueryResult::GetRecord(Ok(result))) => {
+    ///         println!("Found record: {:?}", result.record);
+    ///     }
+    ///     Ok(_) => println!("Query completed but no record found"),
+    ///     Err(e) => eprintln!("Query failed: {}", e),
+    /// }
+    /// ```
+    ///
+    /// # Caching Behavior
+    ///
+    /// Retrieved records may be cached locally for faster future access.
+    /// The cache TTL depends on network configuration.
+    pub async fn get_record<K: NetabaseModelKey>(&self, key: K) -> anyhow::Result<QueryResult>
+    where
+        S::Keys: From<K>,
+    {
+        let schema_key = S::Keys::from(key);
+
+        let (response_tx, response_rx) = oneshot::channel();
+
+        let command = network::swarm::handlers::command_events::Command::Kademlia(
+            network::swarm::handlers::command_events::KademliaCommand::GetRecord {
+                key: schema_key,
+                response_channel: response_tx,
+            },
+        );
+
+        self.command_sender.send(command).await?;
+        Ok(response_rx.await?)
+    }
+
+    /// Find all peers that are providing a specific key in the DHT.
+    ///
+    /// This method queries the distributed network to discover which peers are
+    /// advertising themselves as providers for a given key. Providers are nodes
+    /// that claim to have the data associated with a key and can serve it to
+    /// other peers.
+    ///
+    /// # Provider System
+    ///
+    /// - Nodes automatically become providers when they store records
+    /// - Providers can be manually advertised using `start_providing()`
+    /// - Provider records have a TTL and expire if not refreshed
+    /// - Multiple nodes can provide the same key for redundancy
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The key to find providers for
+    ///
+    /// # Returns
+    ///
+    /// A `QueryResult` containing a list of peer IDs that are providing the key.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use libp2p::kad::QueryResult;
+    ///
+    /// match netabase.get_providers(user_key).await {
+    ///     Ok(QueryResult::GetProviders(Ok(result))) => {
+    ///         println!("Found {} providers", result.providers.len());
+    ///         for peer_id in result.providers {
+    ///             println!("Provider: {}", peer_id);
+    ///         }
+    ///     }
+    ///     Ok(_) => println!("No providers found"),
+    ///     Err(e) => eprintln!("Provider query failed: {}", e),
+    /// }
+    /// ```
+    pub async fn get_providers<K: NetabaseModelKey>(&self, key: K) -> anyhow::Result<QueryResult>
+    where
+        S::Keys: From<K>,
+    {
+        let schema_key = S::Keys::from(key);
+
+        let (response_tx, response_rx) = oneshot::channel();
+
+        let command = network::swarm::handlers::command_events::Command::Kademlia(
+            network::swarm::handlers::command_events::KademliaCommand::GetProviders {
+                key: schema_key,
+                response_channel: response_tx,
+            },
+        );
+
+        self.command_sender.send(command).await?;
+        Ok(response_rx.await?)
+    }
+
+    /// Advertise this node as a provider for a specific key.
+    ///
+    /// This method announces to the DHT network that this node can provide
+    /// data for the specified key. Other nodes can then discover this node
+    /// when searching for providers of that key.
+    ///
+    /// # Provider Lifecycle
+    ///
+    /// - Provider records are periodically refreshed automatically
+    /// - Records expire if the node goes offline or stops providing
+    /// - Multiple nodes can provide the same key simultaneously
+    /// - Providing continues until explicitly stopped or node shuts down
+    ///
+    /// # Use Cases
+    ///
+    /// - Content distribution and caching
+    /// - Service discovery
+    /// - Load balancing across multiple data sources
+    /// - Redundancy and fault tolerance
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The key to start providing
+    ///
+    /// # Returns
+    ///
+    /// A `QueryResult` indicating the success of the provider advertisement.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use libp2p::kad::QueryResult;
+    ///
+    /// // Store the record first
+    /// netabase.put_record(user).await.unwrap();
+    ///
+    /// // Advertise as a provider
+    /// match netabase.start_providing(user_key).await {
+    ///     Ok(_) => {
+    ///         println!("Now providing the key");
+    ///         // Other nodes can now discover us as a provider
+    ///     }
+    ///     Err(e) => eprintln!("Failed to start providing: {}", e),
+    /// }
+    /// ```
+    pub async fn start_providing<K: NetabaseModelKey>(&self, key: K) -> anyhow::Result<QueryResult>
+    where
+        S::Keys: From<K>,
+    {
+        let schema_key = S::Keys::from(key);
+
+        let (response_tx, response_rx) = oneshot::channel();
+
+        let command = network::swarm::handlers::command_events::Command::Kademlia(
+            network::swarm::handlers::command_events::KademliaCommand::StartProviding {
+                key: schema_key,
+                response_channel: response_tx,
+            },
+        );
+
+        self.command_sender.send(command).await?;
+
+        match response_rx.await? {
+            Ok(result) => Ok(result),
+            Err(e) => Err(anyhow::anyhow!("Start providing failed: {:?}", e)),
+        }
+    }
+
+    /// Stop advertising this node as a provider for a specific key.
+    ///
+    /// This method removes the provider advertisement for the specified key,
+    /// so other nodes will no longer discover this node when searching for
+    /// providers of that key.
+    ///
+    /// # Behavior
+    ///
+    /// - Immediately stops advertising the key
+    /// - Existing provider records will expire naturally
+    /// - Does not affect locally stored data
+    /// - Other nodes may still have cached provider information temporarily
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The key to stop providing
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// // Previously started providing this key
+    /// netabase.start_providing(user_key).await.unwrap();
+    ///
+    /// // Later, stop providing it
+    /// netabase.stop_providing(user_key).await.unwrap();
+    /// println!("No longer providing this key");
+    /// ```
+    pub async fn stop_providing<K: NetabaseModelKey>(&self, key: K) -> anyhow::Result<()>
+    where
+        S::Keys: From<K>,
+    {
+        let schema_key = S::Keys::from(key);
+
+        let command = network::swarm::handlers::command_events::Command::Kademlia(
+            network::swarm::handlers::command_events::KademliaCommand::StopProviding {
+                key: schema_key,
+            },
+        );
+
+        self.command_sender.send(command).await?;
+        Ok(())
+    }
+
+    /// Bootstrap the node to join the DHT network.
+    ///
+    /// This method initiates the bootstrap process to join the distributed hash table
+    /// network. It attempts to connect to known peers and populate the routing table
+    /// to enable efficient DHT operations.
+    ///
+    /// # Bootstrap Process
+    ///
+    /// 1. Connects to any known bootstrap peers
+    /// 2. Performs initial DHT queries to discover more peers
+    /// 3. Populates the Kademlia routing table
+    /// 4. Begins participating in DHT maintenance
+    ///
+    /// # When to Bootstrap
+    ///
+    /// - After starting the swarm for the first time
+    /// - When reconnecting after network isolation
+    /// - Periodically to refresh the routing table
+    /// - When few peers are known and connectivity is poor
+    ///
+    /// # Network Requirements
+    ///
+    /// - At least one reachable bootstrap peer must be known
+    /// - Network connectivity to discover additional peers
+    /// - May fail in isolated or single-node environments
+    ///
+    /// # Returns
+    ///
+    /// A `QueryResult` indicating the outcome of the bootstrap process.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use libp2p::kad::QueryResult;
+    /// use libp2p::{Multiaddr, PeerId};
+    ///
+    /// // Start the swarm first
+    /// netabase.start_swarm().await.unwrap();
+    ///
+    /// // Add known bootstrap peers (optional, but recommended)
+    /// let bootstrap_addr: Multiaddr = "/ip4/192.168.1.100/tcp/4001".parse().unwrap();
+    /// let bootstrap_addr: Multiaddr = "/ip4/192.168.1.100/udp/0/quic-v1".parse().unwrap(); // Or use Quic with UDP
+    /// let bootstrap_peer = PeerId::random(); // In practice, use known peer ID
+    /// netabase.add_address(bootstrap_peer, bootstrap_addr).await.unwrap();
+    ///
+    /// // Bootstrap to join the network
+    /// match netabase.bootstrap().await {
+    ///     Ok(QueryResult::Bootstrap(Ok(result))) => {
+    ///         if result.num_remaining == 0 {
+    ///             println!("Successfully joined the DHT network");
+    ///         } else {
+    ///             println!("Bootstrap in progress, {} peers remaining", result.num_remaining);
+    ///         }
+    ///     }
+    ///     Err(e) => eprintln!("Bootstrap failed: {}", e),
+    /// }
+    /// ```
+    pub async fn bootstrap(&self) -> anyhow::Result<QueryResult> {
+        let (response_tx, response_rx) = oneshot::channel();
+
+        let command = network::swarm::handlers::command_events::Command::Kademlia(
+            network::swarm::handlers::command_events::KademliaCommand::Bootstrap {
+                response_channel: response_tx,
+            },
+        );
+
+        self.command_sender.send(command).await?;
+
+        match response_rx.await? {
+            Ok(result) => Ok(result),
+            Err(e) => Err(anyhow::anyhow!("Bootstrap failed: {:?}", e)),
+        }
+    }
+
+    /// Add a known network address for a peer.
+    ///
+    /// This method adds a peer's network address to the routing table, enabling
+    /// direct connections to that peer. This is essential for bootstrapping
+    /// and maintaining connectivity in the DHT network.
+    ///
+    /// # Address Types
+    ///
+    /// Supports various libp2p multiaddress formats:
+    /// - `/ip4/192.168.1.100/tcp/4001` - IPv4 TCP
+    /// - `/ip6/::1/tcp/4001` - IPv6 TCP
+    /// - `/dns/example.com/tcp/4001` - DNS resolution
+    /// - Complex addresses with multiple protocols
+    ///
+    /// # Use Cases
+    ///
+    /// - Adding bootstrap peers for network discovery
+    /// - Maintaining connections to known reliable peers
+    /// - Manual peer management for private networks
+    /// - Reconnecting to previously known peers
+    ///
+    /// # Arguments
+    ///
+    /// * `peer_id` - The unique identifier of the peer
+    /// * `address` - The network address where the peer can be reached
+    ///
+    /// # Returns
+    ///
+    /// A `RoutingUpdate` indicating how the routing table was modified.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use libp2p::{PeerId, Multiaddr};
+    /// use tokio::main;
+    ///
+    /// use bincode::{Decode, Encode};
+    /// use netabase::Netabase;
+    /// use netabase_macros::{NetabaseModel, netabase_schema_module};
+    /// use netabase_store::traits::NetabaseModel;
+    /// use serde::{Deserialize, Serialize};
+    /// // Define your data models
+    /// #[netabase_schema_module(BlogSchema, BlogKeys)]
+    /// mod blog {
+    ///     use super::*;
+    ///     #[derive(NetabaseModel, Clone, Encode, Decode, Debug, Serialize, Deserialize)]
+    ///     #[key_name(UserKey)]
+    ///     pub struct User {
+    ///         #[key]
+    ///         pub id: u64,
+    ///         pub name: String,
+    ///         #[secondary_key]
+    ///         pub email: String,
+    ///     }
+    /// }
+    ///
+    /// #[tokio::main]
+    /// pub async fn main() {
+    ///     // Add a bootstrap peer
+    ///     let netabase = Netabase::<blog::BlogSchema>::new().expect("Netabase creation failed for some reason");
+    ///     let peer_id = PeerId::random(); // In practice, use a known peer ID
+    ///     let address: Multiaddr = "/ip4/192.168.1.100/tcp/4001".parse().unwrap();
+    ///    
+    ///     match netabase.add_address(peer_id, address).await {
+    ///         Ok(update) => println!("Routing table updated: {:?}", update),
+    ///         Err(e) => eprintln!("Failed to add address: {}", e),
+    ///     }
+    /// }
+    /// ```
+    pub async fn add_address(
+        &self,
+        peer_id: libp2p::PeerId,
+        address: libp2p::Multiaddr,
+    ) -> anyhow::Result<libp2p::kad::RoutingUpdate> {
+        let (response_tx, response_rx) = oneshot::channel();
+
+        let command = network::swarm::handlers::command_events::Command::Kademlia(
+            network::swarm::handlers::command_events::KademliaCommand::AddAddress {
+                peer: peer_id,
+                address,
+                response_channel: response_tx,
+            },
+        );
+
+        self.command_sender.send(command).await?;
+        Ok(response_rx.await?)
+    }
+
+    /// Remove a specific network address for a peer.
+    ///
+    /// This method removes a peer's network address from the routing table.
+    /// If the peer has multiple addresses, only the specified address is removed.
+    /// If it's the peer's last address, the peer may be removed from the routing table.
+    ///
+    /// # Behavior
+    ///
+    /// - Removes only the exact address specified
+    /// - Peer remains in routing table if other addresses exist
+    /// - May trigger routing table reorganization
+    /// - Does not affect active connections using other addresses
+    ///
+    /// # Arguments
+    ///
+    /// * `peer_id` - The unique identifier of the peer
+    /// * `address` - The specific address to remove
+    ///
+    /// # Returns
+    ///
+    /// An `Option<EntryView>` of the peer's routing table entry if it still exists,
+    /// or `None` if the peer was completely removed.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use libp2p::{PeerId, Multiaddr};
+    ///
+    /// let peer_id = PeerId::random(); // In practice, use a known peer ID
+    /// let old_address: Multiaddr = "/ip4/192.168.1.100/tcp/4001".parse().unwrap();
+    ///
+    /// match netabase.remove_address(peer_id, old_address).await {
+    ///     Ok(Some(entry)) => println!("Address removed, peer still has addresses"),
+    ///     Ok(None) => println!("Address removed, peer completely removed from routing table"),
+    ///     Err(e) => eprintln!("Failed to remove address: {}", e),
+    /// }
+    /// ```
+    pub async fn remove_address(
+        &self,
+        peer_id: libp2p::PeerId,
+        address: libp2p::Multiaddr,
+    ) -> anyhow::Result<
+        Option<
+            libp2p::kad::EntryView<libp2p::kad::KBucketKey<libp2p::PeerId>, libp2p::kad::Addresses>,
+        >,
+    > {
+        let (response_tx, response_rx) = oneshot::channel();
+
+        let command = network::swarm::handlers::command_events::Command::Kademlia(
+            network::swarm::handlers::command_events::KademliaCommand::RemoveAddress {
+                peer: peer_id,
+                address,
+                response_channel: response_tx,
+            },
+        );
+
+        self.command_sender.send(command).await?;
+        Ok(response_rx.await?)
+    }
+
+    /// Remove a peer completely from the routing table.
+    ///
+    /// This method removes all addresses and routing information for the specified
+    /// peer. The peer will no longer be considered for DHT operations until it's
+    /// re-added or discovered again through normal network processes.
+    ///
+    /// # Behavior
+    ///
+    /// - Removes all addresses for the peer
+    /// - Terminates any active connections to the peer
+    /// - Removes peer from Kademlia k-buckets
+    /// - May trigger routing table rebalancing
+    ///
+    /// # Use Cases
+    ///
+    /// - Removing misbehaving or unreliable peers
+    /// - Manual network topology management
+    /// - Cleaning up stale routing entries
+    /// - Enforcing network access policies
+    ///
+    /// # Arguments
+    ///
+    /// * `peer_id` - The unique identifier of the peer to remove
+    ///
+    /// # Returns
+    ///
+    /// An `Option<EntryView>` containing the removed peer's routing information,
+    /// or `None` if the peer wasn't in the routing table.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use libp2p::PeerId;
+    ///
+    /// let problematic_peer = PeerId::random(); // In practice, use a known peer ID
+    ///
+    /// match netabase.remove_peer(problematic_peer).await {
+    ///     Ok(Some(entry)) => {
+    ///         println!("Removed peer from routing table");
+    ///     }
+    ///     Ok(None) => println!("Peer was not in routing table"),
+    ///     Err(e) => eprintln!("Failed to remove peer: {}", e),
+    /// }
+    /// ```
+    pub async fn remove_peer(
+        &self,
+        peer_id: libp2p::PeerId,
+    ) -> anyhow::Result<
+        Option<
+            libp2p::kad::EntryView<libp2p::kad::KBucketKey<libp2p::PeerId>, libp2p::kad::Addresses>,
+        >,
+    > {
+        let (response_tx, response_rx) = oneshot::channel();
+
+        let command = network::swarm::handlers::command_events::Command::Kademlia(
+            network::swarm::handlers::command_events::KademliaCommand::RemovePeer {
+                peer: peer_id,
+                response_channel: response_tx,
+            },
+        );
+
+        self.command_sender.send(command).await?;
+        Ok(response_rx.await?)
+    }
+
+    /// Get the current DHT operating mode.
+    ///
+    /// This method returns the current Kademlia DHT mode that determines how
+    /// this node participates in the network and what operations it can perform.
+    ///
+    /// # DHT Modes
+    ///
+    /// - **`Mode::Client`**: Read-only participation, can query but not store records
+    /// - **`Mode::Server`**: Full participation, can both query and store records
+    ///
+    /// # Mode Implications
+    ///
+    /// **Client Mode:**
+    /// - Lower resource usage
+    /// - Cannot store records for other peers
+    /// - Cannot participate in DHT maintenance
+    /// - Suitable for lightweight applications
+    ///
+    /// **Server Mode:**
+    /// - Higher resource usage
+    /// - Stores records for the network
+    /// - Participates in DHT maintenance
+    /// - Required for network health
+    ///
+    /// # Returns
+    ///
+    /// The current `libp2p::kad::Mode` of the DHT.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// match netabase.get_mode().await {
+    ///     Ok(libp2p::kad::Mode::Client) => {
+    ///         println!("Operating in client mode");
+    ///     }
+    ///     Ok(libp2p::kad::Mode::Server) => {
+    ///         println!("Operating in server mode");
+    ///     }
+    ///     Err(e) => eprintln!("Failed to get mode: {}", e),
+    /// }
+    /// ```
+    pub async fn get_mode(&self) -> anyhow::Result<libp2p::kad::Mode> {
+        let (response_tx, response_rx) = oneshot::channel();
+
+        let command = network::swarm::handlers::command_events::Command::Kademlia(
+            network::swarm::handlers::command_events::KademliaCommand::Mode {
+                response_channel: response_tx,
+            },
+        );
+
+        self.command_sender.send(command).await?;
+        Ok(response_rx.await?)
+    }
+
+    /// Set the DHT operating mode.
+    ///
+    /// This method changes how this node participates in the Kademlia DHT network.
+    /// The mode determines whether the node can store records and participate in
+    /// DHT maintenance operations.
+    ///
+    /// # Mode Options
+    ///
+    /// - **`Some(Mode::Client)`**: Switch to client mode (read-only)
+    /// - **`Some(Mode::Server)`**: Switch to server mode (full participation)
+    /// - **`None`**: Use automatic mode selection based on network conditions
+    ///
+    /// # Performance Impact
+    ///
+    /// Changing modes can affect:
+    /// - Network resource usage
+    /// - Storage requirements
+    /// - Query performance
+    /// - Network responsibilities
+    ///
+    /// # Arguments
+    ///
+    /// * `mode` - The new DHT mode, or `None` for automatic selection
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use libp2p::kad::Mode;
+    ///
+    /// // Switch to server mode for full participation
+    /// netabase.set_mode(Some(Mode::Server)).await.unwrap();
+    /// println!("Now running in server mode");
+    ///
+    /// // Switch to client mode for lower resource usage
+    /// netabase.set_mode(Some(Mode::Client)).await.unwrap();
+    /// println!("Now running in client mode");
+    ///
+    /// // Let the system choose automatically
+    /// netabase.set_mode(None).await.unwrap();
+    /// println!("Using automatic mode selection");
+    /// ```
+    pub async fn set_mode(&self, mode: Option<libp2p::kad::Mode>) -> anyhow::Result<()> {
+        let command = network::swarm::handlers::command_events::Command::Kademlia(
+            network::swarm::handlers::command_events::KademliaCommand::SetMode { mode },
+        );
+
+        self.command_sender.send(command).await?;
+        Ok(())
+    }
+
+    /// Get the protocol names used by the DHT.
+    ///
+    /// This method returns the libp2p stream protocol identifier used for
+    /// Kademlia DHT communication. This is primarily useful for debugging,
+    /// monitoring, and ensuring protocol compatibility.
+    ///
+    /// # Protocol Information
+    ///
+    /// - Returns the exact protocol string used for DHT communication
+    /// - Useful for network analysis and debugging
+    /// - Can help identify protocol version incompatibilities
+    /// - May be used for custom protocol handling
+    ///
+    /// # Returns
+    ///
+    /// A `StreamProtocol` representing the DHT protocol identifier.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// match netabase.get_protocol_names().await {
+    ///     Ok(protocol) => {
+    ///         println!("Using protocol: {:?}", protocol);
+    ///     }
+    ///     Err(e) => eprintln!("Failed to get protocol: {}", e),
+    /// }
+    /// ```
+    pub async fn get_protocol_names(&self) -> anyhow::Result<libp2p::StreamProtocol> {
+        let (response_tx, response_rx) = oneshot::channel();
+
+        let command = network::swarm::handlers::command_events::Command::Kademlia(
+            network::swarm::handlers::command_events::KademliaCommand::ProtocolNames {
+                response_channel: response_tx,
+            },
+        );
+
+        self.command_sender.send(command).await?;
+        Ok(response_rx.await?)
+    }
+
+    /// Remove a record from local storage.
+    ///
+    /// This method removes a record from the local DHT storage. Note that this
+    /// only affects the local node's storage - other nodes in the network may
+    /// still have copies of the record.
+    ///
+    /// # Behavior
+    ///
+    /// - Removes record only from local storage
+    /// - Does not affect copies on other network nodes
+    /// - Stops providing the record if currently being provided
+    /// - The record may be re-stored if received from other peers
+    ///
+    /// # Use Cases
+    ///
+    /// - Freeing up local storage space
+    /// - Removing outdated or invalid data
+    /// - Cache management and cleanup
+    /// - Privacy and data retention compliance
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The key of the record to remove from local storage
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// // Remove from local storage
+    /// match netabase.remove_record(user_key).await {
+    ///     Ok(()) => println!("Record removed from local storage"),
+    ///     Err(e) => eprintln!("Failed to remove record: {}", e),
+    /// }
+    ///
+    /// // Note: Other nodes may still have this record
+    /// ```
+    ///
+    /// # Network Implications
+    ///
+    /// Removing a record locally doesn't remove it from the network. To fully
+    /// remove data from a distributed system, you would need to coordinate
+    /// with other nodes or implement a distributed deletion protocol.
+    pub async fn remove_record<K: NetabaseModelKey>(&self, key: K) -> anyhow::Result<()>
+    where
+        S::Keys: From<K>,
+    {
+        let schema_key = S::Keys::from(key);
+
+        let command = network::swarm::handlers::command_events::Command::Kademlia(
+            network::swarm::handlers::command_events::KademliaCommand::RemoveRecord {
+                key: schema_key,
+            },
+        );
+
+        self.command_sender.send(command).await?;
+        Ok(())
+    }
+}
+
+impl<S: NetabaseSchemaT> Drop for Netabase<S> {
+    fn drop(&mut self) {
+        if let Some(handle) = self.swarm_thread.take() {
+            handle.abort();
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bincode::{Decode, Encode};
+    use netabase_macros::{NetabaseModel, netabase_schema_module};
+    use serde::{Deserialize, Serialize};
+
+    #[netabase_schema_module(TestSchema, TestSchemaKeys)]
+    mod test_schema {
+        use super::*;
+
+        #[derive(
+            NetabaseModel, Clone, Encode, Decode, Debug, PartialEq, Serialize, Deserialize,
+        )]
+        #[key_name(TestUserKey)]
+        pub struct TestUser {
+            #[key]
+            pub id: u64,
+            pub name: String,
+        }
+    }
+
+    use test_schema::TestSchema;
+
+    #[test]
+    fn test_subscribe_to_broadcasts_is_not_async() {
+        let netabase = Netabase::<TestSchema>::new().unwrap();
+
+        // This should compile without .await - proving the method is synchronous
+        let _receiver = netabase.subscribe_to_broadcasts();
+    }
+
+    #[test]
+    fn test_multiple_broadcast_subscriptions() {
+        let netabase = Netabase::<TestSchema>::new().unwrap();
+
+        // Test that we can create multiple receivers without Arc wrapping
+        let receiver1 = netabase.subscribe_to_broadcasts();
+        let receiver2 = netabase.subscribe_to_broadcasts();
+        let receiver3 = netabase.subscribe_to_broadcasts();
+
+        // Verify they are independent instances
+        let addr1 = &receiver1 as *const _ as usize;
+        let addr2 = &receiver2 as *const _ as usize;
+        let addr3 = &receiver3 as *const _ as usize;
+
+        assert_ne!(addr1, addr2);
+        assert_ne!(addr2, addr3);
+        assert_ne!(addr1, addr3);
+    }
+
+    #[test]
+    fn test_broadcast_receiver_cloning() {
+        let netabase = Netabase::<TestSchema>::new().unwrap();
+
+        // Get a receiver
+        let mut receiver1 = netabase.subscribe_to_broadcasts();
+
+        // Clone it using resubscribe - this proves broadcast receivers are cloneable
+        let mut receiver2 = receiver1.resubscribe();
+
+        // Both should be empty initially
+        assert!(receiver1.try_recv().is_err());
+        assert!(receiver2.try_recv().is_err());
+    }
 }
