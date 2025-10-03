@@ -142,7 +142,7 @@ pub struct BlogService {
 impl BlogService {
     /// Create a new blog service with local database
     pub fn new(db_path: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let db = NetabaseSledDatabase::new_with_name(db_path)?;
+        let db = NetabaseSledDatabase::new_with_path(db_path)?;
         let user_tree = db.get_main_tree()?;
         let post_tree = db.get_main_tree()?;
         let comment_tree = db.get_main_tree()?;

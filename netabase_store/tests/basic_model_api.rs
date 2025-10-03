@@ -60,7 +60,7 @@ fn create_test_database() -> TestResult<(NetabaseSledDatabase<BasicTestSchema>, 
     let db_path = temp_dir.path().join("basic_test_db");
     debug!("Basic test database path: {}", db_path.display());
 
-    let db = NetabaseSledDatabase::new_with_name(&db_path.to_string_lossy())?;
+    let db = NetabaseSledDatabase::new_with_path(&db_path.to_string_lossy())?;
     info!("Basic test database created successfully");
 
     Ok((db, temp_dir))

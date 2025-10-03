@@ -62,7 +62,7 @@ async fn local_database_example() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== Local Database Example ===");
 
     // Step 2: Create a local database
-    let db = NetabaseSledDatabase::<AppSchema>::new_with_name("getting_started_db")?;
+    let db = NetabaseSledDatabase::<AppSchema>::new_with_path("getting_started_db")?;
 
     // Get trees for each model type
     let user_tree: NetabaseSledTree<User, UserKey> = db.get_main_tree()?;
@@ -393,7 +393,7 @@ mod tests {
         let db_path = temp_dir.path().join("test_db");
 
         let db =
-            NetabaseSledDatabase::<AppSchema>::new_with_name(&db_path.to_string_lossy()).unwrap();
+            NetabaseSledDatabase::<AppSchema>::new_with_path(&db_path.to_string_lossy()).unwrap();
         let user_tree: NetabaseSledTree<User, UserKey> = db.get_main_tree().unwrap();
 
         let user = User {

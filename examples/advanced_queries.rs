@@ -217,7 +217,7 @@ pub struct EcommerceAnalytics {
 impl EcommerceAnalytics {
     /// Create new analytics service
     pub fn new(db_path: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let db = NetabaseSledDatabase::new_with_name(db_path)?;
+        let db = NetabaseSledDatabase::new_with_path(db_path)?;
         let customer_tree = db.get_main_tree()?;
         let product_tree = db.get_main_tree()?;
         let order_tree = db.get_main_tree()?;

@@ -273,7 +273,7 @@ pub trait NetabaseSchema:
         + Eq
         + Send
         + Sync;
-    type Keys: NetabaseKeys;
+    type Keys: NetabaseKeys + Encode + Decode<()>; //TODO: some old refactor did something weird that rewuires bincode to be explicit here
 
     fn keys(&self) -> Self::Keys;
 

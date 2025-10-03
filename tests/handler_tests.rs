@@ -1,5 +1,5 @@
-use std::sync::Once;
 use std::time::Duration;
+use std::{path::PathBuf, sync::Once};
 
 use bincode::{Decode, Encode};
 use libp2p::{Multiaddr, PeerId, kad::Mode};
@@ -48,9 +48,13 @@ pub mod handler_test_schema {
 use handler_test_schema::{HandlerTestData, HandlerTestSchema, HandlerTestUser};
 
 /// Generate a unique database path for each test to avoid conflicts
-fn generate_unique_db_path() -> String {
+fn generate_unique_db_path() -> PathBuf {
+    use tempfile::TempDir;
+
+    let temp_dir = TempDir::new().unwrap();
     let uuid = Uuid::new_v4();
-    format!("test_handler_db_{}", uuid.to_string().replace("-", "_"))
+    let str_name = format!("test_handler_db_{}", uuid.to_string().replace("-", "_"));
+    temp_dir.path().join(str_name)
 }
 
 /// Create test user for handler testing

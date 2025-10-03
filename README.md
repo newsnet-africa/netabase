@@ -5,6 +5,14 @@
 
 **Netabase** is a distributed, peer-to-peer database system built on top of [sled](https://github.com/spacejam/sled) with [libp2p](https://libp2p.io/) integration. It provides a type-safe, macro-driven approach to defining database schemas and models with support for primary keys, secondary keys, and relational queries.
 
+
+# ! This crate is a work in progress, and some features might be buggy, behave weirdly or have not been fully implemented. Please let me know in the issues if you notice something that is not already there
+If you do make an issue, it may be moved to the [netabase_store](https://github.com/nzuzo-newsnet/netabase_store) repo but if possible, try create issues at the relevant repos.
+
+*DO NOT* use this in a production environment as:
+1. There will definately be breaking changes
+2. This crate has not been extensively tested
+
 ## 🚀 Features
 
 - **Type-Safe Models**: Automatic code generation for database models using derive macros
@@ -15,17 +23,21 @@
 - **Advanced Queries**: Complex filtering, range queries, and analytics
 - **Batch Operations**: High-performance bulk operations
 
-## 📦 Installation
+### TODO:
+- **Libp2p Kademlia**: Complete integration with the libp2p kademlia implementation
+
+## 📦 Installation //TODO: Re-Export
 
 Add Netabase to your `Cargo.toml`:
 
+//TODO: test and publish to crates.io
 ```toml
 [dependencies]
 netabase = { path = "path/to/netabase" }
 netabase_store = { path = "path/to/netabase/netabase_store" }
 netabase_macros = { path = "path/to/netabase/netabase_store/netabase_macros" }
 bincode = { version = "2.0", features = ["derive", "serde"] }
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] } # Optional if you use serde for serialising and deserialising
 tokio = { version = "1.0", features = ["full"] }
 ```
 
@@ -72,7 +84,6 @@ use blog::*;
 ```
 
 ### 2. Local Database Operations
-
 ```rust
 use netabase_store::database::{NetabaseSledDatabase, NetabaseSledTree};
 use netabase_store::traits::{NetabaseModel, NetabaseSecondaryKeyQuery};
@@ -126,50 +137,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     println!("There are {} published posts", published_posts.len());
 
-    Ok(())
-}
-```
-
-### 3. Distributed Network Operations
-
-```rust
-use netabase::Netabase;
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create distributed database instance
-    let mut netabase = Netabase::<BlogSchema>::new_with_path("./node_data")?;
-    
-    // Start networking
-    netabase.start_swarm().await?;
-    netabase.bootstrap().await?; // Join the DHT network
-
-    // Store data in the distributed network
-    let user = User {
-        id: 1,
-        name: "Alice".to_string(),
-        email: "alice@example.com".to_string(),
-        created_at: chrono::Utc::now().timestamp() as u64,
-    };
-    
-    netabase.put_record(user.clone()).await?;
-    println!("User stored in DHT");
-
-    // Retrieve data from the network
-    let user_key = UserKey::Primary(UserPrimaryKey(1));
-    let result = netabase.get_record(user_key).await?;
-    println!("Retrieved from network: {:?}", result);
-
-    // Subscribe to network events
-    let mut receiver = netabase.subscribe_to_broadcasts();
-    tokio::spawn(async move {
-        while let Ok(event) = receiver.recv().await {
-            println!("Network event: {:?}", event);
-        }
-    });
-
-    // Cleanup
-    netabase.stop_swarm().await?;
     Ok(())
 }
 ```
@@ -235,20 +202,6 @@ let providers = netabase.get_providers(post_key).await?;
 
 // Stop providing
 netabase.stop_providing(post_key).await?;
-```
-
-### Peer Management
-
-```rust
-use libp2p::{PeerId, Multiaddr};
-
-// Add known peers
-let peer_id: PeerId = "12D3KooW...".parse()?;
-let address: Multiaddr = "/ip4/192.168.1.100/tcp/4001".parse()?;
-netabase.add_address(peer_id, address).await?;
-
-// Configure DHT mode
-netabase.set_mode(Some(libp2p::kad::Mode::Server)).await?;
 ```
 
 ## 📖 Examples
