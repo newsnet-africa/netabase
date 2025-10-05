@@ -484,9 +484,9 @@ netabase.stop_providing(post_key).await?;
 
 Check out the `examples/` directory for comprehensive demonstrations:
 
-- **[getting_started.rs](examples/getting_started.rs)** - Basic usage and CRUD operations
-- **[blog_system.rs](examples/blog_system.rs)** - Complete blog system with multiple models
-- **[advanced_queries.rs](examples/advanced_queries.rs)** - Complex queries and analytics
+- **[getting_started.rs](example_usage/getting_started.rs)** - Basic usage and CRUD operations
+- **[blog_system.rs](example_usage/blog_system.rs)** - Complete blog system with multiple models
+- **[advanced_queries.rs](example_usage/advanced_queries.rs)** - Complex queries and analytics
 
 Run examples with:
 ```bash
