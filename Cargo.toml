@@ -1,5 +1,5 @@
 [workspace]
-members = [
+members = ["example_usage",
   "netabase_store",
   "netabase_store/netabase_macros"
 ]
@@ -9,7 +9,7 @@ anyhow = "1.0.100"
 bincode = { version = "2.0", features = ["derive", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 derive_more = { version = "2.0.1", features = ["from", "try_into", "into"] }
-libp2p = { version = "0.56.0", features = ["kad"] }
+libp2p = { version = "0.56.0", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 sled = "0.34.7"
 strum = { version = "0.27.2", features = ["derive", "strum_macros"] }
@@ -21,20 +21,73 @@ log = "0.4"
 env_logger = "0.10"
 uuid = { version = "1.0", features = ["v4"] }
 futures = "0.3"
+getrandom = { version = "0.3", features = ["wasm_js"] }
 
 [package]
 name = "netabase"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = ["native"]
+native = [
+    "netabase_store/native",
+    "libp2p/tcp",
+    "libp2p/quic",
+    "libp2p/mdns",
+    "libp2p/dns",
+    "libp2p/noise",
+    "libp2p/tls",
+    "libp2p/yamux",
+    "libp2p/kad",
+    "libp2p/identify",
+    "libp2p/macros",
+    "libp2p/websocket",
+    "libp2p/tokio",
+    "tokio/full"
+]
+wasm = [
+    "netabase_store/wasm",
+    "libp2p/wasm-bindgen",
+    "libp2p/websocket-websys",
+    "libp2p/webrtc-websys",
+    "libp2p/webtransport-websys",
+    "libp2p/noise",
+    "libp2p/yamux",
+    "libp2p/kad",
+    "libp2p/identify",
+    "libp2p/macros",
+    "tokio/macros",
+    "tokio/rt",
+    "tokio/sync",
+    "tokio/time",
+    "log",
+    "web-sys",
+    "js-sys",
+    "wasm-bindgen",
+    "wasm-bindgen-futures",
+    "getrandom/wasm_js"
+]
+
+# [lib]
+# crate-type = ["cdylib"]
+
 [dependencies]
 anyhow.workspace = true
 derive_more.workspace = true
-libp2p = { workspace = true, features = ["full", "kad"] }
-netabase_store = { path = "netabase_store" ,features = ["libp2p"]}
+libp2p.workspace = true
+netabase_store = { path = "netabase_store", default-features = false, features = ["libp2p"] }
 once_cell = "1.19"
 thiserror.workspace = true
-tokio = { version = "1.47.1", features = ["full"] }
+tokio = { version = "1.47.1", default-features = false }
+log = { version = "0.4", optional = true }
+
+# WASM-only dependencies
+web-sys = { version = "0.3", features = ["console"], optional = true }
+js-sys = { version = "0.3", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
+getrandom = { workspace = true }
 
 
 
@@ -52,3 +105,4 @@ tempfile = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
 futures = { workspace = true }
+getrandom = { workspace = true }

@@ -16,7 +16,7 @@ use std::time::Duration;
 use bincode::{Decode, Encode};
 use netabase_macros::{NetabaseModel, netabase_schema_module};
 use netabase_store::{
-    database::{NetabaseSledDatabase, NetabaseSledTree},
+    database::sled::{NetabaseSledDatabase, NetabaseSledTree},
     traits::{NetabaseAdvancedQuery, NetabaseModel, NetabaseSecondaryKeyQuery},
 };
 use serde::{Deserialize, Serialize};
@@ -956,8 +956,7 @@ pub struct TopProduct {
     pub revenue: f64,
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub async fn advanced_queries() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
     println!("🚀 Netabase Advanced Queries Example\n");

@@ -37,6 +37,163 @@ If you do make an issue, it may be moved to the [netabase_store](https://github.
 ### TODO:
 - **Advanced DHT Operations**: Enhanced integration with libp2p kademlia features
 
+## TODO & Unimplemented Features
+
+### Code-Level TODOs from Codebase Analysis
+
+#### Network Event Handlers (All Unimplemented)
+- [ ] **Connection Management**: All connection event handlers are placeholder implementations
+  - [ ] `handle_connection_established` - Only prints debug info (src/network/swarm/handlers/swarm_events/connection_established.rs:14)
+  - [ ] `handle_connection_closed` - Only prints debug info (src/network/swarm/handlers/swarm_events/connection_closed.rs:12)
+  - [ ] `handle_incoming_connection` - Only prints debug info (src/network/swarm/handlers/swarm_events/incoming_connection.rs:9)
+  - [ ] `handle_incoming_connection_error` - Only prints debug info (src/network/swarm/handlers/swarm_events/incoming_connection_error.rs:12)
+  - [ ] `handle_outgoing_connection_error` - Only prints debug info (src/network/swarm/handlers/swarm_events/outgoing_connection_error.rs:9)
+  - [ ] `handle_dialing` - Only prints debug info (src/network/swarm/handlers/swarm_events/dialing.rs:5)
+
+#### mDNS Discovery Implementation
+- [ ] **mDNS Peer Management**: Discovery handlers need full implementation
+  - [ ] `handle_discovered` - Add peer to routing table/peer store (src/network/swarm/handlers/swarm_events/behaviour/mdns.rs:17)
+  - [ ] `handle_expired` - Remove peer from routing table, close connections (src/network/swarm/handlers/swarm_events/behaviour/mdns.rs:29)
+
+#### Identity/Identification System
+- [ ] **Peer Identification**: All identify event handlers are placeholders
+  - [ ] `handle_received` - Process received peer identification (src/network/swarm/handlers/swarm_events/behaviour/identify.rs:42)
+  - [ ] `handle_sent` - Handle sent identification events (src/network/swarm/handlers/swarm_events/behaviour/identify.rs:51)
+  - [ ] `handle_pushed` - Process pushed identification info (src/network/swarm/handlers/swarm_events/behaviour/identify.rs:60)
+  - [ ] `handle_error` - Implement identification error handling (src/network/swarm/handlers/swarm_events/behaviour/identify.rs:73)
+
+#### Address Management
+- [ ] **External Address Handling**: Address discovery and management
+  - [ ] `handle_new_external_addr_candidate` - Process new external address candidates (src/network/swarm/handlers/swarm_events/new_external_addr_candidate.rs:4)
+  - [ ] `handle_external_addr_confirmed` - Handle confirmed external addresses (src/network/swarm/handlers/swarm_events/external_addr_confirmed.rs:4)
+  - [ ] `handle_external_addr_expired` - Clean up expired external addresses (src/network/swarm/handlers/swarm_events/external_addr_expired.rs:4)
+  - [ ] `handle_new_external_addr_of_peer` - Track peer external addresses (src/network/swarm/handlers/swarm_events/new_external_addr_of_peer.rs:4)
+
+#### Listener Management
+- [ ] **Network Listener Handling**: Listener lifecycle management
+  - [ ] `handle_new_listen_addr` - Process new listen addresses (src/network/swarm/handlers/swarm_events/new_listen_addr.rs:4)
+  - [ ] `handle_expired_listen_addr` - Handle expired listen addresses (src/network/swarm/handlers/swarm_events/expired_listen_addr.rs:4)
+  - [ ] `handle_listener_closed` - Clean up closed listeners (src/network/swarm/handlers/swarm_events/listener_closed.rs:8)
+  - [ ] `handle_listener_error` - Handle listener errors (src/network/swarm/handlers/swarm_events/listener_error.rs:4)
+
+#### Command System
+- [ ] **Command Processing**: Fallback command handler needs implementation
+  - [ ] `handle_fallback_command` - Implement proper error handling or logging for unmatched commands (src/network/swarm/handlers/command_events/fallback.rs:5)
+
+#### Fallback Event Handling
+- [ ] **Event Processing**: Comprehensive fallback event handler
+  - [ ] `handle_fallback_event` - Implement fallback for unhandled swarm events (src/network/swarm/handlers/swarm_events/fallback.rs:5)
+
+#### Dead Code and Warnings
+- [ ] **Unused Imports**: Multiple unused imports need cleanup
+  - [ ] Remove unused `PublicKey` and `identify` imports (src/network/behaviour/mod.rs:2)
+  - [ ] Remove unused `RecordStore` import (src/network/behaviour/clone_impl.rs:3)
+  - [ ] Remove unused `NetabaseDatabase` import (src/network/behaviour/clone_impl.rs:8)
+  - [ ] Remove unused `NetabaseSwarmEvent`, `Command`, `start_swarm_loop` imports (src/network/swarm/mod.rs:7)
+  - [ ] Remove unused `Command` import (src/network/swarm/handlers/mod.rs:9)
+
+#### Error Handling
+- [ ] **WebSocket Error Types**: Fixed generic parameter issue but needs validation
+  - [ ] Verify `error::Error<std::io::Error>` usage is correct (src/errors/mod.rs:14)
+
+### Core Database Features
+- [ ] **Complete macro system implementation**
+  - [ ] Finish serialization macro generation
+  - [ ] Add serde integration alongside bincode
+  - [ ] Implement fallible conversion macros (TryFrom/TryInto)
+  - [ ] Clean up macro code generation and error handling
+- [ ] **Advanced query system**
+  - [ ] Add SQL-like query interface
+  - [ ] Implement complex joins and aggregations
+  - [ ] Support for query optimization
+  - [ ] Add indexing strategies for better performance
+- [ ] **Schema evolution and migrations**
+  - [ ] Add automatic schema migration support
+  - [ ] Implement backward compatibility checking
+  - [ ] Add data transformation during migrations
+- [ ] **Performance optimizations**
+  - [ ] Implement connection pooling for high-concurrency scenarios
+  - [ ] Add batch operation optimizations
+  - [ ] Optimize memory usage for large datasets
+  - [ ] Add query result caching
+
+### Distributed Networking Features
+- [ ] **Complete DHT functionality**
+  - [ ] Complete Kademlia configuration options
+  - [ ] Add network protection and security features
+  - [ ] Implement gossipsub for query functionality
+  - [ ] Add peer discovery and connection management
+- [ ] **Data consistency and replication**
+  - [ ] Implement configurable storage backends
+  - [ ] Add data replication and consistency guarantees
+  - [ ] Design conflict resolution strategies
+  - [ ] Add distributed transaction support
+- [ ] **Network resilience**
+  - [ ] Add automatic failover mechanisms
+  - [ ] Implement network partition tolerance
+  - [ ] Add peer health monitoring
+  - [ ] Support for dynamic network topology changes
+- [ ] **Security and privacy**
+  - [ ] Add encryption for data at rest and in transit
+  - [ ] Implement access control and authentication
+  - [ ] Add data integrity verification
+  - [ ] Support for private networks and permissioned access
+
+### Query and Analytics
+- [ ] **Distributed query processing**
+  - [ ] Add distributed query planning and execution
+  - [ ] Implement map-reduce style operations
+  - [ ] Support for streaming queries
+  - [ ] Add real-time analytics capabilities
+- [ ] **Advanced indexing**
+  - [ ] Add full-text search capabilities
+  - [ ] Implement multi-dimensional indexing
+  - [ ] Support for geospatial queries
+  - [ ] Add time-series data optimizations
+
+### Production Readiness
+- [ ] **Monitoring and observability**
+  - [ ] Add comprehensive metrics collection
+  - [ ] Implement distributed tracing
+  - [ ] Add health check endpoints
+  - [ ] Support for logging and audit trails
+- [ ] **Configuration and deployment**
+  - [ ] Add configuration management system
+  - [ ] Implement deployment automation tools
+  - [ ] Support for containerized deployments
+  - [ ] Add backup and restore functionality
+- [ ] **Testing and quality assurance**
+  - [ ] Add comprehensive test suite for distributed scenarios
+  - [ ] Implement chaos engineering tests
+  - [ ] Add performance benchmarking tools
+  - [ ] Support for load testing distributed networks
+
+### Developer Experience
+- [ ] **Documentation and examples**
+  - [ ] Create comprehensive API documentation
+  - [ ] Add tutorial and getting started guides
+  - [ ] Provide real-world example applications
+  - [ ] Add troubleshooting and debugging guides
+- [ ] **Tooling and utilities**
+  - [ ] Add CLI tools for database management
+  - [ ] Implement data migration utilities
+  - [ ] Support for development and testing environments
+  - [ ] Add code generation tools for common patterns
+
+### Research and Innovation
+- [ ] **Incentive mechanisms**
+  - [ ] Design incentive models for data persistence
+  - [ ] Implement reputation systems for network participants
+  - [ ] Add economic models for resource sharing
+- [ ] **Advanced networking protocols**
+  - [ ] Explore integration with other P2P protocols
+  - [ ] Add support for content-addressed storage
+  - [ ] Implement advanced routing strategies
+- [ ] **Machine learning integration**
+  - [ ] Add support for distributed ML training
+  - [ ] Implement automated performance optimization
+  - [ ] Support for intelligent data placement
+
 ## 📦 Installation
 
 Add Netabase to your `Cargo.toml`:

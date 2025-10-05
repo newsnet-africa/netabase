@@ -6,7 +6,7 @@ use libp2p::kad::{Record, RecordKey, store::RecordStore};
 
 #[cfg(feature = "libp2p")]
 use netabase_store::{
-    database::NetabaseSledDatabase,
+    database::NetabaseDatabase,
     traits::{NetabaseRecordStoreQuery, NetabaseSchema, NetabaseSchemaQuery},
 };
 
@@ -32,7 +32,7 @@ fn test_record_store_compiles() {
     type TestSchema = (); // Placeholder
 
     // This line should compile, proving our RecordStore implementation is correct
-    // let database = NetabaseSledDatabase::<TestSchema>::new_with_path(&db_path).unwrap();
+    // let database = NetabaseDatabase::<TestSchema>::new_with_path(&db_path).unwrap();
     // test_record_store_trait(database);
 
     // For now, just assert that we got here without compilation errors

@@ -1,3 +1,4 @@
+#[cfg(feature = "native")]
 use libp2p::websocket::error;
 use netabase_store::errors::NetabaseError;
 use thiserror::Error;
@@ -8,4 +9,7 @@ pub enum Error {
     NetabaseStoreError(#[from] NetabaseError),
     #[error("There was an IO error")]
     IoError(#[from] std::io::Error),
+    #[cfg(feature = "native")]
+    #[error("Websocket error")]
+    WebsocketError(#[from] error::Error<std::io::Error>),
 }

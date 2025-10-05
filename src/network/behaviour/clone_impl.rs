@@ -5,7 +5,7 @@ use libp2p::swarm;
 use libp2p::swarm::ConnectionDenied;
 use libp2p::swarm::ConnectionError;
 use libp2p::swarm::SwarmEvent;
-use netabase_store::database::NetabaseSledDatabase;
+use netabase_store::database::NetabaseDatabase;
 use netabase_store::traits::NetabaseSchema;
 
 use crate::network::behaviour::NetabaseBehaviourEvent;
@@ -57,6 +57,7 @@ where
                     ),
                 }),
             },
+            #[cfg(feature = "native")]
             NetabaseBehaviourEvent::Mdns(mdns) => NetabaseBehaviourEvent::Mdns(mdns.clone()),
             NetabaseBehaviourEvent::ConnectionLimit(i) => {
                 NetabaseBehaviourEvent::ConnectionLimit(*i)

@@ -2,7 +2,7 @@ use bincode::{Decode, Encode};
 use log::{debug, info};
 use netabase_macros::{NetabaseModel, netabase_schema_module};
 use netabase_store::{
-    database::{NetabaseSledDatabase, NetabaseSledTree},
+    database::{NetabaseDatabase, NetabaseTree},
     traits::{NetabaseAdvancedQuery, NetabaseModel, NetabaseSecondaryKeyQuery},
 };
 use serde::{Deserialize, Serialize};
@@ -56,7 +56,7 @@ use test_schema::*;
 
 type TestResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-fn create_test_database() -> TestResult<(NetabaseSledDatabase<SimpleTestSchema>, TempDir)> {
+fn create_test_database() -> TestResult<(NetabaseDatabase<SimpleTestSchema>, TempDir)> {
     init_logger();
     info!("Creating test database for simple secondary key tests");
 
@@ -64,7 +64,7 @@ fn create_test_database() -> TestResult<(NetabaseSledDatabase<SimpleTestSchema>,
     let db_path = temp_dir.path().join("simple_secondary_key_test_db");
     debug!("Test database path: {}", db_path.display());
 
-    let db = NetabaseSledDatabase::new_with_path(&db_path)?;
+    let db = NetabaseDatabase::new_with_path(&db_path)?;
     info!("Test database created successfully");
 
     Ok((db, temp_dir))
@@ -153,7 +153,7 @@ mod tests {
         info!("Starting test_basic_secondary_key_querying");
 
         let (db, _temp_dir) = create_test_database()?;
-        let user_tree: NetabaseSledTree<User, UserKey> = db.get_main_tree()?;
+        let user_tree: NetabaseTree<User, UserKey> = db.get_main_tree()?;
 
         // Insert sample users
         let users = create_sample_users();
@@ -195,7 +195,7 @@ mod tests {
         info!("Starting test_product_secondary_keys");
 
         let (db, _temp_dir) = create_test_database()?;
-        let product_tree: NetabaseSledTree<Product, ProductKey> = db.get_main_tree()?;
+        let product_tree: NetabaseTree<Product, ProductKey> = db.get_main_tree()?;
 
         // Insert sample products
         let products = create_sample_products();
@@ -244,7 +244,7 @@ mod tests {
         info!("Starting test_advanced_querying_without_relations");
 
         let (db, _temp_dir) = create_test_database()?;
-        let user_tree: NetabaseSledTree<User, UserKey> = db.get_main_tree()?;
+        let user_tree: NetabaseTree<User, UserKey> = db.get_main_tree()?;
 
         // Insert sample users
         let users = create_sample_users();
@@ -291,7 +291,7 @@ mod tests {
         info!("Starting test_secondary_key_values_extraction");
 
         let (db, _temp_dir) = create_test_database()?;
-        let user_tree: NetabaseSledTree<User, UserKey> = db.get_main_tree()?;
+        let user_tree: NetabaseTree<User, UserKey> = db.get_main_tree()?;
 
         // Insert sample users
         let users = create_sample_users();
@@ -316,7 +316,7 @@ mod tests {
         info!("Starting test_batch_operations");
 
         let (db, _temp_dir) = create_test_database()?;
-        let product_tree: NetabaseSledTree<Product, ProductKey> = db.get_main_tree()?;
+        let product_tree: NetabaseTree<Product, ProductKey> = db.get_main_tree()?;
 
         // Test batch insert with indexing
         debug!("Testing batch insert with indexing");
@@ -378,7 +378,7 @@ mod tests {
 
         // Insert sample data through the database
         let users = create_sample_users();
-        let user_tree: NetabaseSledTree<User, UserKey> = db.get_main_tree()?;
+        let user_tree: NetabaseTree<User, UserKey> = db.get_main_tree()?;
 
         for user in &users {
             user_tree.insert(user.key(), user.clone())?;
@@ -406,7 +406,7 @@ mod tests {
         info!("Starting test_empty_secondary_key_results");
 
         let (db, _temp_dir) = create_test_database()?;
-        let user_tree: NetabaseSledTree<User, UserKey> = db.get_main_tree()?;
+        let user_tree: NetabaseTree<User, UserKey> = db.get_main_tree()?;
 
         // Insert sample users
         let users = create_sample_users();

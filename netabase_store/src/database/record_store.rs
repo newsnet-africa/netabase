@@ -101,9 +101,12 @@ impl TryFrom<StoredProviderRecord> for ProviderRecord {
 /// Iterator over stored records that loads one tree at a time
 #[cfg(feature = "libp2p")]
 pub struct RecordsIter<'a, M: crate::traits::NetabaseSchema> {
-    database: &'a crate::database::NetabaseSledDatabase<M>,
+    database: &'a crate::database::sled::NetabaseSledDatabase<M>,
     discriminants: std::vec::IntoIter<M::SchemaDiscriminants>,
+    #[cfg(feature = "native")]
     current_tree_iter: Option<sled::Iter>,
+    #[cfg(all(feature = "wasm", not(feature = "native")))]
+    current_tree_iter: Option<crate::database::memory::MemoryIter>,
     current_discriminant: Option<M::SchemaDiscriminants>,
 }
 
@@ -113,11 +116,12 @@ where
     M: crate::traits::NetabaseSchema,
     M::SchemaDiscriminants: AsRef<str> + Clone + std::hash::Hash + Eq + strum::IntoEnumIterator,
 {
-    pub fn new(database: &'a crate::database::NetabaseSledDatabase<M>) -> Self {
+    pub fn new(database: &'a crate::database::sled::NetabaseSledDatabase<M>) -> Self {
         let mut discriminants = M::all_schema_discriminants().into_iter();
         let first_discriminant = discriminants.next();
 
         // Open the first tree if we have discriminants
+        #[cfg(feature = "native")]
         let current_tree_iter = if let Some(ref disc) = first_discriminant {
             database
                 .get_main_tree_by_discriminant(disc)
@@ -125,6 +129,9 @@ where
         } else {
             None
         };
+
+        #[cfg(all(feature = "wasm", not(feature = "native")))]
+        let current_tree_iter = None;
 
         Self {
             database,

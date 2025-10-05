@@ -2,7 +2,7 @@ use bincode::{Decode, Encode};
 use log::{debug, error, info, warn};
 use netabase_macros::{NetabaseModel, netabase_schema_module};
 use netabase_store::{
-    database::{NetabaseSledDatabase, NetabaseSledTree},
+    database::{NetabaseDatabase, NetabaseTree},
     traits::{NetabaseModel, NetabaseModelKey, NetabaseSchema},
 };
 use serde::{Deserialize, Serialize};
@@ -52,7 +52,7 @@ use test_schema::*;
 
 type TestResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-fn create_test_database() -> TestResult<(NetabaseSledDatabase<BasicTestSchema>, TempDir)> {
+fn create_test_database() -> TestResult<(NetabaseDatabase<BasicTestSchema>, TempDir)> {
     init_logger();
     info!("Creating basic test database in temporary directory");
 
@@ -60,7 +60,7 @@ fn create_test_database() -> TestResult<(NetabaseSledDatabase<BasicTestSchema>, 
     let db_path = temp_dir.path().join("basic_test_db");
     debug!("Basic test database path: {}", db_path.display());
 
-    let db = NetabaseSledDatabase::new_with_path(&db_path)?;
+    let db = NetabaseDatabase::new_with_path(&db_path)?;
     info!("Basic test database created successfully");
 
     Ok((db, temp_dir))
@@ -141,13 +141,13 @@ mod tests {
 
         // Test User tree creation using the new API
         debug!("Creating User tree");
-        let user_tree: NetabaseSledTree<User, UserKey> = db.get_main_tree()?;
+        let user_tree: NetabaseTree<User, UserKey> = db.get_main_tree()?;
         assert_eq!(user_tree.len(), 0);
         info!("✓ User tree created and verified empty");
 
         // Test Post tree creation using the new API
         debug!("Creating Post tree");
-        let post_tree: NetabaseSledTree<Post, PostKey> = db.get_main_tree()?;
+        let post_tree: NetabaseTree<Post, PostKey> = db.get_main_tree()?;
         assert_eq!(post_tree.len(), 0);
         info!("✓ Post tree created and verified empty");
 
@@ -164,8 +164,8 @@ mod tests {
 
         // Create trees
         debug!("Creating trees for CRUD operations");
-        let user_tree: NetabaseSledTree<User, UserKey> = db.get_main_tree()?;
-        let post_tree: NetabaseSledTree<Post, PostKey> = db.get_main_tree()?;
+        let user_tree: NetabaseTree<User, UserKey> = db.get_main_tree()?;
+        let post_tree: NetabaseTree<Post, PostKey> = db.get_main_tree()?;
         info!("✓ Trees created successfully");
 
         // Create sample data
@@ -234,8 +234,8 @@ mod tests {
 
         // Create trees for different models
         debug!("Creating trees for multiple models");
-        let user_tree: NetabaseSledTree<User, UserKey> = db.get_main_tree()?;
-        let post_tree: NetabaseSledTree<Post, PostKey> = db.get_main_tree()?;
+        let user_tree: NetabaseTree<User, UserKey> = db.get_main_tree()?;
+        let post_tree: NetabaseTree<Post, PostKey> = db.get_main_tree()?;
         info!("✓ Trees created for multiple models");
 
         // Create multiple users and posts
@@ -284,7 +284,7 @@ mod tests {
         let (db, _temp_dir) = create_test_database()?;
         info!("Database created successfully for tree iteration test");
 
-        let user_tree: NetabaseSledTree<User, UserKey> = db.get_main_tree()?;
+        let user_tree: NetabaseTree<User, UserKey> = db.get_main_tree()?;
         debug!("User tree created for iteration test");
 
         // Insert multiple users

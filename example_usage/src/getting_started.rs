@@ -15,7 +15,7 @@ use bincode::{Decode, Encode};
 use netabase::Netabase;
 use netabase_macros::{NetabaseModel, netabase_schema_module};
 use netabase_store::{
-    database::{NetabaseSledDatabase, NetabaseSledTree},
+    database::{NetabaseDatabase, NetabaseTree},
     traits::{NetabaseModel, NetabaseSecondaryKeyQuery},
 };
 use serde::{Deserialize, Serialize};
@@ -62,11 +62,11 @@ async fn local_database_example() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== Local Database Example ===");
 
     // Step 2: Create a local database
-    let db = NetabaseSledDatabase::<AppSchema>::new_with_path("getting_started_db")?;
+    let db = NetabaseDatabase::<AppSchema>::new_with_path("getting_started_db")?;
 
     // Get trees for each model type
-    let user_tree: NetabaseSledTree<User, UserKey> = db.get_main_tree()?;
-    let task_tree: NetabaseSledTree<Task, TaskKey> = db.get_main_tree()?;
+    let user_tree: NetabaseTree<User, UserKey> = db.get_main_tree()?;
+    let task_tree: NetabaseTree<Task, TaskKey> = db.get_main_tree()?;
 
     println!("✓ Database created and trees initialized");
 
@@ -349,8 +349,7 @@ async fn distributed_example() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub async fn getting_started() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logging to see what's happening
     env_logger::Builder::from_default_env()
         .filter_level(log::LevelFilter::Info)
@@ -392,9 +391,8 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let db_path = temp_dir.path().join("test_db");
 
-        let db =
-            NetabaseSledDatabase::<AppSchema>::new_with_path(&db_path.to_string_lossy()).unwrap();
-        let user_tree: NetabaseSledTree<User, UserKey> = db.get_main_tree().unwrap();
+        let db = NetabaseDatabase::<AppSchema>::new_with_path(&db_path).unwrap();
+        let user_tree: NetabaseTree<User, UserKey> = db.get_main_tree().unwrap();
 
         let user = User {
             id: 1,

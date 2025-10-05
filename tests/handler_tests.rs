@@ -86,7 +86,7 @@ async fn test_put_record_handler() {
 
     let db_path = generate_unique_db_path();
     let mut netabase = Netabase::<HandlerTestSchema>::new_with_path(&db_path).unwrap();
-    netabase.start_swarm().await.unwrap();
+    netabase.start_swarm().await;
 
     // Give the swarm time to initialize
     tokio::time::sleep(Duration::from_millis(200)).await;
@@ -370,7 +370,7 @@ async fn test_bootstrap_handler() {
         }
     }
 
-    netabase.stop_swarm().await.unwrap();
+    netabase.stop_swarm().await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -379,18 +379,19 @@ async fn test_mode_handlers() {
 
     let db_path = generate_unique_db_path();
     let mut netabase = Netabase::<HandlerTestSchema>::new_with_path(&db_path).unwrap();
-    netabase.start_swarm().await.unwrap();
+    netabase.start_swarm().await;
 
     tokio::time::sleep(Duration::from_millis(200)).await;
 
     // Test get_mode handler
-    let get_mode_result = timeout(Duration::from_secs(2), netabase.get_mode()).await;
+    let get_mode_result: Result<Mode, anyhow::Error> =
+        timeout(Duration::from_secs(2), netabase.get_mode()).await;
     assert!(
         get_mode_result.is_ok(),
         "Get mode handler should not timeout"
     );
 
-    let current_mode = get_mode_result.unwrap().unwrap();
+    let current_mode = get_mode_result.unwrap();
     println!("Current mode from handler: {:?}", current_mode);
 
     // Test set_mode handler
@@ -399,7 +400,8 @@ async fn test_mode_handlers() {
         Mode::Server => Some(Mode::Client),
     };
 
-    let set_mode_result = timeout(Duration::from_secs(2), netabase.set_mode(new_mode)).await;
+    let set_mode_result: Result<Result<(), anyhow::Error>, tokio::time::error::Elapsed> =
+        timeout(Duration::from_secs(2), netabase.set_mode(new_mode)).await;
     assert!(
         set_mode_result.is_ok(),
         "Set mode handler should not timeout"

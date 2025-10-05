@@ -41,6 +41,17 @@ use std::marker::PhantomData;
 
 use crate::errors::NetabaseError;
 
+// Conditional imports for database backend
+#[cfg(feature = "native")]
+use sled;
+
+// Conditional type aliases for database backend - moved to top to fix compilation
+#[cfg(feature = "native")]
+pub type DatabaseIVec = sled::IVec;
+
+#[cfg(all(feature = "wasm", not(feature = "native")))]
+pub type DatabaseIVec = crate::database::memory::MemoryIVec;
+
 /// Core trait for all Netabase database models.
 ///
 /// This trait defines the fundamental operations and properties that every model
@@ -255,8 +266,8 @@ pub trait NetabaseSchema:
     Encode
     + Decode<()>
     + Sized
-    + TryInto<sled::IVec>
-    + TryFrom<sled::IVec>
+    + TryInto<DatabaseIVec>
+    + TryFrom<DatabaseIVec>
     + Clone
     + std::fmt::Debug
     + Send
@@ -293,14 +304,14 @@ pub trait NetabaseSchema:
         Self::discriminant_for_key(key)
     }
 
-    fn to_ivec(&self) -> Result<sled::IVec, NetabaseError> {
-        Ok(sled::IVec::from(bincode::encode_to_vec(
+    fn to_ivec(&self) -> Result<DatabaseIVec, NetabaseError> {
+        Ok(DatabaseIVec::from(bincode::encode_to_vec(
             self,
             bincode::config::standard(),
         )?))
     }
 
-    fn from_ivec(ivec: sled::IVec) -> Result<Self, NetabaseError> {
+    fn from_ivec(ivec: DatabaseIVec) -> Result<Self, NetabaseError> {
         Ok(bincode::decode_from_slice::<Self, _>(&ivec, bincode::config::standard())?.0)
     }
 
@@ -350,7 +361,10 @@ pub trait NetabaseModelKey:
     Encode + Decode<()> + Clone + Sized + Send + Sync + Debug + 'static
 {
     type PrimaryKey: Clone + Send + Sync + Debug + 'static;
+    #[cfg(feature = "native")]
     type SecondaryKeys: Clone + Send + Sync + Debug + 'static + TryInto<sled::IVec>;
+    #[cfg(all(feature = "wasm", not(feature = "native")))]
+    type SecondaryKeys: Clone + Send + Sync + Debug + 'static + TryInto<DatabaseIVec>;
     type SecondaryKeysDiscriminants: strum::IntoEnumIterator
         + AsRef<str>
         + Clone
@@ -372,22 +386,22 @@ pub trait NetabaseModelKey:
 pub trait NetabaseKeys:
     Encode
     + Decode<()>
-    + TryInto<sled::IVec>
-    + TryFrom<sled::IVec>
+    + TryInto<DatabaseIVec>
+    + TryFrom<DatabaseIVec>
     + Sized
     + Clone
     + std::fmt::Debug
     + Send
     + Sync
 {
-    fn to_ivec(&self) -> Result<sled::IVec, NetabaseError> {
-        Ok(sled::IVec::from(bincode::encode_to_vec(
+    fn to_ivec(&self) -> Result<DatabaseIVec, NetabaseError> {
+        Ok(DatabaseIVec::from(bincode::encode_to_vec(
             self,
             bincode::config::standard(),
         )?))
     }
 
-    fn from_ivec(ivec: sled::IVec) -> Result<Self, NetabaseError> {
+    fn from_ivec(ivec: DatabaseIVec) -> Result<Self, NetabaseError> {
         Ok(bincode::decode_from_slice::<Self, _>(&ivec, bincode::config::standard())?.0)
     }
 
@@ -481,6 +495,7 @@ pub trait NetabaseRecordStoreQuery<M: NetabaseSchema> {
 pub trait NetabaseDiscriminants: Into<&'static str> {}
 
 /// Trait for secondary key enums
+#[cfg(feature = "native")]
 pub trait NetabaseSecondaryKeys:
     Encode
     + Decode<()>
@@ -493,6 +508,7 @@ pub trait NetabaseSecondaryKeys:
     + Debug
     + 'static
 {
+    #[cfg(feature = "native")]
     fn to_ivec(&self) -> Result<sled::IVec, crate::errors::NetabaseError> {
         Ok(sled::IVec::from(bincode::encode_to_vec(
             self,
@@ -500,12 +516,39 @@ pub trait NetabaseSecondaryKeys:
         )?))
     }
 
+    #[cfg(feature = "native")]
     fn from_ivec(ivec: sled::IVec) -> Result<Self, crate::errors::NetabaseError> {
         Ok(bincode::decode_from_slice::<Self, _>(&ivec, bincode::config::standard())?.0)
     }
 }
 
+#[cfg(all(feature = "wasm", not(feature = "native")))]
+pub trait NetabaseSecondaryKeys:
+    Encode
+    + Decode<()>
+    + Sized
+    + TryInto<DatabaseIVec>
+    + TryFrom<DatabaseIVec>
+    + Clone
+    + Send
+    + Sync
+    + Debug
+    + 'static
+{
+    fn to_ivec(&self) -> Result<DatabaseIVec, crate::errors::NetabaseError> {
+        Ok(DatabaseIVec::from(bincode::encode_to_vec(
+            self,
+            bincode::config::standard(),
+        )?))
+    }
+
+    fn from_ivec(ivec: DatabaseIVec) -> Result<Self, crate::errors::NetabaseError> {
+        Ok(bincode::decode_from_slice::<Self, _>(&ivec, bincode::config::standard())?.0)
+    }
+}
+
 /// Trait for relational key enums
+#[cfg(feature = "native")]
 pub trait NetabaseRelationalKeys:
     Encode
     + Decode<()>
@@ -518,6 +561,7 @@ pub trait NetabaseRelationalKeys:
     + Debug
     + 'static
 {
+    #[cfg(feature = "native")]
     fn to_ivec(&self) -> Result<sled::IVec, crate::errors::NetabaseError> {
         Ok(sled::IVec::from(bincode::encode_to_vec(
             self,
@@ -525,23 +569,64 @@ pub trait NetabaseRelationalKeys:
         )?))
     }
 
+    #[cfg(feature = "native")]
     fn from_ivec(ivec: sled::IVec) -> Result<Self, crate::errors::NetabaseError> {
         Ok(bincode::decode_from_slice::<Self, _>(&ivec, bincode::config::standard())?.0)
     }
 }
 
-/// Iterator wrapper that automatically converts sled::Iter results to typed (K, V) pairs
+#[cfg(all(feature = "wasm", not(feature = "native")))]
+pub trait NetabaseRelationalKeys:
+    Encode
+    + Decode<()>
+    + Sized
+    + TryInto<DatabaseIVec>
+    + TryFrom<DatabaseIVec>
+    + Clone
+    + Send
+    + Sync
+    + Debug
+    + 'static
+{
+    fn to_ivec(&self) -> Result<DatabaseIVec, crate::errors::NetabaseError> {
+        Ok(DatabaseIVec::from(bincode::encode_to_vec(
+            self,
+            bincode::config::standard(),
+        )?))
+    }
+
+    fn from_ivec(ivec: DatabaseIVec) -> Result<Self, crate::errors::NetabaseError> {
+        Ok(bincode::decode_from_slice::<Self, _>(&ivec, bincode::config::standard())?.0)
+    }
+}
+
+/// Iterator wrapper that automatically converts database results to typed (K, V) pairs
+#[cfg(feature = "native")]
 pub struct NetabaseIter<K, V> {
     inner: Option<sled::Iter>,
-    _phantom: std::marker::PhantomData<(K, V)>,
+    _phantom: PhantomData<(K, V)>,
+}
+
+#[cfg(all(feature = "wasm", not(feature = "native")))]
+pub struct NetabaseIter<K, V> {
+    inner: Option<crate::database::memory::MemoryIter>,
+    _phantom: PhantomData<(K, V)>,
 }
 
 impl<K, V> NetabaseIter<K, V> {
-    /// Create a new NetabaseIter from a sled::Iter
+    #[cfg(feature = "native")]
     pub fn new(iter: sled::Iter) -> Self {
         Self {
             inner: Some(iter),
-            _phantom: std::marker::PhantomData,
+            _phantom: PhantomData,
+        }
+    }
+
+    #[cfg(all(feature = "wasm", not(feature = "native")))]
+    pub fn new(iter: crate::database::memory::MemoryIter) -> Self {
+        Self {
+            inner: Some(iter),
+            _phantom: PhantomData,
         }
     }
 
@@ -556,8 +641,8 @@ impl<K, V> NetabaseIter<K, V> {
     /// Collect all successful results, stopping at the first error
     pub fn collect_results(self) -> Result<Vec<(K, V)>, NetabaseError>
     where
-        K: TryFrom<sled::IVec>,
-        V: TryFrom<sled::IVec>,
+        K: TryFrom<DatabaseIVec>,
+        V: TryFrom<DatabaseIVec>,
     {
         self.collect()
     }
@@ -565,8 +650,8 @@ impl<K, V> NetabaseIter<K, V> {
     /// Filter and collect only the successful conversions, ignoring errors
     pub fn filter_ok(self) -> impl Iterator<Item = (K, V)>
     where
-        K: TryFrom<sled::IVec>,
-        V: TryFrom<sled::IVec>,
+        K: TryFrom<DatabaseIVec>,
+        V: TryFrom<DatabaseIVec>,
     {
         self.filter_map(|result| result.ok())
     }
@@ -574,8 +659,8 @@ impl<K, V> NetabaseIter<K, V> {
     /// Get the keys only
     pub fn keys(self) -> impl Iterator<Item = Result<K, NetabaseError>>
     where
-        K: TryFrom<sled::IVec>,
-        V: TryFrom<sled::IVec>,
+        K: TryFrom<DatabaseIVec>,
+        V: TryFrom<DatabaseIVec>,
     {
         self.map(|result| result.map(|(k, _v)| k))
     }
@@ -583,8 +668,8 @@ impl<K, V> NetabaseIter<K, V> {
     /// Get the values only
     pub fn values(self) -> impl Iterator<Item = Result<V, NetabaseError>>
     where
-        K: TryFrom<sled::IVec>,
-        V: TryFrom<sled::IVec>,
+        K: TryFrom<DatabaseIVec>,
+        V: TryFrom<DatabaseIVec>,
     {
         self.map(|result| result.map(|(_k, v)| v))
     }
@@ -592,8 +677,8 @@ impl<K, V> NetabaseIter<K, V> {
 
 impl<K, V> Iterator for NetabaseIter<K, V>
 where
-    K: TryFrom<sled::IVec>,
-    V: TryFrom<sled::IVec>,
+    K: TryFrom<DatabaseIVec>,
+    V: TryFrom<DatabaseIVec>,
 {
     type Item = Result<(K, V), crate::errors::NetabaseError>;
 
@@ -618,12 +703,31 @@ where
     }
 }
 
+#[cfg(all(feature = "wasm", not(feature = "native")))]
+impl<K, V> SecondaryKeyIter<K, V> {
+    pub fn new(iter: crate::database::memory::MemoryIter) -> Self {
+        Self {
+            inner: Some(iter),
+            _phantom: PhantomData,
+        }
+    }
+}
+
 /// Iterator specifically for secondary key queries
+/// Iterator for secondary key queries
+#[cfg(feature = "native")]
 pub struct SecondaryKeyIter<K, V> {
     inner: Option<sled::Iter>,
     _phantom: PhantomData<(K, V)>,
 }
 
+#[cfg(all(feature = "wasm", not(feature = "native")))]
+pub struct SecondaryKeyIter<K, V> {
+    inner: Option<crate::database::memory::MemoryIter>,
+    _phantom: PhantomData<(K, V)>,
+}
+
+#[cfg(feature = "native")]
 impl<K, V> SecondaryKeyIter<K, V> {
     pub fn new(iter: sled::Iter) -> Self {
         Self {
@@ -635,8 +739,8 @@ impl<K, V> SecondaryKeyIter<K, V> {
 
 impl<K, V> Iterator for SecondaryKeyIter<K, V>
 where
-    K: TryFrom<sled::IVec>,
-    V: TryFrom<sled::IVec>,
+    K: TryFrom<DatabaseIVec>,
+    V: TryFrom<DatabaseIVec>,
 {
     type Item = Result<(K, V), crate::errors::NetabaseError>;
 
@@ -741,12 +845,21 @@ where
     ///     println!("Engineer: {}", user.name);
     /// }
     /// ```
+    #[cfg(feature = "native")]
     fn query_by_secondary_key<SK>(
         &self,
         secondary_key: SK,
     ) -> Result<Vec<M>, crate::errors::NetabaseError>
     where
         SK: NetabaseSecondaryKeys + TryInto<sled::IVec> + Clone + std::fmt::Debug + PartialEq;
+
+    #[cfg(all(feature = "wasm", not(feature = "native")))]
+    fn query_by_secondary_key<SK>(
+        &self,
+        secondary_key: SK,
+    ) -> Result<Vec<M>, crate::errors::NetabaseError>
+    where
+        SK: NetabaseSecondaryKeys + TryInto<DatabaseIVec> + Clone + std::fmt::Debug + PartialEq;
 
     /// Get all unique values for a specific secondary key field.
     ///
@@ -771,10 +884,17 @@ where
     ///     println!("Department: {}", dept);
     /// }
     /// ```
+    #[cfg(feature = "native")]
     fn get_secondary_key_values(
         &self,
         field_name: &str,
     ) -> Result<Vec<sled::IVec>, crate::errors::NetabaseError>;
+
+    #[cfg(all(feature = "wasm", not(feature = "native")))]
+    fn get_secondary_key_values(
+        &self,
+        field_name: &str,
+    ) -> Result<Vec<DatabaseIVec>, crate::errors::NetabaseError>;
 
     /// Create an index for a secondary key field.
     ///
@@ -1150,11 +1270,13 @@ where
 {
 }
 
+#[cfg(feature = "native")]
 pub mod database_traits {
     use crate::{
         errors::NetabaseError,
-        traits::{NetabaseModel, NetabaseModelKey},
+        traits::{DatabaseIVec, NetabaseModel, NetabaseModelKey},
     };
+    use std::collections::HashMap;
 
     pub trait NetabaseSledDatabase {
         fn new(name: &str) -> Self;
@@ -1290,10 +1412,10 @@ pub mod database_traits {
 
             let result = self.tree().update_and_fetch(key_ivec, |old_ivec_opt| {
                 let old_value_opt =
-                    old_ivec_opt.and_then(|ivec| V::try_from(sled::IVec::from(ivec)).ok());
+                    old_ivec_opt.and_then(|ivec| V::try_from(DatabaseIVec::from(ivec)).ok());
                 let new_value_opt = f(old_value_opt);
                 new_value_opt.and_then(|v| {
-                    sled::IVec::try_from(v)
+                    DatabaseIVec::try_from(v)
                         .ok()
                         .map(|ivec| ivec.as_ref().to_vec())
                 })
@@ -1327,10 +1449,10 @@ pub mod database_traits {
 
             let result = self.tree().fetch_and_update(key_ivec, |old_ivec_opt| {
                 let old_value_opt =
-                    old_ivec_opt.and_then(|ivec| V::try_from(sled::IVec::from(ivec)).ok());
+                    old_ivec_opt.and_then(|ivec| V::try_from(DatabaseIVec::from(ivec)).ok());
                 let new_value_opt = f(old_value_opt);
                 new_value_opt.and_then(|v| {
-                    sled::IVec::try_from(v)
+                    DatabaseIVec::try_from(v)
                         .ok()
                         .map(|ivec| ivec.as_ref().to_vec())
                 })
@@ -1421,14 +1543,14 @@ pub mod database_traits {
 
             let start_bound = match range.start_bound() {
                 Bound::Included(k) => {
-                    if let Ok(ivec) = sled::IVec::try_from(k.clone()) {
+                    if let Ok(ivec) = DatabaseIVec::try_from(k.clone()) {
                         Bound::Included(ivec)
                     } else {
                         Bound::Unbounded
                     }
                 }
                 Bound::Excluded(k) => {
-                    if let Ok(ivec) = sled::IVec::try_from(k.clone()) {
+                    if let Ok(ivec) = DatabaseIVec::try_from(k.clone()) {
                         Bound::Excluded(ivec)
                     } else {
                         Bound::Unbounded
@@ -1439,14 +1561,14 @@ pub mod database_traits {
 
             let end_bound = match range.end_bound() {
                 Bound::Included(k) => {
-                    if let Ok(ivec) = sled::IVec::try_from(k.clone()) {
+                    if let Ok(ivec) = DatabaseIVec::try_from(k.clone()) {
                         Bound::Included(ivec)
                     } else {
                         Bound::Unbounded
                     }
                 }
                 Bound::Excluded(k) => {
-                    if let Ok(ivec) = sled::IVec::try_from(k.clone()) {
+                    if let Ok(ivec) = DatabaseIVec::try_from(k.clone()) {
                         Bound::Excluded(ivec)
                     } else {
                         Bound::Unbounded
@@ -1464,7 +1586,7 @@ pub mod database_traits {
             K: TryFrom<sled::IVec>,
             V: TryFrom<sled::IVec>,
         {
-            match sled::IVec::try_from(prefix) {
+            match DatabaseIVec::try_from(prefix) {
                 Ok(prefix_ivec) => {
                     crate::traits::NetabaseIter::new(self.tree().scan_prefix(prefix_ivec))
                 }
@@ -1478,8 +1600,8 @@ pub mod database_traits {
         /// Iterate over all entries in the tree
         fn iter(&self) -> crate::traits::NetabaseIter<K, V>
         where
-            K: TryFrom<sled::IVec>,
-            V: TryFrom<sled::IVec>,
+            K: TryFrom<DatabaseIVec>,
+            V: TryFrom<DatabaseIVec>,
         {
             crate::traits::NetabaseIter::new(self.tree().iter())
         }

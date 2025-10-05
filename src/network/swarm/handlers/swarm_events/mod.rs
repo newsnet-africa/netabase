@@ -1,25 +1,44 @@
+#[cfg(feature = "native")]
 use netabase_store::traits::NetabaseSchema;
 
+#[cfg(feature = "native")]
 use crate::network::behaviour::clone_impl::NetabaseSwarmEvent;
 
-// Handler modules
+// Handler modules - only available for native builds
+#[cfg(feature = "native")]
 pub mod behaviour;
+#[cfg(feature = "native")]
 pub mod connection_closed;
+#[cfg(feature = "native")]
 pub mod connection_established;
+#[cfg(feature = "native")]
 pub mod dialing;
+#[cfg(feature = "native")]
 pub mod expired_listen_addr;
+#[cfg(feature = "native")]
 pub mod external_addr_confirmed;
+#[cfg(feature = "native")]
 pub mod external_addr_expired;
+#[cfg(feature = "native")]
 pub mod fallback;
+#[cfg(feature = "native")]
 pub mod incoming_connection;
+#[cfg(feature = "native")]
 pub mod incoming_connection_error;
+#[cfg(feature = "native")]
 pub mod listener_closed;
+#[cfg(feature = "native")]
 pub mod listener_error;
+#[cfg(feature = "native")]
 pub mod new_external_addr_candidate;
+#[cfg(feature = "native")]
 pub mod new_external_addr_of_peer;
+#[cfg(feature = "native")]
 pub mod new_listen_addr;
+#[cfg(feature = "native")]
 pub mod outgoing_connection_error;
 
+#[cfg(feature = "native")]
 pub fn handle_swarm_events<S: NetabaseSchema>(event: NetabaseSwarmEvent<S>) {
     match event.0 {
         libp2p::swarm::SwarmEvent::Behaviour(behaviour_event) => {

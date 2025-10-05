@@ -7,7 +7,7 @@
 //! - Store and retrieve data across the network
 //! - Handle basic network operations
 //!
-//! Run with: `cargo run --example netabase_basic_usage`
+//! Run with: `cargo run --bin netabase_basic_usage`
 
 use bincode::{Decode, Encode};
 use netabase::Netabase;
@@ -33,8 +33,7 @@ mod blog {
 
 use blog::*;
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub async fn netabase_basic_usage() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting Netabase basic usage example...");
 
     // Create a distributed database instance

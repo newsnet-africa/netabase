@@ -2,7 +2,7 @@ use bincode::{Decode, Encode};
 use log::{debug, info};
 use netabase_macros::NetabaseModel;
 use netabase_store::{
-    database::NetabaseSledDatabase,
+    database::NetabaseDatabase,
     traits::{NetabaseModel, NetabaseSchema},
 };
 use std::collections::HashMap;

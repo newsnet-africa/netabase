@@ -102,6 +102,112 @@ tree.batch_insert_with_indexing(items)?;
 - Database-level indexing operations
 - Relationship support between models
 
+## TODO Items and Unimplemented Features
+
+### High Priority TODOs
+
+#### Dead Code and Unused Imports
+- **Unused HashMap Import**: Remove unused import in traits.rs
+  - Location: `src/traits.rs:1279`
+  - Status: Warning - unused import `std::collections::HashMap`
+  - Action: Remove unused import or implement usage
+
+- **Unused Cow Import**: Remove unused import in sled.rs
+  - Location: `src/database/sled.rs:11`
+  - Status: Warning - unused import `std::borrow::Cow`
+  - Action: Remove unused import
+
+- **Unused NetabaseSchemaQuery**: Remove unused import
+  - Location: `src/database/sled.rs:32`
+  - Status: Warning - unused import `NetabaseSchemaQuery`
+  - Action: Remove unused import or implement query functionality
+
+#### Documentation TODOs
+- **Bincode Explicit Requirement**: Fix old refactor issue
+  - Location: `src/traits.rs:285-289`
+  - Issue: Comment indicates "some old refactor did something weird that requires bincode to be explicit here"
+  - Status: Technical debt from previous refactor
+  - Action: Investigate and fix bincode requirement or document why it's needed
+
+- **Example Code in Documentation**: Incomplete examples in lib.rs
+  - Location: `src/lib.rs:207-208`
+  - Issue: Documentation example uses `todo!()` placeholder
+  - Status: Incomplete documentation
+  - Action: Complete the example with working code
+
+#### Test Implementation Gaps
+- **Conversion Function Tests**: Test functions are commented out
+  - Location: `tests/test_simple_record_store.rs:74-80`
+  - Issue: `_test_conversions` function has commented out test code using `unimplemented!()`
+  - Status: Tests not fully implemented
+  - Action: Implement proper test cases or remove placeholder
+
+- **Discriminant Method Tests**: Test methods are commented out
+  - Location: `tests/test_simple_record_store.rs:139-146`
+  - Issue: `_test_discriminant_methods` function has commented out test code using `unimplemented!()`
+  - Status: Tests not fully implemented
+  - Action: Implement proper test methods or document why they're disabled
+
+### Medium Priority TODOs
+
+#### Feature Implementation
+- **WASM Compatibility**: Add WebAssembly support
+  - Current: Only native support implemented
+  - Action: Add conditional compilation for WASM builds
+  - Considerations: Browser storage APIs, limited file system access
+
+- **Async Operations**: Consider async database operations
+  - Current: Synchronous sled operations
+  - Action: Evaluate async sled features or wrapper implementations
+
+- **Distributed Features**: Network-aware database operations
+  - Current: Local database only
+  - Action: Add networking capabilities for distributed scenarios
+
+#### Performance Optimizations
+- **Batch Operation Efficiency**: Optimize large batch operations
+- **Index Performance**: Improve secondary key indexing performance
+- **Memory Usage**: Optimize memory usage for large datasets
+
+### Low Priority TODOs
+
+#### Code Quality
+- **Error Handling**: Standardize error types across the crate
+- **Logging**: Add structured logging for database operations
+- **Metrics**: Add performance metrics and monitoring
+
+#### Testing
+- **Property Tests**: Add property-based tests for database operations
+- **Benchmark Tests**: Add performance benchmarks
+- **Integration Tests**: Add full integration test suite
+
+#### Documentation
+- **Migration Guide**: Create migration guide for schema changes
+- **Performance Guide**: Document performance characteristics
+- **Best Practices**: Expand best practices section
+
+## Platform Compatibility
+
+### Native Features
+- Full sled database functionality
+- File system access for database storage
+- Complete indexing and querying capabilities
+- Batch operations with atomic transactions
+
+### WASM Limitations
+- **File System**: No direct file system access in WASM
+- **Threading**: Limited threading capabilities
+- **Storage**: Must use browser storage APIs
+- **Performance**: May have different performance characteristics
+
+## Known Issues
+
+1. **Import Warnings**: Several unused imports need cleanup
+2. **Documentation Examples**: Some examples use placeholder code
+3. **Test Coverage**: Some test functions are incomplete
+4. **WASM Support**: No WebAssembly compatibility implemented
+5. **Async Support**: All operations are currently synchronous
+
 ## Best Practices
 
 1. Always define primary keys for your models
@@ -109,4 +215,6 @@ tree.batch_insert_with_indexing(items)?;
 3. Consider using batch operations for bulk updates
 4. Properly handle database errors in your application
 5. Use appropriate types for your keys and fields
+6. Clean up unused imports to avoid warnings
+7. Implement proper error handling for all database operations
 

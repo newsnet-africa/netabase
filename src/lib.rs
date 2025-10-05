@@ -237,10 +237,14 @@
 /// This crate re-exports the core functionality from `netabase_store` for convenience.
 pub use netabase_store::*;
 pub mod errors;
+
+#[cfg(feature = "native")]
 pub mod network;
 
+#[cfg(feature = "native")]
 use libp2p::kad::QueryResult;
 use netabase_store::traits::{NetabaseModel, NetabaseModelKey, NetabaseSchema as NetabaseSchemaT};
+#[cfg(feature = "native")]
 use tokio::sync::{broadcast, mpsc, oneshot};
 
 /// Main Netabase instance that manages the distributed database.
@@ -248,6 +252,7 @@ use tokio::sync::{broadcast, mpsc, oneshot};
 /// This is the primary interface for interacting with a Netabase distributed database.
 /// It manages both local storage (via sled) and peer-to-peer networking (via libp2p),
 /// providing a unified API for distributed data operations.
+#[cfg(feature = "native")]
 ///
 /// ## Architecture
 ///
@@ -315,6 +320,19 @@ pub struct Netabase<S: NetabaseSchemaT> {
     database_path: Option<String>,
 }
 
+/// WASM-compatible Netabase instance for local database operations only.
+///
+/// This version provides only local database functionality without networking,
+/// suitable for WebAssembly environments where networking capabilities are limited.
+#[cfg(all(feature = "wasm", not(feature = "native")))]
+pub struct Netabase<S: NetabaseSchemaT> {
+    /// Local database instance
+    database: database::NetabaseDatabase<S>,
+    /// Optional custom database name for WASM storage
+    database_name: Option<String>,
+}
+
+#[cfg(feature = "native")]
 impl<S: NetabaseSchemaT + 'static> Netabase<S> {
     /// Create a new Netabase instance with default settings.
     ///
@@ -459,7 +477,9 @@ impl<S: NetabaseSchemaT + 'static> Netabase<S> {
         let swarm = network::swarm::generate_swarm_with_name::<S>(self.database_path.clone())?;
 
         let handle = tokio::spawn(async move {
-            network::swarm::start_swarm(swarm, broadcast_sender, command_receiver).await
+            network::swarm::handlers::start_swarm_loop(swarm, broadcast_sender, command_receiver)
+                .await;
+            Ok(())
         });
 
         self.swarm_thread = Some(handle);
@@ -1029,7 +1049,7 @@ impl<S: NetabaseSchemaT + 'static> Netabase<S> {
     ///     let netabase = Netabase::<blog::BlogSchema>::new().expect("Netabase creation failed for some reason");
     ///     let peer_id = PeerId::random(); // In practice, use a known peer ID
     ///     let address: Multiaddr = "/ip4/192.168.1.100/tcp/4001".parse().unwrap();
-    ///    
+    ///
     ///     match netabase.add_address(peer_id, address).await {
     ///         Ok(update) => println!("Routing table updated: {:?}", update),
     ///         Err(e) => eprintln!("Failed to add address: {}", e),
@@ -1382,6 +1402,45 @@ impl<S: NetabaseSchemaT + 'static> Netabase<S> {
     }
 }
 
+/// WASM-specific implementation with local database operations only
+#[cfg(all(feature = "wasm", not(feature = "native")))]
+impl<S: NetabaseSchemaT + 'static> Netabase<S> {
+    /// Create a new WASM Netabase instance for local operations.
+    ///
+    /// This creates a local-only database instance suitable for WASM environments.
+    /// No networking functionality is available.
+    pub fn new() -> anyhow::Result<Self> {
+        let database = database::NetabaseDatabase::<S>::new()?;
+        Ok(Self {
+            database,
+            database_name: None,
+        })
+    }
+
+    /// Create a new WASM Netabase instance with a custom name.
+    pub fn new_with_name(name: String) -> anyhow::Result<Self> {
+        let database = database::NetabaseDatabase::<S>::new()?;
+        Ok(Self {
+            database,
+            database_name: Some(name),
+        })
+    }
+
+    /// Get direct access to the local database for WASM environments.
+    ///
+    /// Since networking is not available in WASM, this provides direct access
+    /// to the underlying database for local operations.
+    pub fn database(&self) -> &database::NetabaseDatabase<S> {
+        &self.database
+    }
+
+    /// Get mutable access to the local database for WASM environments.
+    pub fn database_mut(&mut self) -> &mut database::NetabaseDatabase<S> {
+        &mut self.database
+    }
+}
+
+#[cfg(feature = "native")]
 impl<S: NetabaseSchemaT> Drop for Netabase<S> {
     fn drop(&mut self) {
         if let Some(handle) = self.swarm_thread.take() {

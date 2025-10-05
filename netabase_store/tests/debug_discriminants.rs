@@ -3,7 +3,7 @@ use log::{debug, info};
 use netabase_macros::NetabaseModel;
 use netabase_macros::netabase_schema_module;
 use netabase_store::{
-    database::NetabaseSledDatabase,
+    database::NetabaseDatabase,
     traits::{NetabaseModel, NetabaseSchema},
 };
 use serde::{Deserialize, Serialize};
@@ -115,13 +115,13 @@ mod tests {
         let temp_dir = TempDir::new()?;
         let db_path = temp_dir.path().join("test_model_trees");
         debug!("Test model trees database path: {}", db_path.display());
-        let db = NetabaseSledDatabase::<TestSchema>::new_with_path(&db_path)?;
+        let db = NetabaseDatabase::<TestSchema>::new_with_path(&db_path)?;
         info!("✓ Database created successfully for model tree access test");
 
         // Test User tree creation
         debug!("Creating User tree");
         println!("Creating User tree...");
-        let user_tree: netabase_store::database::NetabaseSledTree<
+        let user_tree: netabase_store::database::NetabaseTree<
             test_schema::User,
             test_schema::UserKey,
         > = db.get_main_tree()?;
@@ -131,7 +131,7 @@ mod tests {
         // Test Post tree creation
         debug!("Creating Post tree");
         println!("Creating Post tree...");
-        let post_tree: netabase_store::database::NetabaseSledTree<
+        let post_tree: netabase_store::database::NetabaseTree<
             test_schema::Post,
             test_schema::PostKey,
         > = db.get_main_tree()?;
@@ -172,14 +172,14 @@ mod tests {
             "Test model discriminants database path: {}",
             db_path.display()
         );
-        let db = NetabaseSledDatabase::<TestSchema>::new_with_path(&db_path)?;
+        let db = NetabaseDatabase::<TestSchema>::new_with_path(&db_path)?;
         info!("✓ Database created successfully for model discriminants test");
 
-        let user_tree: netabase_store::database::NetabaseSledTree<
+        let user_tree: netabase_store::database::NetabaseTree<
             test_schema::User,
             test_schema::UserKey,
         > = db.get_main_tree()?;
-        let post_tree: netabase_store::database::NetabaseSledTree<
+        let post_tree: netabase_store::database::NetabaseTree<
             test_schema::Post,
             test_schema::PostKey,
         > = db.get_main_tree()?;

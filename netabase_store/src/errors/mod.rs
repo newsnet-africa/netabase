@@ -24,8 +24,9 @@ impl From<bincode::error::EncodeError> for NetabaseError {
     }
 }
 
+#[cfg(feature = "native")]
 impl From<sled::Error> for NetabaseError {
     fn from(_value: sled::Error) -> Self {
-        Self::Database
+        NetabaseError::Database
     }
 }

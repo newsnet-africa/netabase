@@ -1,34 +1,55 @@
+#[cfg(feature = "native")]
 use libp2p::{
     Multiaddr, PeerId, StreamProtocol, Swarm,
     kad::{self, EntryView, KBucketKey, Mode, NoKnownPeers, QueryResult, Quorum, RoutingUpdate},
 };
+#[cfg(feature = "native")]
 use netabase_store::traits::NetabaseSchema;
+#[cfg(feature = "native")]
 use tokio::sync::oneshot::Sender;
 
+#[cfg(feature = "native")]
 use crate::network::behaviour::NetabaseBehaviour;
 
-// Handler modules
+// Handler modules - only available for native builds
+#[cfg(feature = "native")]
 pub mod add_address;
+#[cfg(feature = "native")]
 pub mod bootstrap;
+#[cfg(feature = "native")]
 pub mod fallback;
+#[cfg(feature = "native")]
 pub mod get_providers;
+#[cfg(feature = "native")]
 pub mod get_record;
+#[cfg(feature = "native")]
 pub mod mode;
+#[cfg(feature = "native")]
 pub mod protocol_names;
+#[cfg(feature = "native")]
 pub mod put_record;
+#[cfg(feature = "native")]
 pub mod put_record_to;
+#[cfg(feature = "native")]
 pub mod remove_address;
+#[cfg(feature = "native")]
 pub mod remove_peer;
+#[cfg(feature = "native")]
 pub mod remove_record;
+#[cfg(feature = "native")]
 pub mod set_mode;
+#[cfg(feature = "native")]
 pub mod start_providing;
+#[cfg(feature = "native")]
 pub mod stop_providing;
 
+#[cfg(feature = "native")]
 #[derive(Debug)]
 pub enum Command<S: NetabaseSchema> {
     Kademlia(KademliaCommand<S>),
 }
 
+#[cfg(feature = "native")]
 #[derive(Debug)]
 pub enum KademliaCommand<S: NetabaseSchema> {
     AddAddress {
@@ -89,9 +110,11 @@ pub enum KademliaCommand<S: NetabaseSchema> {
     LocalStore(LocalStoreCommand),
 }
 
+#[cfg(feature = "native")]
 #[derive(Debug)]
 pub enum LocalStoreCommand {}
 
+#[cfg(feature = "native")]
 pub fn handle_command_events<S: NetabaseSchema>(
     swarm: &mut Swarm<NetabaseBehaviour<S>>,
     command: Command<S>,
@@ -103,6 +126,7 @@ pub fn handle_command_events<S: NetabaseSchema>(
     }
 }
 
+#[cfg(feature = "native")]
 pub fn handle_kademlia_command<S: NetabaseSchema>(
     swarm: &mut Swarm<NetabaseBehaviour<S>>,
     command: KademliaCommand<S>,
@@ -177,10 +201,6 @@ pub fn handle_kademlia_command<S: NetabaseSchema>(
         }
         KademliaCommand::StopProviding { key } => {
             stop_providing::handle_stop_providing(swarm, key);
-        }
-        KademliaCommand::LocalStore(_local_store_command) => {
-            // TODO: Implement local store command handlers when LocalStoreCommand is populated
-            todo!("LocalStore command received - not yet implemented");
         }
     }
 }

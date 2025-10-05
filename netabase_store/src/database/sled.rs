@@ -7,10 +7,17 @@
 //! - Secondary key indexing and querying
 //! - Relational query functionality
 
+#[cfg(feature = "native")]
 use std::borrow::Cow;
+#[cfg(feature = "native")]
 use std::collections::{HashMap, HashSet};
+#[cfg(feature = "native")]
 use std::marker::PhantomData;
+#[cfg(feature = "native")]
 use std::path::Path;
+
+#[cfg(feature = "native")]
+use sled;
 
 #[cfg(feature = "libp2p")]
 use libp2p::PeerId;
@@ -33,6 +40,7 @@ use crate::database::record_store::{
 };
 
 /// Enhanced database that automatically manages trees based on a specific model type
+#[cfg(feature = "native")]
 pub struct NetabaseSledDatabase<M>
 where
     M: NetabaseSchema,
@@ -44,6 +52,7 @@ where
     _phantom: PhantomData<M>,
 }
 
+#[cfg(feature = "native")]
 impl<M> NetabaseSledDatabase<M>
 where
     M: NetabaseSchema,

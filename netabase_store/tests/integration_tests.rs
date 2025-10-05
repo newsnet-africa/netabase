@@ -2,7 +2,7 @@ use bincode::{Decode, Encode};
 use log::{debug, error, info, warn};
 use netabase_macros::{NetabaseModel, netabase_schema_module};
 use netabase_store::{
-    database::{NetabaseSledDatabase, NetabaseSledTree},
+    database::{NetabaseDatabase, NetabaseTree},
     traits::{NetabaseModel, NetabaseSchema},
 };
 use serde::{Deserialize, Serialize};
@@ -180,7 +180,7 @@ mod integration_tests {
     use super::*;
     use anyhow::Result;
 
-    fn create_blog_database() -> Result<(NetabaseSledDatabase<BlogSchema>, TempDir)> {
+    fn create_blog_database() -> Result<(NetabaseDatabase<BlogSchema>, TempDir)> {
         init_logger();
         info!("Creating blog database in temporary directory");
 
@@ -188,13 +188,13 @@ mod integration_tests {
         let db_path = temp_dir.path().join("blog_test_db");
         debug!("Blog database path: {}", db_path.display());
 
-        let db = NetabaseSledDatabase::new_with_path(&db_path)?;
+        let db = NetabaseDatabase::new_with_path(&db_path)?;
         info!("Blog database created successfully");
 
         Ok((db, temp_dir))
     }
 
-    fn create_ecommerce_database() -> Result<(NetabaseSledDatabase<EcommerceSchema>, TempDir)> {
+    fn create_ecommerce_database() -> Result<(NetabaseDatabase<EcommerceSchema>, TempDir)> {
         init_logger();
         info!("Creating ecommerce database in temporary directory");
 
@@ -202,7 +202,7 @@ mod integration_tests {
         let db_path = temp_dir.path().join("ecommerce_test_db");
         debug!("Ecommerce database path: {}", db_path.display());
 
-        let db = NetabaseSledDatabase::new_with_path(&db_path)?;
+        let db = NetabaseDatabase::new_with_path(&db_path)?;
         info!("Ecommerce database created successfully");
 
         Ok((db, temp_dir))
@@ -294,7 +294,7 @@ mod integration_tests {
 
         // Test that each model can create its own tree using the new type-safe API
         debug!("Creating User tree");
-        let user_tree: netabase_store::database::NetabaseSledTree<
+        let user_tree: netabase_store::database::NetabaseTree<
             blog_schema::User,
             blog_schema::UserKey,
         > = db.get_main_tree()?;
@@ -302,7 +302,7 @@ mod integration_tests {
         info!("✓ User tree created and verified empty");
 
         debug!("Creating Post tree");
-        let post_tree: netabase_store::database::NetabaseSledTree<
+        let post_tree: netabase_store::database::NetabaseTree<
             blog_schema::Post,
             blog_schema::PostKey,
         > = db.get_main_tree()?;
@@ -310,7 +310,7 @@ mod integration_tests {
         info!("✓ Post tree created and verified empty");
 
         debug!("Creating Comment tree");
-        let comment_tree: netabase_store::database::NetabaseSledTree<
+        let comment_tree: netabase_store::database::NetabaseTree<
             blog_schema::Comment,
             blog_schema::CommentKey,
         > = db.get_main_tree()?;
@@ -318,7 +318,7 @@ mod integration_tests {
         info!("✓ Comment tree created and verified empty");
 
         debug!("Creating Profile tree");
-        let profile_tree: netabase_store::database::NetabaseSledTree<
+        let profile_tree: netabase_store::database::NetabaseTree<
             blog_schema::Profile,
             blog_schema::ProfileKey,
         > = db.get_main_tree()?;
@@ -372,15 +372,15 @@ mod integration_tests {
 
         // Create trees using the new type-safe API
         debug!("Creating type-safe trees");
-        let user_tree: netabase_store::database::NetabaseSledTree<
+        let user_tree: netabase_store::database::NetabaseTree<
             blog_schema::User,
             blog_schema::UserKey,
         > = db.get_main_tree()?;
-        let post_tree: netabase_store::database::NetabaseSledTree<
+        let post_tree: netabase_store::database::NetabaseTree<
             blog_schema::Post,
             blog_schema::PostKey,
         > = db.get_main_tree()?;
-        let profile_tree: netabase_store::database::NetabaseSledTree<
+        let profile_tree: netabase_store::database::NetabaseTree<
             blog_schema::Profile,
             blog_schema::ProfileKey,
         > = db.get_main_tree()?;
@@ -439,15 +439,15 @@ mod integration_tests {
 
         // Create trees using the new type-safe API
         debug!("Creating type-safe trees for resolution test");
-        let user_tree: netabase_store::database::NetabaseSledTree<
+        let user_tree: netabase_store::database::NetabaseTree<
             blog_schema::User,
             blog_schema::UserKey,
         > = db.get_main_tree()?;
-        let post_tree: netabase_store::database::NetabaseSledTree<
+        let post_tree: netabase_store::database::NetabaseTree<
             blog_schema::Post,
             blog_schema::PostKey,
         > = db.get_main_tree()?;
-        let comment_tree: netabase_store::database::NetabaseSledTree<
+        let comment_tree: netabase_store::database::NetabaseTree<
             blog_schema::Comment,
             blog_schema::CommentKey,
         > = db.get_main_tree()?;
@@ -587,26 +587,22 @@ mod integration_tests {
         let (db, _temp_dir) = create_ecommerce_database()?;
 
         // Create trees using the new type-safe API
-        let customer_tree: netabase_store::database::NetabaseSledTree<
+        let customer_tree: netabase_store::database::NetabaseTree<
             ecommerce_schema::Customer,
             ecommerce_schema::CustomerKey,
         > = db.get_main_tree()?;
-        let order_tree: netabase_store::database::NetabaseSledTree<
+        let order_tree: netabase_store::database::NetabaseTree<
             ecommerce_schema::Order,
             ecommerce_schema::OrderKey,
         > = db.get_main_tree()?;
-        let order_item_tree: netabase_store::database::NetabaseSledTree<
+        let order_item_tree: netabase_store::database::NetabaseTree<
             ecommerce_schema::OrderItem,
             ecommerce_schema::OrderItemKey,
         > = db.get_main_tree()?;
-        let product_tree: NetabaseSledTree<
-            ecommerce_schema::Product,
-            ecommerce_schema::ProductKey,
-        > = db.get_main_tree()?;
-        let address_tree: NetabaseSledTree<
-            ecommerce_schema::Address,
-            ecommerce_schema::AddressKey,
-        > = db.get_main_tree()?;
+        let product_tree: NetabaseTree<ecommerce_schema::Product, ecommerce_schema::ProductKey> =
+            db.get_main_tree()?;
+        let address_tree: NetabaseTree<ecommerce_schema::Address, ecommerce_schema::AddressKey> =
+            db.get_main_tree()?;
 
         // Create test data
         let customer = Customer {
@@ -725,9 +721,9 @@ mod integration_tests {
         let (db, _temp_dir) = create_blog_database()?;
 
         // Create trees using the new type-safe API
-        let user_tree: NetabaseSledTree<blog_schema::User, blog_schema::UserKey> =
+        let user_tree: NetabaseTree<blog_schema::User, blog_schema::UserKey> =
             db.get_main_tree()?;
-        let post_tree: NetabaseSledTree<blog_schema::Post, blog_schema::PostKey> =
+        let post_tree: NetabaseTree<blog_schema::Post, blog_schema::PostKey> =
             db.get_main_tree()?;
 
         // Create bidirectional relationship: User <-> Post
@@ -758,9 +754,9 @@ mod integration_tests {
         let (db, _temp_dir) = create_blog_database()?;
 
         // Create trees using the new type-safe API
-        let user_tree: NetabaseSledTree<blog_schema::User, blog_schema::UserKey> =
+        let user_tree: NetabaseTree<blog_schema::User, blog_schema::UserKey> =
             db.get_main_tree()?;
-        let post_tree: NetabaseSledTree<blog_schema::Post, blog_schema::PostKey> =
+        let post_tree: NetabaseTree<blog_schema::Post, blog_schema::PostKey> =
             db.get_main_tree()?;
 
         // Test basic relational functionality through the main trees
@@ -791,15 +787,15 @@ mod integration_tests {
         let (db, _temp_dir) = create_blog_database()?;
 
         // Create trees using the new type-safe API
-        let user_tree: NetabaseSledTree<blog_schema::User, blog_schema::UserKey> =
+        let user_tree: NetabaseTree<blog_schema::User, blog_schema::UserKey> =
             db.get_main_tree()?;
-        let post_tree: NetabaseSledTree<blog_schema::Post, blog_schema::PostKey> =
+        let post_tree: NetabaseTree<blog_schema::Post, blog_schema::PostKey> =
             db.get_main_tree()?;
 
         // Create secondary trees for testing
-        let _user_secondary_tree: NetabaseSledTree<blog_schema::User, blog_schema::UserKey> =
+        let _user_secondary_tree: NetabaseTree<blog_schema::User, blog_schema::UserKey> =
             db.get_secondary_tree()?;
-        let _post_secondary_tree: NetabaseSledTree<blog_schema::Post, blog_schema::PostKey> =
+        let _post_secondary_tree: NetabaseTree<blog_schema::Post, blog_schema::PostKey> =
             db.get_secondary_tree()?;
 
         // Create user and post with relations

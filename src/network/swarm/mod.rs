@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use libp2p::{Swarm, SwarmBuilder, yamux};
+use libp2p::Swarm;
 use netabase_store::traits::NetabaseSchema;
 
 use crate::network::{
@@ -10,19 +10,24 @@ use crate::network::{
 
 pub mod handlers;
 
+// Native implementation with full networking support
+#[cfg(feature = "native")]
 pub fn generate_swarm<S: NetabaseSchema>() -> anyhow::Result<Swarm<NetabaseBehaviour<S>>> {
     generate_swarm_with_name::<S>(None)
 }
 
+#[cfg(feature = "native")]
 pub fn generate_swarm_with_name<S: NetabaseSchema>(
     name: Option<String>,
 ) -> anyhow::Result<Swarm<NetabaseBehaviour<S>>> {
+    use libp2p::{SwarmBuilder, tcp};
+
     Ok(SwarmBuilder::with_new_identity()
         .with_tokio()
         .with_tcp(
-            Default::default(),
-            (libp2p::tls::Config::new, libp2p::noise::Config::new),
-            yamux::Config::default,
+            tcp::Config::default(),
+            libp2p::noise::Config::new,
+            libp2p::yamux::Config::default,
         )?
         .with_quic()
         .with_behaviour(|kp| {
@@ -32,17 +37,53 @@ pub fn generate_swarm_with_name<S: NetabaseSchema>(
         .build())
 }
 
-pub async fn start_swarm<S: NetabaseSchema>(
+// WASM implementation with limited networking capabilities
+#[cfg(all(feature = "wasm", not(feature = "native")))]
+pub fn generate_swarm<S: NetabaseSchema>() -> anyhow::Result<Swarm<NetabaseBehaviour<S>>> {
+    generate_swarm_with_name::<S>(None)
+}
+
+#[cfg(all(feature = "wasm", not(feature = "native")))]
+pub fn generate_swarm_with_name<S: NetabaseSchema>(
+    _name: Option<String>,
+) -> anyhow::Result<Swarm<NetabaseBehaviour<S>>> {
+    // WASM implementation placeholder
+    // In a real WASM environment, this would:
+    // 1. Use websocket-websys for WebSocket connections
+    // 2. Use webrtc-websys for direct peer connections
+    // 3. Connect to relay/bootstrap nodes via WebSocket
+    // 4. Handle signaling for WebRTC peer discovery
+
+    // For now, return an error indicating WASM networking is not yet implemented
+    Err(anyhow::anyhow!(
+        "WASM networking is not yet implemented. Use netabase_store directly for local operations."
+    ))
+}
+
+// Native swarm setup with listening capabilities
+#[cfg(feature = "native")]
+pub async fn setup_swarm<S: NetabaseSchema>(
     mut swarm: Swarm<NetabaseBehaviour<S>>,
-    swarm_event_sender: tokio::sync::broadcast::Sender<NetabaseSwarmEvent<S>>,
-    command_event_listener: tokio::sync::mpsc::Receiver<Command<S>>,
-) -> anyhow::Result<()> {
-    swarm.listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse()?)?;
+) -> anyhow::Result<Swarm<NetabaseBehaviour<S>>> {
+    swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
+
     swarm
         .behaviour_mut()
         .kad
         .set_mode(Some(libp2p::kad::Mode::Server));
 
-    start_swarm_loop(swarm, swarm_event_sender, command_event_listener).await;
-    Ok(())
+    Ok(swarm)
+}
+
+// WASM swarm setup - placeholder for future implementation
+#[cfg(all(feature = "wasm", not(feature = "native")))]
+pub async fn setup_swarm<S: NetabaseSchema>(
+    _swarm: Swarm<NetabaseBehaviour<S>>,
+) -> anyhow::Result<Swarm<NetabaseBehaviour<S>>> {
+    // WASM networking setup would go here
+    // - Connect to WebSocket relay nodes
+    // - Setup WebRTC signaling
+    // - Configure DHT for browser environment
+
+    Err(anyhow::anyhow!("WASM swarm setup is not yet implemented"))
 }

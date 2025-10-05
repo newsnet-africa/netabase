@@ -2,9 +2,9 @@ use bincode::{Decode, Encode};
 use log::{debug, error, info, warn};
 use netabase_macros::{NetabaseModel, netabase_schema_module};
 use netabase_store::{
-    database::{NetabaseSledDatabase, NetabaseSledTree},
+    database::{NetabaseDatabase, NetabaseTree},
     relational::RelationalLink,
-    traits::NetabaseModel,
+    traits::{NetabaseModel, NetabaseModelKey, NetabaseSchema},
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Once;
@@ -63,7 +63,7 @@ use test_schema::*;
 
 type TestResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-fn create_test_database() -> TestResult<(NetabaseSledDatabase<TestSchema>, TempDir)> {
+fn create_test_database() -> TestResult<(NetabaseDatabase<TestSchema>, TempDir)> {
     init_logger();
     info!("Creating relational test database in temporary directory");
 
@@ -71,7 +71,7 @@ fn create_test_database() -> TestResult<(NetabaseSledDatabase<TestSchema>, TempD
     let db_path = temp_dir.path().join("relational_test_db");
     debug!("Relational test database path: {}", db_path.display());
 
-    let db = NetabaseSledDatabase::new_with_path(&db_path)?;
+    let db = NetabaseDatabase::<TestSchema>::new_with_path(&db_path)?;
     info!("Relational test database created successfully");
 
     Ok((db, temp_dir))

@@ -13,7 +13,7 @@ use bincode::{Decode, Encode};
 use netabase::Netabase;
 use netabase_macros::{NetabaseModel, netabase_schema_module};
 use netabase_store::{
-    database::{NetabaseSledDatabase, NetabaseSledTree},
+    database::sled::{NetabaseSledDatabase, NetabaseSledTree},
     traits::{NetabaseAdvancedQuery, NetabaseModel, NetabaseSecondaryKeyQuery},
 };
 use serde::{Deserialize, Serialize};
@@ -621,8 +621,7 @@ impl BlogService {
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub async fn blog_system() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
     println!("=== Netabase Blog System Example ===\n");

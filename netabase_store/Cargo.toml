@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-default = []
+default = ["native"]
+native = ["sled"]
+wasm = ["web-sys", "js-sys", "wasm-bindgen"]
 libp2p = ["dep:libp2p"]
 record-store = ["libp2p"]
 
@@ -13,12 +15,17 @@ anyhow = "1.0.100"
 bincode = { version = "2.0", features = ["derive", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 derive_more = { version = "2.0.1", features = ["from", "try_into", "into"] }
-libp2p = { version = "0.56.0", features = ["kad"], optional = true }
+libp2p = { version = "0.56.0", features = ["kad", "wasm-bindgen"], optional = true }
 netabase_macros = { path = "netabase_macros" }
 serde = { version = "1.0", features = ["derive"] }
-sled = "0.34.7"
+sled = { version = "0.34.7", optional = true }
 strum = { version = "0.27.2", features = ["derive", "strum_macros"] }
 thiserror = "2.0.17"
+
+# WASM-only dependencies
+web-sys = { version = "0.3", optional = true }
+js-sys = { version = "0.3", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
 
 [dev-dependencies]
 tempfile = "3.0"

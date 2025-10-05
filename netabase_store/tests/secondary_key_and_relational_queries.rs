@@ -2,7 +2,7 @@ use bincode::{Decode, Encode};
 use log::{debug, info};
 use netabase_macros::{NetabaseModel, netabase_schema_module};
 use netabase_store::{
-    database::{NetabaseSledDatabase, NetabaseSledTree},
+    database::{NetabaseDatabase, NetabaseTree},
     relational::{RelationalResolver, utils},
     traits::{
         NetabaseAdvancedQuery, NetabaseModel, NetabaseRelationalQuery, NetabaseSecondaryKeyQuery,
