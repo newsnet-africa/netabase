@@ -1,5 +1,6 @@
 use bincode::{Decode, Encode};
 use netabase_macros::{NetabaseModel, netabase_schema_module};
+use netabase_store::traits::NetabaseModel as NetabaseModelTrait;
 use serde::{Deserialize, Serialize};
 
 #[netabase_schema_module(TestSchema, TestSchemaKey)]

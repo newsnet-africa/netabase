@@ -110,10 +110,3 @@ tree.batch_insert_with_indexing(items)?;
 4. Properly handle database errors in your application
 5. Use appropriate types for your keys and fields
 
-## License
-
-[Insert License Information]
-
-## Contributing
-
-[Insert Contribution Guidelines]

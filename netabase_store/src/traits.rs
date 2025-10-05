@@ -282,6 +282,17 @@ pub trait NetabaseSchema:
         <Self::SchemaDiscriminants as strum::IntoEnumIterator>::iter().collect()
     }
 
+    /// Get the discriminant for this schema instance
+    fn discriminant(&self) -> Self::SchemaDiscriminants;
+
+    /// Get the discriminant that matches a given key
+    fn discriminant_for_key(key: &Self::Keys) -> Self::SchemaDiscriminants;
+
+    /// Convert NetabaseSchemaKeys to matching ModelDiscriminants
+    fn key_to_discriminant(key: &Self::Keys) -> Self::SchemaDiscriminants {
+        Self::discriminant_for_key(key)
+    }
+
     fn to_ivec(&self) -> Result<sled::IVec, NetabaseError> {
         Ok(sled::IVec::from(bincode::encode_to_vec(
             self,
@@ -420,6 +431,51 @@ where
     fn from_record_key(record: RecordKey) -> Result<Self, NetabaseError> {
         Ok(bincode::decode_from_slice::<Self, _>(&record.to_vec(), bincode::config::standard())?.0)
     }
+}
+
+/// Trait for schema-based querying in NetabaseSledDatabase
+pub trait NetabaseSchemaQuery<M: NetabaseSchema> {
+    /// Get a NetabaseSchema by key, converting to the appropriate discriminant
+    fn get_schema(&self, key: &M::Keys) -> Result<Option<M>, NetabaseError>;
+
+    /// Put a NetabaseSchema, storing it in the correct tree based on discriminant
+    fn put_schema(&mut self, schema: &M) -> Result<(), NetabaseError>;
+
+    /// Remove a NetabaseSchema by key
+    fn remove_schema(&mut self, key: &M::Keys) -> Result<(), NetabaseError>;
+
+    /// Get all schemas of a specific discriminant type
+    fn get_schemas_by_discriminant(
+        &self,
+        discriminant: &M::SchemaDiscriminants,
+    ) -> Result<Vec<M>, NetabaseError>;
+
+    /// Get all schemas across all discriminants
+    fn get_all_schemas(&self) -> Result<Vec<M>, NetabaseError>;
+}
+
+/// Trait for Record Store operations using NetabaseSchema
+#[cfg(feature = "libp2p")]
+pub trait NetabaseRecordStoreQuery<M: NetabaseSchema> {
+    /// Convert NetabaseSchema key to Record key
+    fn schema_key_to_record_key(key: &M::Keys) -> Result<libp2p::kad::RecordKey, NetabaseError>;
+
+    /// Convert Record key to NetabaseSchema key
+    fn record_key_to_schema_key(
+        record_key: &libp2p::kad::RecordKey,
+    ) -> Result<M::Keys, NetabaseError>;
+
+    /// Get NetabaseSchema by Record key
+    fn get_schema_by_record_key(
+        &self,
+        record_key: &libp2p::kad::RecordKey,
+    ) -> Result<Option<M>, NetabaseError>;
+
+    /// Convert NetabaseSchema to Record
+    fn schema_to_record(schema: &M) -> Result<libp2p::kad::Record, NetabaseError>;
+
+    /// Convert Record to NetabaseSchema
+    fn record_to_schema(record: &libp2p::kad::Record) -> Result<M, NetabaseError>;
 }
 
 pub trait NetabaseDiscriminants: Into<&'static str> {}
@@ -1095,9 +1151,6 @@ where
 }
 
 pub mod database_traits {
-    #[cfg(feature = "libp2p")]
-    use libp2p::kad::{Record, RecordKey};
-
     use crate::{
         errors::NetabaseError,
         traits::{NetabaseModel, NetabaseModelKey},

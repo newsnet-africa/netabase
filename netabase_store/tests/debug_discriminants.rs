@@ -115,7 +115,7 @@ mod tests {
         let temp_dir = TempDir::new()?;
         let db_path = temp_dir.path().join("test_model_trees");
         debug!("Test model trees database path: {}", db_path.display());
-        let db = NetabaseSledDatabase::<TestSchema>::new_with_path(&db_path.to_string_lossy())?;
+        let db = NetabaseSledDatabase::<TestSchema>::new_with_path(&db_path)?;
         info!("✓ Database created successfully for model tree access test");
 
         // Test User tree creation
@@ -172,7 +172,7 @@ mod tests {
             "Test model discriminants database path: {}",
             db_path.display()
         );
-        let db = NetabaseSledDatabase::<TestSchema>::new_with_path(&db_path.to_string_lossy())?;
+        let db = NetabaseSledDatabase::<TestSchema>::new_with_path(&db_path)?;
         info!("✓ Database created successfully for model discriminants test");
 
         let user_tree: netabase_store::database::NetabaseSledTree<

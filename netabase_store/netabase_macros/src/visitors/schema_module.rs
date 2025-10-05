@@ -6,8 +6,6 @@ use syn::{
     visit::Visit,
 };
 
-use crate::util::{NetabaseItem, NetabaseItemStruct};
-
 pub struct SchemaModuleVisitor {
     pub k_v_pairs:
         HashMap<Punctuated<PathSegment, Token![::]>, Punctuated<PathSegment, Token![::]>>,
@@ -54,7 +52,34 @@ impl<'ast> Visit<'ast> for SchemaModuleVisitor {
         }
     }
     fn visit_item_struct(&mut self, i: &'ast syn::ItemStruct) {
-        if let Some(ident) = i.is_schema() {
+        // Check if this struct has NetabaseModel derive and key_name attribute
+        let has_netabase_model = i.attrs.iter().any(|att| {
+            if let syn::Meta::List(metalist) = &att.meta
+                && att.path().is_ident("derive")
+                && metalist.tokens.to_string().contains("NetabaseModel")
+            {
+                true
+            } else {
+                false
+            }
+        });
+
+        let key_name_ident = if has_netabase_model {
+            i.attrs.iter().find_map(|att| {
+                if att.path().is_ident("key_name") {
+                    let tok = &att.meta.require_list().ok()?.tokens;
+                    Some(syn::parse_quote! {
+                        #tok
+                    })
+                } else {
+                    None
+                }
+            })
+        } else {
+            None
+        };
+
+        if let Some(ident) = key_name_ident {
             let k_final_path = {
                 let mut final_path = self.current_path.clone();
                 final_path.push(Pair::new(

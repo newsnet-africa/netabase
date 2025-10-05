@@ -59,6 +59,32 @@ pub fn generate_module_schema(
         )
         .collect();
 
+    // Generate match arms for the discriminant() method
+    let discriminant_match_arms: Vec<syn::Arm> = module_visitor
+        .format_paths()
+        .iter()
+        .map(
+            |((_model_full_path, model_variant), (_key_full_path, _model_key_variant))| {
+                parse_quote! {
+                    Self::#model_variant(_) => #discriminant_ident::#model_variant
+                }
+            },
+        )
+        .collect();
+
+    // Generate match arms for the discriminant_for_key() method
+    let key_discriminant_match_arms: Vec<syn::Arm> = module_visitor
+        .format_paths()
+        .iter()
+        .map(
+            |((_model_full_path, model_variant), (_key_full_path, model_key_variant))| {
+                parse_quote! {
+                    Self::Keys::#model_key_variant(_) => #discriminant_ident::#model_variant
+                }
+            },
+        )
+        .collect();
+
     impls.push(parse_quote! {
         impl netabase_store::traits::NetabaseSchema for #schema_name {
             type SchemaDiscriminants = #discriminant_ident;
@@ -67,6 +93,18 @@ pub fn generate_module_schema(
             fn keys(&self) -> Self::Keys {
                 match self {
                     #(#key_match_arms),*
+                }
+            }
+
+            fn discriminant(&self) -> Self::SchemaDiscriminants {
+                match self {
+                    #(#discriminant_match_arms),*
+                }
+            }
+
+            fn discriminant_for_key(key: &Self::Keys) -> Self::SchemaDiscriminants {
+                match key {
+                    #(#key_discriminant_match_arms),*
                 }
             }
         }

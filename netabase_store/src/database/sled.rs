@@ -22,9 +22,10 @@ use libp2p::kad::{
 
 use crate::errors::NetabaseError;
 use crate::relational::RelationalLink;
-use crate::traits::{
-    NetabaseModel, NetabaseModelKey, NetabaseRelationalKeys, NetabaseSchema, NetabaseSecondaryKeys,
-};
+use crate::traits::{NetabaseModelKey, NetabaseSchema, NetabaseSchemaQuery, NetabaseSecondaryKeys};
+
+#[cfg(feature = "libp2p")]
+use crate::traits::NetabaseRecordStoreQuery;
 
 #[cfg(feature = "libp2p")]
 use crate::database::record_store::{
@@ -38,8 +39,8 @@ where
 {
     db: sled::Db,
     main_trees: HashMap<M::SchemaDiscriminants, sled::Tree>,
-    secondary_key_trees: HashMap<M::SchemaDiscriminants, sled::Tree>,
-    relational_trees: HashMap<M::SchemaDiscriminants, sled::Tree>,
+    _secondary_key_trees: HashMap<M::SchemaDiscriminants, sled::Tree>,
+    _relational_trees: HashMap<M::SchemaDiscriminants, sled::Tree>,
     _phantom: PhantomData<M>,
 }
 
@@ -61,8 +62,8 @@ where
         let database = Self {
             db,
             main_trees: HashMap::new(),
-            secondary_key_trees: HashMap::new(),
-            relational_trees: HashMap::new(),
+            _secondary_key_trees: HashMap::new(),
+            _relational_trees: HashMap::new(),
             _phantom: PhantomData,
         };
 
@@ -72,7 +73,7 @@ where
     }
 
     /// Initialize trees from model discriminants
-    fn initialize_trees(&mut self) -> Result<(), NetabaseError> {
+    fn _initialize_trees(&mut self) -> Result<(), NetabaseError> {
         // Generate main trees from schema discriminants
         for discriminant in M::all_schema_discriminants() {
             let tree_name = format!("schema_{}", discriminant.as_ref());
@@ -81,6 +82,14 @@ where
                 .open_tree(&tree_name)
                 .map_err(|_| NetabaseError::Database)?;
             self.main_trees.insert(discriminant, tree);
+        }
+
+        // Initialize libp2p provider trees when feature is enabled
+        #[cfg(feature = "libp2p")]
+        {
+            // Initialize provider trees for libp2p record store functionality
+            let _ = self.db.open_tree("dht_providers");
+            let _ = self.db.open_tree("dht_provided");
         }
 
         Ok(())
@@ -379,42 +388,42 @@ where
 
         // Extract the value from the secondary key enum variant
         // Format: "VariantName("value")" or "VariantName(value)" -> extract value
-        if let Some(value_start) = query_debug.find('(') {
-            if let Some(value_end) = query_debug.rfind(')') {
-                let query_value = &query_debug[value_start + 1..value_end];
-                // Handle both quoted and unquoted values
-                let clean_query_value = query_value.trim_matches('"').trim_matches('\'');
+        if let Some(value_start) = query_debug.find('(')
+            && let Some(value_end) = query_debug.rfind(')')
+        {
+            let query_value = &query_debug[value_start + 1..value_end];
+            // Handle both quoted and unquoted values
+            let clean_query_value = query_value.trim_matches('"').trim_matches('\'');
 
-                // For more precise matching, we need to match field-value pairs
-                // Look for patterns like 'field_name: "value"' or 'field_name: value'
+            // For more precise matching, we need to match field-value pairs
+            // Look for patterns like 'field_name: "value"' or 'field_name: value'
 
-                // Extract field name from the secondary key enum variant name
-                let variant_name = &query_debug[0..value_start];
+            // Extract field name from the secondary key enum variant name
+            let variant_name = &query_debug[0..value_start];
 
-                // Convert CamelCase to snake_case field names
-                let field_name = if variant_name.ends_with("Key") {
-                    let without_key = &variant_name[0..variant_name.len() - 3];
-                    // Convert from CamelCase to snake_case
-                    let mut snake_case = String::new();
-                    for (i, c) in without_key.chars().enumerate() {
-                        if i > 0 && c.is_uppercase() {
-                            snake_case.push('_');
-                        }
-                        snake_case.push(c.to_lowercase().next().unwrap());
+            // Convert CamelCase to snake_case field names
+            let field_name = if variant_name.ends_with("Key") {
+                let without_key = &variant_name[0..variant_name.len() - 3];
+                // Convert from CamelCase to snake_case
+                let mut snake_case = String::new();
+                for (i, c) in without_key.chars().enumerate() {
+                    if i > 0 && c.is_uppercase() {
+                        snake_case.push('_');
                     }
-                    snake_case
-                } else {
-                    variant_name.to_lowercase()
-                };
+                    snake_case.push(c.to_lowercase().next().unwrap());
+                }
+                snake_case
+            } else {
+                variant_name.to_lowercase()
+            };
 
-                // Look for field: value patterns in the model debug output
-                let field_pattern = format!("{}: \"{}\"", field_name, clean_query_value);
-                let field_pattern_unquoted = format!("{}: {}", field_name, clean_query_value);
+            // Look for field: value patterns in the model debug output
+            let field_pattern = format!("{}: \"{}\"", field_name, clean_query_value);
+            let field_pattern_unquoted = format!("{}: {}", field_name, clean_query_value);
 
-                // Only match on exact field patterns, remove the dangerous fallback
-                return model_debug.contains(&field_pattern)
-                    || model_debug.contains(&field_pattern_unquoted);
-            }
+            // Only match on exact field patterns, remove the dangerous fallback
+            return model_debug.contains(&field_pattern)
+                || model_debug.contains(&field_pattern_unquoted);
         }
 
         false
@@ -611,7 +620,7 @@ where
             })?;
 
             // Extract field values from the model using debug representation
-            let mut model_debug = format!("{:?}", model);
+            let model_debug = format!("{:?}", model);
 
             // Look for the field pattern in the debug output
             let field_pattern = format!("{}: ", field_name);
@@ -882,8 +891,8 @@ where
     /// Resolve relational links in a model
     pub fn resolve_relations<Model, ModelKey, RelatedModel, RelatedKey>(
         &self,
-        model: &mut Model,
-        resolver: impl Fn(&RelationalLink<RelatedKey, RelatedModel>) -> Option<RelatedModel>,
+        _model: &mut Model,
+        _resolver: impl Fn(&RelationalLink<RelatedKey, RelatedModel>) -> Option<RelatedModel>,
     ) -> Result<(), NetabaseError>
     where
         Model: crate::traits::NetabaseModel<Key = ModelKey>,
@@ -916,7 +925,7 @@ where
     }
 
     /// Find all models that reference a specific key through relational links
-    fn find_referencing_models<Model, ModelKey, TargetKey>(
+    fn _find_referencing_models<Model, ModelKey, TargetKey>(
         &self,
         _target_key: TargetKey,
     ) -> Result<Vec<Model>, NetabaseError>
@@ -972,54 +981,65 @@ pub trait NetabaseRecordStoreExt {
         G: Fn(&ProviderRecord) -> bool;
 }
 
-/// Schema for DHT records stored in the database
-#[cfg(feature = "libp2p")]
-#[derive(Clone, Debug, bincode::Encode, bincode::Decode)]
-pub struct DhtRecord {
-    pub key: Vec<u8>,
-    pub value: Vec<u8>,
-    pub publisher: Option<Vec<u8>>, // PeerId as bytes
-    pub expires: Option<std::time::SystemTime>,
-}
-
-#[cfg(feature = "libp2p")]
-impl From<Record> for DhtRecord {
-    fn from(record: Record) -> Self {
-        Self {
-            key: record.key.to_vec(),
-            value: record.value,
-            publisher: record.publisher.map(|p| p.to_bytes()),
-            expires: record.expires.map(|instant| std::time::SystemTime::now()),
-        }
-    }
-}
-
-#[cfg(feature = "libp2p")]
-impl TryFrom<DhtRecord> for Record {
-    type Error = NetabaseError;
-
-    fn try_from(dht_record: DhtRecord) -> Result<Self, Self::Error> {
-        let publisher = dht_record
-            .publisher
-            .map(|bytes| PeerId::from_bytes(&bytes))
-            .transpose()
-            .map_err(|_| NetabaseError::Database)?;
-
-        let expires = dht_record.expires.map(|sys_time| {
-            sys_time
-                .duration_since(std::time::SystemTime::UNIX_EPOCH)
-                .map(|duration| std::time::Instant::now() + duration)
-                .unwrap_or_else(|_| std::time::Instant::now())
-        });
-
-        Ok(Record {
-            key: RecordKey::new(&dht_record.key),
-            value: dht_record.value,
-            publisher,
-            expires,
-        })
-    }
-}
+// # RecordStore Architecture Documentation
+//
+// This module implements a schema-based RecordStore architecture that replaces the previous
+// DhtRecord-based approach. The new system provides better type safety and integration
+// with NetabaseSchema types.
+//
+// ## Data Flow Overview
+//
+// ### PUT Operation Flow:
+// ```text
+// libp2p::kad::Record → NetabaseSchema → IVec → Sled Database
+//        │                    │           │           │
+//        │                    │           │           │
+//        ▼                    ▼           ▼           ▼
+// [Network Record]    [Schema Validation] [Binary] [Discriminant Tree]
+// ```
+//
+// ### GET Operation Flow:
+// ```text
+// RecordKey → NetabaseSchemaKey → IVec → NetabaseSchema → Record → Cow<Record>
+//     │              │            │           │            │         │
+//     │              │            │           │            │         │
+//     ▼              ▼            ▼           ▼            ▼         ▼
+// [Network Key] [Schema Key] [Binary Data] [Validation] [Network] [Output]
+// ```
+//
+// ### Records Iterator Flow:
+// ```text
+// Discriminant Trees → IVec → NetabaseSchema → Record → Cow<Record>
+//         │             │           │            │         │
+//         │             │           │            │         │
+//         ▼             ▼           ▼            ▼         ▼
+// [Tree Iteration] [Binary Data] [Validation] [Network] [Iterator Item]
+// ```
+//
+// ## Key Features
+//
+// 1. **Schema-Based Storage**: Data is organized by NetabaseSchema discriminants
+// 2. **Automatic Conversion**: Seamless conversion between Record and NetabaseSchema
+// 3. **Tree-Based Iteration**: RecordsIter loads one discriminant tree at a time
+// 4. **Provider Management**: Separate trees for provider records
+// 5. **Type Safety**: Full type validation during all conversions
+//
+// ## Architecture Benefits
+//
+// - **Performance**: Direct schema access without intermediate DhtRecord type
+// - **Memory Efficiency**: Single conversion path reduces allocation overhead
+// - **Type Safety**: NetabaseSchema validation catches errors early
+// - **Network Compatibility**: Full libp2p RecordStore trait compliance
+// - **Scalability**: Tree-based iteration scales with data size
+//
+// ## Provider Record Management
+//
+// Provider records are stored in dedicated trees:
+// - `dht_providers`: Maps keys to lists of provider records
+// - `dht_provided`: Tracks what the local node provides
+//
+// This separation ensures efficient provider operations without affecting
+// main data storage performance.
 
 /// RecordStore implementation for NetabaseSledDatabase
 #[cfg(feature = "libp2p")]
@@ -1029,7 +1049,7 @@ where
     M::SchemaDiscriminants: AsRef<str> + Clone + std::hash::Hash + Eq + strum::IntoEnumIterator,
 {
     type RecordsIter<'a>
-        = RecordsIter<'a>
+        = RecordsIter<'a, M>
     where
         Self: 'a;
     type ProvidedIter<'a>
@@ -1038,68 +1058,42 @@ where
         Self: 'a;
 
     fn get(&self, k: &RecordKey) -> Option<Cow<'_, Record>> {
-        let dht_records_tree = self.db.open_tree("dht_records").ok()?;
-        let stored_bytes = dht_records_tree.get(k.to_vec()).ok()??;
-        let (dht_record, _): (DhtRecord, _) =
-            bincode::decode_from_slice(&stored_bytes, bincode::config::standard()).ok()?;
+        // Convert RecordKey to NetabaseSchema key
+        let schema_key = <Self as NetabaseRecordStoreQuery<M>>::record_key_to_schema_key(k).ok()?;
 
-        let record = dht_record.try_into().ok()?;
+        // Get the schema from database
+        let schema = <Self as NetabaseSchemaQuery<M>>::get_schema(self, &schema_key).ok()??;
+
+        // Convert schema to record
+        let record = <Self as NetabaseRecordStoreQuery<M>>::schema_to_record(&schema).ok()?;
         Some(Cow::Owned(record))
     }
 
     fn put(&mut self, record: Record) -> RecordStoreResult<()> {
-        let dht_records_tree = self
-            .db
-            .open_tree("dht_records")
-            .map_err(|_| RecordStoreError::MaxRecords)?;
-
         // Check record size limit
         if record.value.len() > 65 * 1024 {
             return Err(RecordStoreError::ValueTooLarge);
         }
 
-        // Check max records limit
-        if dht_records_tree.len() >= 1024 {
-            return Err(RecordStoreError::MaxRecords);
-        }
-
-        let dht_record = DhtRecord::from(record);
-        let encoded = bincode::encode_to_vec(&dht_record, bincode::config::standard())
+        // Convert Record to NetabaseSchema
+        let schema = <Self as NetabaseRecordStoreQuery<M>>::record_to_schema(&record)
             .map_err(|_| RecordStoreError::MaxRecords)?;
 
-        dht_records_tree
-            .insert(dht_record.key.clone(), encoded)
+        // Put schema into database
+        <Self as NetabaseSchemaQuery<M>>::put_schema(self, &schema)
             .map_err(|_| RecordStoreError::MaxRecords)?;
 
         Ok(())
     }
 
     fn remove(&mut self, k: &RecordKey) {
-        if let Ok(dht_records_tree) = self.db.open_tree("dht_records") {
-            let _ = dht_records_tree.remove(k.to_vec());
+        if let Ok(schema_key) = <Self as NetabaseRecordStoreQuery<M>>::record_key_to_schema_key(k) {
+            let _ = <Self as NetabaseSchemaQuery<M>>::remove_schema(self, &schema_key);
         }
     }
 
     fn records(&self) -> Self::RecordsIter<'_> {
-        let dht_records_tree = match self.db.open_tree("dht_records") {
-            Ok(tree) => tree,
-            Err(_) => return RecordsIter::new(vec![]),
-        };
-
-        let mut records = Vec::new();
-        for result in dht_records_tree.iter() {
-            if let Ok((_key, value)) = result {
-                if let Ok(dht_record) =
-                    bincode::decode_from_slice::<DhtRecord, _>(&value, bincode::config::standard())
-                {
-                    if let Ok(record) = dht_record.0.try_into() {
-                        records.push(record);
-                    }
-                }
-            }
-        }
-
-        RecordsIter::new(records)
+        RecordsIter::new(self)
     }
 
     fn add_provider(&mut self, record: ProviderRecord) -> RecordStoreResult<()> {
@@ -1166,19 +1160,19 @@ where
         };
 
         let key_bytes = key.to_vec();
-        if let Ok(Some(value)) = providers_tree.get(&key_bytes) {
-            if let Ok((providers_list, _)) = bincode::decode_from_slice::<ProvidersListValue, _>(
+        if let Ok(Some(value)) = providers_tree.get(&key_bytes)
+            && let Ok((providers_list, _)) = bincode::decode_from_slice::<ProvidersListValue, _>(
                 &value,
                 bincode::config::standard(),
-            ) {
-                let mut records = Vec::new();
-                for stored_provider in &providers_list.providers {
-                    if let Ok(provider_record) = stored_provider.clone().try_into() {
-                        records.push(provider_record);
-                    }
+            )
+        {
+            let mut records = Vec::new();
+            for stored_provider in &providers_list.providers {
+                if let Ok(provider_record) = stored_provider.clone().try_into() {
+                    records.push(provider_record);
                 }
-                return records;
             }
+            return records;
         }
 
         vec![]
@@ -1191,16 +1185,14 @@ where
         };
 
         let mut records = Vec::new();
-        for result in provided_tree.iter() {
-            if let Ok((_key, value)) = result {
-                if let Ok((stored_record, _)) = bincode::decode_from_slice::<StoredProviderRecord, _>(
-                    &value,
-                    bincode::config::standard(),
-                ) {
-                    if let Ok(record) = stored_record.try_into() {
-                        records.push(record);
-                    }
-                }
+        for result in provided_tree.iter().flatten() {
+            let (_key, value) = result;
+            if let Ok((stored_record, _)) = bincode::decode_from_slice::<StoredProviderRecord, _>(
+                &value,
+                bincode::config::standard(),
+            ) && let Ok(record) = stored_record.try_into()
+            {
+                records.push(record);
             }
         }
 
@@ -1212,26 +1204,23 @@ where
             let key_bytes = key.to_vec();
             let provider_bytes = provider.to_bytes();
 
-            if let Ok(Some(existing)) = providers_tree.get(&key_bytes) {
-                if let Ok((mut providers_list, _)) =
+            if let Ok(Some(existing)) = providers_tree.get(&key_bytes)
+                && let Ok((mut providers_list, _)) =
                     bincode::decode_from_slice::<ProvidersListValue, _>(
                         &existing,
                         bincode::config::standard(),
                     )
-                {
-                    providers_list
-                        .providers
-                        .retain(|p| p.provider != provider_bytes);
+            {
+                providers_list
+                    .providers
+                    .retain(|p| p.provider != provider_bytes);
 
-                    if providers_list.providers.is_empty() {
-                        let _ = providers_tree.remove(&key_bytes);
-                    } else {
-                        if let Ok(encoded) =
-                            bincode::encode_to_vec(&providers_list, bincode::config::standard())
-                        {
-                            let _ = providers_tree.insert(&key_bytes, encoded);
-                        }
-                    }
+                if providers_list.providers.is_empty() {
+                    let _ = providers_tree.remove(&key_bytes);
+                } else if let Ok(encoded) =
+                    bincode::encode_to_vec(&providers_list, bincode::config::standard())
+                {
+                    let _ = providers_tree.insert(&key_bytes, encoded);
                 }
             }
 
@@ -1294,27 +1283,30 @@ where
         F: Fn(&Record) -> bool,
         G: Fn(&ProviderRecord) -> bool,
     {
-        // Retain records
-        let dht_records_tree = self
-            .db
-            .open_tree("dht_records")
-            .map_err(|_| NetabaseError::Database)?;
+        // Since we're now using NetabaseSchema instead of DhtRecord,
+        // we need to implement retain logic for NetabaseSchema records
+        let mut schema_keys_to_remove = Vec::new();
 
-        let mut keys_to_remove = Vec::new();
-        for (key, value) in dht_records_tree.iter().flatten() {
-            if let Ok((dht_record, _)) =
-                bincode::decode_from_slice::<DhtRecord, _>(&value, bincode::config::standard())
-                && let Ok(record) = dht_record.try_into()
-                && !record_predicate(&record)
+        // Get all schemas and check which ones to retain
+        for discriminant in M::all_schema_discriminants() {
+            if let Ok(schemas) =
+                <Self as NetabaseSchemaQuery<M>>::get_schemas_by_discriminant(self, &discriminant)
             {
-                keys_to_remove.push(key.to_vec());
+                for schema in schemas {
+                    if let Ok(record) =
+                        <Self as NetabaseRecordStoreQuery<M>>::schema_to_record(&schema)
+                        && !record_predicate(&record)
+                    {
+                        let key = schema.keys();
+                        schema_keys_to_remove.push(key);
+                    }
+                }
             }
         }
 
-        for key in keys_to_remove {
-            dht_records_tree
-                .remove(key)
-                .map_err(|_| NetabaseError::Database)?;
+        // Remove schemas that don't pass the predicate
+        for key in schema_keys_to_remove {
+            let _ = <Self as NetabaseSchemaQuery<M>>::remove_schema(self, &key);
         }
 
         // Retain providers
@@ -1367,5 +1359,116 @@ where
         }
 
         Ok(())
+    }
+}
+
+/// Implementation of NetabaseSchemaQuery trait
+impl<M> crate::traits::NetabaseSchemaQuery<M> for NetabaseSledDatabase<M>
+where
+    M: NetabaseSchema,
+    M::SchemaDiscriminants: AsRef<str> + Clone + std::hash::Hash + Eq + strum::IntoEnumIterator,
+{
+    fn get_schema(&self, key: &M::Keys) -> Result<Option<M>, NetabaseError> {
+        let discriminant = M::discriminant_for_key(key);
+        let tree = self
+            .get_main_tree_by_discriminant(&discriminant)
+            .ok_or(NetabaseError::Database)?;
+        let key_ivec = key.to_ivec()?;
+
+        if let Some(value_ivec) = tree.get(&key_ivec)? {
+            let schema = M::from_ivec(value_ivec)?;
+            Ok(Some(schema))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn put_schema(&mut self, schema: &M) -> Result<(), NetabaseError> {
+        let discriminant = schema.discriminant();
+        let tree = self
+            .get_main_tree_by_discriminant(&discriminant)
+            .ok_or(NetabaseError::Database)?;
+        let key = schema.keys();
+        let key_ivec = key.to_ivec()?;
+        let value_ivec = schema.to_ivec()?;
+
+        tree.insert(key_ivec, value_ivec)?;
+        Ok(())
+    }
+
+    fn remove_schema(&mut self, key: &M::Keys) -> Result<(), NetabaseError> {
+        let discriminant = M::discriminant_for_key(key);
+        let tree = self
+            .get_main_tree_by_discriminant(&discriminant)
+            .ok_or(NetabaseError::Database)?;
+        let key_ivec = key.to_ivec()?;
+
+        tree.remove(&key_ivec)?;
+        Ok(())
+    }
+
+    fn get_schemas_by_discriminant(
+        &self,
+        discriminant: &M::SchemaDiscriminants,
+    ) -> Result<Vec<M>, NetabaseError> {
+        let tree = self
+            .get_main_tree_by_discriminant(discriminant)
+            .ok_or(NetabaseError::Database)?;
+        let mut schemas = Vec::new();
+
+        for result in tree.iter() {
+            let (_key, value) = result?;
+            let schema = M::from_ivec(value)?;
+            schemas.push(schema);
+        }
+
+        Ok(schemas)
+    }
+
+    fn get_all_schemas(&self) -> Result<Vec<M>, NetabaseError> {
+        let mut all_schemas = Vec::new();
+
+        for discriminant in M::all_schema_discriminants() {
+            let schemas = self.get_schemas_by_discriminant(&discriminant)?;
+            all_schemas.extend(schemas);
+        }
+
+        Ok(all_schemas)
+    }
+}
+
+/// Implementation of NetabaseRecordStoreQuery trait
+#[cfg(feature = "libp2p")]
+impl<M> crate::traits::NetabaseRecordStoreQuery<M> for NetabaseSledDatabase<M>
+where
+    M: NetabaseSchema,
+    M::SchemaDiscriminants: AsRef<str> + Clone + std::hash::Hash + Eq + strum::IntoEnumIterator,
+{
+    fn schema_key_to_record_key(key: &M::Keys) -> Result<libp2p::kad::RecordKey, NetabaseError> {
+        use crate::traits::NetabaseKeys;
+        key.to_record_key()
+    }
+
+    fn record_key_to_schema_key(
+        record_key: &libp2p::kad::RecordKey,
+    ) -> Result<M::Keys, NetabaseError> {
+        use crate::traits::NetabaseKeys;
+        M::Keys::from_record_key(record_key.clone())
+    }
+
+    fn get_schema_by_record_key(
+        &self,
+        record_key: &libp2p::kad::RecordKey,
+    ) -> Result<Option<M>, NetabaseError> {
+        let schema_key = Self::record_key_to_schema_key(record_key)?;
+        <Self as NetabaseSchemaQuery<M>>::get_schema(self, &schema_key)
+    }
+
+    fn schema_to_record(schema: &M) -> Result<libp2p::kad::Record, NetabaseError> {
+        schema.to_record()
+    }
+
+    fn record_to_schema(record: &libp2p::kad::Record) -> Result<M, NetabaseError> {
+        M::from_record(record.clone())
     }
 }

@@ -14,12 +14,12 @@ pub enum NetabaseError {
 }
 
 impl From<bincode::error::DecodeError> for NetabaseError {
-    fn from(value: bincode::error::DecodeError) -> Self {
+    fn from(_value: bincode::error::DecodeError) -> Self {
         Self::Conversion(ConversionError::MacroConversion)
     }
 }
 impl From<bincode::error::EncodeError> for NetabaseError {
-    fn from(value: bincode::error::EncodeError) -> Self {
+    fn from(_value: bincode::error::EncodeError) -> Self {
         Self::Conversion(ConversionError::MacroConversion)
     }
 }

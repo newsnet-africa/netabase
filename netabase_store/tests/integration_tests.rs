@@ -188,7 +188,7 @@ mod integration_tests {
         let db_path = temp_dir.path().join("blog_test_db");
         debug!("Blog database path: {}", db_path.display());
 
-        let db = NetabaseSledDatabase::new_with_path(&db_path.to_string_lossy())?;
+        let db = NetabaseSledDatabase::new_with_path(&db_path)?;
         info!("Blog database created successfully");
 
         Ok((db, temp_dir))
@@ -202,7 +202,7 @@ mod integration_tests {
         let db_path = temp_dir.path().join("ecommerce_test_db");
         debug!("Ecommerce database path: {}", db_path.display());
 
-        let db = NetabaseSledDatabase::new_with_path(&db_path.to_string_lossy())?;
+        let db = NetabaseSledDatabase::new_with_path(&db_path)?;
         info!("Ecommerce database created successfully");
 
         Ok((db, temp_dir))

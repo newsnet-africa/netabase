@@ -71,7 +71,7 @@ fn create_test_database() -> TestResult<(NetabaseSledDatabase<TestSchema>, TempD
     let db_path = temp_dir.path().join("relational_test_db");
     debug!("Relational test database path: {}", db_path.display());
 
-    let db = NetabaseSledDatabase::new_with_path(&db_path.to_string_lossy())?;
+    let db = NetabaseSledDatabase::new_with_path(&db_path)?;
     info!("Relational test database created successfully");
 
     Ok((db, temp_dir))

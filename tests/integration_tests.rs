@@ -7,8 +7,8 @@ use netabase::Netabase;
 use netabase_macros::{NetabaseModel, netabase_schema_module};
 use netabase_store::traits::NetabaseModel as NetabaseModelTrait;
 use serde::{Deserialize, Serialize};
+use tempfile::TempDir;
 use tokio::time::timeout;
-use uuid::Uuid;
 
 static INIT: Once = Once::new();
 
@@ -49,10 +49,15 @@ pub mod test_schema {
 
 use test_schema::{TestPost, TestSchema, TestUser};
 
-/// Generate a unique database path for each test to avoid conflicts
-fn generate_unique_db_path() -> String {
-    let uuid = Uuid::new_v4();
-    format!("test_db_{}", uuid.to_string().replace("-", "_"))
+/// Generate a unique temporary database directory for each test to avoid conflicts
+fn create_temp_db() -> (TempDir, String) {
+    let temp_dir = TempDir::new().expect("Failed to create temp directory");
+    let db_path = temp_dir
+        .path()
+        .join("test_db")
+        .to_string_lossy()
+        .to_string();
+    (temp_dir, db_path)
 }
 
 /// Create a test user with unique data
@@ -97,7 +102,7 @@ async fn test_netabase_creation() {
 async fn test_netabase_creation_with_path() {
     init_logger();
 
-    let db_path = generate_unique_db_path();
+    let (_temp_dir, db_path) = create_temp_db();
     let netabase = Netabase::<TestSchema>::new_with_path(&db_path).unwrap();
 
     // Test that creation works with custom path
@@ -108,7 +113,8 @@ async fn test_netabase_creation_with_path() {
 async fn test_swarm_lifecycle() {
     init_logger();
 
-    let mut netabase = Netabase::<TestSchema>::new().unwrap();
+    let (_temp_dir, db_path) = create_temp_db();
+    let mut netabase = Netabase::<TestSchema>::new_with_path(&db_path).unwrap();
 
     // Test starting the swarm
     let result = netabase.start_swarm().await;
@@ -126,7 +132,8 @@ async fn test_swarm_lifecycle() {
 async fn test_swarm_double_start_prevention() {
     init_logger();
 
-    let mut netabase = Netabase::<TestSchema>::new().unwrap();
+    let (_temp_dir, db_path) = create_temp_db();
+    let mut netabase = Netabase::<TestSchema>::new_with_path(&db_path).unwrap();
 
     // Start the swarm
     let result1 = netabase.start_swarm().await;
@@ -145,7 +152,8 @@ async fn test_swarm_double_start_prevention() {
 async fn test_basic_put_record() {
     init_logger();
 
-    let mut netabase = Netabase::<TestSchema>::new().unwrap();
+    let (_temp_dir, db_path) = create_temp_db();
+    let mut netabase = Netabase::<TestSchema>::new_with_path(&db_path).unwrap();
     netabase.start_swarm().await.unwrap();
 
     // Give the swarm time to initialize
@@ -184,7 +192,8 @@ async fn test_basic_put_record() {
 async fn test_basic_get_record() {
     init_logger();
 
-    let mut netabase = Netabase::<TestSchema>::new().unwrap();
+    let (_temp_dir, db_path) = create_temp_db();
+    let mut netabase = Netabase::<TestSchema>::new_with_path(&db_path).unwrap();
     netabase.start_swarm().await.unwrap();
 
     // Give the swarm time to initialize
@@ -223,7 +232,8 @@ async fn test_basic_get_record() {
 async fn test_provider_operations() {
     init_logger();
 
-    let mut netabase = Netabase::<TestSchema>::new().unwrap();
+    let (_temp_dir, db_path) = create_temp_db();
+    let mut netabase = Netabase::<TestSchema>::new_with_path(&db_path).unwrap();
     netabase.start_swarm().await.unwrap();
 
     // Give the swarm time to initialize
@@ -283,7 +293,8 @@ async fn test_provider_operations() {
 async fn test_bootstrap_operation() {
     init_logger();
 
-    let mut netabase = Netabase::<TestSchema>::new().unwrap();
+    let (_temp_dir, db_path) = create_temp_db();
+    let mut netabase = Netabase::<TestSchema>::new_with_path(&db_path).unwrap();
     netabase.start_swarm().await.unwrap();
 
     // Give the swarm time to initialize
@@ -313,7 +324,8 @@ async fn test_bootstrap_operation() {
 async fn test_mode_operations() {
     init_logger();
 
-    let mut netabase = Netabase::<TestSchema>::new().unwrap();
+    let (_temp_dir, db_path) = create_temp_db();
+    let mut netabase = Netabase::<TestSchema>::new_with_path(&db_path).unwrap();
     netabase.start_swarm().await.unwrap();
 
     // Give the swarm time to initialize
@@ -341,7 +353,8 @@ async fn test_mode_operations() {
 async fn test_protocol_names() {
     init_logger();
 
-    let mut netabase = Netabase::<TestSchema>::new().unwrap();
+    let (_temp_dir, db_path) = create_temp_db();
+    let mut netabase = Netabase::<TestSchema>::new_with_path(&db_path).unwrap();
     netabase.start_swarm().await.unwrap();
 
     // Give the swarm time to initialize
@@ -361,7 +374,8 @@ async fn test_protocol_names() {
 async fn test_record_removal() {
     init_logger();
 
-    let mut netabase = Netabase::<TestSchema>::new().unwrap();
+    let (_temp_dir, db_path) = create_temp_db();
+    let mut netabase = Netabase::<TestSchema>::new_with_path(&db_path).unwrap();
     netabase.start_swarm().await.unwrap();
 
     // Give the swarm time to initialize
@@ -381,7 +395,8 @@ async fn test_record_removal() {
 async fn test_multiple_record_types() {
     init_logger();
 
-    let mut netabase = Netabase::<TestSchema>::new().unwrap();
+    let (_temp_dir, db_path) = create_temp_db();
+    let mut netabase = Netabase::<TestSchema>::new_with_path(&db_path).unwrap();
     netabase.start_swarm().await.unwrap();
 
     // Give the swarm time to initialize
@@ -421,7 +436,8 @@ async fn test_multiple_record_types() {
 async fn test_broadcast_event_reception() {
     init_logger();
 
-    let mut netabase = Netabase::<TestSchema>::new().unwrap();
+    let (_temp_dir, db_path) = create_temp_db();
+    let mut netabase = Netabase::<TestSchema>::new_with_path(&db_path).unwrap();
     let mut receiver = netabase.subscribe_to_broadcasts();
 
     netabase.start_swarm().await.unwrap();
@@ -460,7 +476,8 @@ async fn test_broadcast_event_reception() {
 async fn test_concurrent_operations() {
     init_logger();
 
-    let mut netabase = Netabase::<TestSchema>::new().unwrap();
+    let (_temp_dir, db_path) = create_temp_db();
+    let mut netabase = Netabase::<TestSchema>::new_with_path(&db_path).unwrap();
     netabase.start_swarm().await.unwrap();
 
     // Give the swarm time to initialize
@@ -499,7 +516,8 @@ async fn test_concurrent_operations() {
 async fn test_peer_management_operations() {
     init_logger();
 
-    let mut netabase = Netabase::<TestSchema>::new().unwrap();
+    let (_temp_dir, db_path) = create_temp_db();
+    let mut netabase = Netabase::<TestSchema>::new_with_path(&db_path).unwrap();
     netabase.start_swarm().await.unwrap();
 
     // Give the swarm time to initialize

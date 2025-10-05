@@ -2,7 +2,7 @@ use syn::{ItemImpl, ItemType, parse_quote};
 
 use crate::{
     NetabaseModelVisitor, append_ident,
-    util::{netabase_error_type_path, netabase_model_trait_path, relational_link_type_path},
+    util::{netabase_model_trait_path, relational_link_type_path},
 };
 
 impl<'ast> NetabaseModelVisitor<'ast> {
@@ -113,34 +113,6 @@ impl<'ast> NetabaseModelVisitor<'ast> {
             pub type #alias_name = #relational_link_path<#key_name, #name>;
         }
     }
-
-    pub fn generate_into_record(&self) -> ItemImpl {
-        let name = self.name;
-        let error_path = netabase_error_type_path();
-        parse_quote! {
-            #[cfg(feature = "libp2p")]
-            impl TryFrom<#name> for libp2p::kad::Record {
-                type Error = #error_path;
-                fn try_from(value: #name) -> Result<Self, Self::Error> {
-                    value.to_record()
-                }
-            }
-        }
-    }
-
-    pub fn generate_from_record(&self) -> ItemImpl {
-        let name = self.name;
-        let error_path = netabase_error_type_path();
-        parse_quote! {
-            #[cfg(feature = "libp2p")]
-            impl TryFrom<libp2p::kad::Record> for #name {
-                type Error = #error_path;
-                fn try_from(value: libp2p::kad::Record) -> Result<Self, Self::Error> {
-                    Self::from_record(value)
-                }
-            }
-        }
-    }
 }
 
 pub mod key_impl {
@@ -152,34 +124,6 @@ pub mod key_impl {
         parse_quote! {
             impl #trait_path for #name {
 
-            }
-        }
-    }
-
-    pub fn generate_into_record_key(key_struct: &DeriveInput) -> ItemImpl {
-        let name = &key_struct.ident;
-        let error_path = crate::util::netabase_error_type_path();
-        parse_quote! {
-            #[cfg(feature = "libp2p")]
-            impl TryFrom<#name> for libp2p::kad::RecordKey {
-                type Error = #error_path;
-                fn try_from(value: #name) -> Result<Self, Self::Error> {
-                    value.to_record_key()
-                }
-            }
-        }
-    }
-
-    pub fn generate_from_record_key(key_struct: &DeriveInput) -> ItemImpl {
-        let name = &key_struct.ident;
-        let error_path = crate::util::netabase_error_type_path();
-        parse_quote! {
-            #[cfg(feature = "libp2p")]
-            impl TryFrom<libp2p::kad::RecordKey> for #name {
-                type Error = #error_path;
-                fn try_from(value: libp2p::kad::RecordKey) -> Result<Self, Self::Error> {
-                    Self::from_record_key(value)
-                }
             }
         }
     }

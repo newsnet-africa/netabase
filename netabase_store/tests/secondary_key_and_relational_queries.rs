@@ -101,7 +101,7 @@ fn create_test_database() -> TestResult<(NetabaseSledDatabase<TestSchema>, TempD
     let db_path = temp_dir.path().join("secondary_relational_test_db");
     debug!("Test database path: {}", db_path.display());
 
-    let db = NetabaseSledDatabase::new_with_path(&db_path.to_string_lossy())?;
+    let db = NetabaseSledDatabase::new_with_path(&db_path)?;
     info!("Test database created successfully");
 
     Ok((db, temp_dir))
@@ -499,7 +499,7 @@ mod tests {
         );
         assert!(engineering_comments.len() > 0);
 
-        for (key, comment) in &engineering_comments {
+        for (_key, comment) in &engineering_comments {
             assert!(engineering_users.contains(&comment.author_id));
             debug!("Engineering comment: '{}'", comment.content);
         }

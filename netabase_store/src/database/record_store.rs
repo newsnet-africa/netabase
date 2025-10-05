@@ -8,7 +8,7 @@ use std::borrow::Cow;
 #[cfg(feature = "libp2p")]
 use libp2p::PeerId;
 #[cfg(feature = "libp2p")]
-use libp2p::kad::{ProviderRecord, Record, RecordKey};
+use libp2p::kad::{ProviderRecord, RecordKey};
 
 use crate::errors::NetabaseError;
 
@@ -98,27 +98,81 @@ impl TryFrom<StoredProviderRecord> for ProviderRecord {
     }
 }
 
-/// Iterator over stored records
+/// Iterator over stored records that loads one tree at a time
 #[cfg(feature = "libp2p")]
-pub struct RecordsIter<'a> {
-    inner: Box<dyn Iterator<Item = Cow<'a, Record>> + 'a>,
+pub struct RecordsIter<'a, M: crate::traits::NetabaseSchema> {
+    database: &'a crate::database::NetabaseSledDatabase<M>,
+    discriminants: std::vec::IntoIter<M::SchemaDiscriminants>,
+    current_tree_iter: Option<sled::Iter>,
+    current_discriminant: Option<M::SchemaDiscriminants>,
 }
 
 #[cfg(feature = "libp2p")]
-impl<'a> RecordsIter<'a> {
-    pub fn new(records: Vec<Record>) -> Self {
+impl<'a, M> RecordsIter<'a, M>
+where
+    M: crate::traits::NetabaseSchema,
+    M::SchemaDiscriminants: AsRef<str> + Clone + std::hash::Hash + Eq + strum::IntoEnumIterator,
+{
+    pub fn new(database: &'a crate::database::NetabaseSledDatabase<M>) -> Self {
+        let mut discriminants = M::all_schema_discriminants().into_iter();
+        let first_discriminant = discriminants.next();
+
+        // Open the first tree if we have discriminants
+        let current_tree_iter = if let Some(ref disc) = first_discriminant {
+            database
+                .get_main_tree_by_discriminant(disc)
+                .map(|tree| tree.iter())
+        } else {
+            None
+        };
+
         Self {
-            inner: Box::new(records.into_iter().map(Cow::Owned)),
+            database,
+            discriminants,
+            current_tree_iter,
+            current_discriminant: first_discriminant,
         }
     }
 }
 
 #[cfg(feature = "libp2p")]
-impl<'a> Iterator for RecordsIter<'a> {
-    type Item = Cow<'a, Record>;
+impl<'a, M> Iterator for RecordsIter<'a, M>
+where
+    M: crate::traits::NetabaseSchema,
+    M::SchemaDiscriminants: AsRef<str> + Clone + std::hash::Hash + Eq + strum::IntoEnumIterator,
+{
+    type Item = Cow<'a, libp2p::kad::Record>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next()
+        loop {
+            // Try to get next item from current tree
+            if let Some(ref mut tree_iter) = self.current_tree_iter
+                && let Some(Ok((_key, value))) = tree_iter.next()
+            {
+                // Convert IVec to NetabaseSchema, then to Record
+                if let Ok(schema) = M::from_ivec(value)
+                    && let Ok(record) = schema.to_record()
+                {
+                    return Some(Cow::Owned(record));
+                }
+                // Continue to next item if conversion failed
+                continue;
+            }
+
+            // Current tree exhausted, move to next discriminant
+            if let Some(next_discriminant) = self.discriminants.next() {
+                self.current_discriminant = Some(next_discriminant.clone());
+                self.current_tree_iter = self
+                    .database
+                    .get_main_tree_by_discriminant(&next_discriminant)
+                    .map(|tree| tree.iter());
+                // Continue to try next tree
+                continue;
+            } else {
+                // No more discriminants
+                return None;
+            }
+        }
     }
 }
 
@@ -155,7 +209,7 @@ pub struct ProvidersListValue {
 
 #[cfg(feature = "libp2p")]
 impl ProvidersListValue {
-    fn new() -> Self {
+    fn _new() -> Self {
         Self {
             providers: Vec::new(),
         }
@@ -172,9 +226,7 @@ impl ProvidersListValue {
 #[cfg(all(test, feature = "libp2p"))]
 mod tests {
     use super::*;
-    use libp2p::kad::store::RecordStore;
     use libp2p::multihash::Multihash;
-    use tempfile::tempdir;
 
     const SHA_256_MH: u64 = 0x12;
 

@@ -60,7 +60,7 @@ fn create_test_database() -> TestResult<(NetabaseSledDatabase<BasicTestSchema>, 
     let db_path = temp_dir.path().join("basic_test_db");
     debug!("Basic test database path: {}", db_path.display());
 
-    let db = NetabaseSledDatabase::new_with_path(&db_path.to_string_lossy())?;
+    let db = NetabaseSledDatabase::new_with_path(&db_path)?;
     info!("Basic test database created successfully");
 
     Ok((db, temp_dir))
@@ -300,7 +300,7 @@ mod tests {
         debug!("Testing tree iteration");
         let mut count = 0;
         for result in user_tree.iter() {
-            let (key, user) = result?;
+            let (_key, user) = result?;
             assert!(user.id >= 1 && user.id <= 5);
             debug!("Iterated over user with id: {}", user.id);
             count += 1;

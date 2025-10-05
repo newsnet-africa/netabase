@@ -121,7 +121,7 @@
 //! // See examples/ directory for complete working examples
 //!
 //! // Create local database
-//! let db = NetabaseSledDatabase::<blog::BlogSchema>::new_with_path("my_local_db").unwrap();
+//! let db = NetabaseSledDatabase::<blog::BlogSchema>::new_with_path("./my_local_db").unwrap();
 //! let user_tree: NetabaseSledTree<blog::User, blog::UserKey> = db.get_main_tree().unwrap();
 //!
 //! let user = blog::User { id: 1, name: "Some Name".to_string(), email: "some@email.com".to_string() };
@@ -168,7 +168,7 @@
 //! #[tokio::main]
 //! pub async fn main() {
 //!     // Create distributed instance
-//!     let mut netabase = Netabase::<test_schema::TestSchema>::new_with_path("./node_data").expect("Failed to initialise database for some reason");
+//!     let mut netabase = Netabase::<test_schema::TestSchema>::new().expect("Failed to initialise database for some reason");
 //!     let user = test_schema::TestUser { id:1, name:"Some Name".to_string() };
 //!     let key = user.key();
 //!     let start_swarm_result = netabase.start_swarm().await;
