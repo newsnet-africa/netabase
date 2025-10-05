@@ -95,6 +95,7 @@
 //! ```rust,no_run
 //! use netabase_store::database::{NetabaseSledDatabase, NetabaseSledTree};
 //! use netabase_store::traits::{NetabaseModel, NetabaseSecondaryKeyQuery};
+//! // Note: No need to import serde, bincode, etc. - macros handle this automatically!
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Direct model operations (local mode)
@@ -114,6 +115,7 @@
 //! #[cfg(feature = "libp2p")]
 //! use netabase_store::traits::{NetabaseSchemaQuery, NetabaseRecordStoreQuery};
 //! use libp2p::kad::store::RecordStore;
+//! // Note: All serialization dependencies are automatically handled by macros!
 //!
 //! # #[cfg(feature = "libp2p")]
 //! # fn network_example() -> Result<(), Box<dyn std::error::Error>> {
@@ -202,6 +204,7 @@
 //!
 //! ```rust,no_run
 //! use netabase_store::errors::NetabaseError;
+//! // Note: Error handling works seamlessly with hygienic macros!
 //!
 //! # fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! # let user_tree: netabase_store::database::NetabaseSledTree<(), ()> = todo!();
@@ -265,3 +268,18 @@ pub mod errors;
 pub mod relational;
 
 pub mod traits;
+
+// Re-export macros with hygienic dependencies
+pub use netabase_macros;
+
+/// Re-exports for macro hygiene - provides all dependencies needed by generated code.
+///
+/// This module ensures that all macros are hygienic and don't require users to manually
+/// import dependencies like `serde`, `bincode`, `strum`, etc. The macros automatically
+/// use these re-exported dependencies through absolute paths.
+pub use netabase_deps as __macro_deps;
+
+/// Re-export macro dependencies for user convenience.
+/// Users can access these through `netabase_store::serde`, `netabase_store::bincode`, etc.
+/// but the macros will work even without manual imports thanks to hygiene.
+pub use netabase_deps::*;

@@ -89,7 +89,7 @@ impl<'ast> NetabaseModelVisitor<'ast> {
                 #relations_method
 
                 fn relation_discriminants() -> Vec<Self::RelationsDiscriminants> {
-                    <Self::RelationsDiscriminants as strum::IntoEnumIterator>::iter().collect()
+                    <Self::RelationsDiscriminants as ::netabase_deps::__private::strum::IntoEnumIterator>::iter().collect()
                 }
             }
         }

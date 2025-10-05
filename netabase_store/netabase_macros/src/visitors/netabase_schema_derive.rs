@@ -115,9 +115,11 @@ impl DeriveVisitor {
         if !has_encode || !has_decode {
             let existing = &meta_list.tokens;
             let new_tokens: TokenStream = match (has_encode, has_decode) {
-                (false, false) => quote! { #existing, Encode, Decode },
-                (false, true) => quote! { #existing, Encode },
-                (true, false) => quote! { #existing, Decode },
+                (false, false) => {
+                    quote! { #existing, ::netabase_deps::__private::bincode::Encode, ::netabase_deps::__private::bincode::Decode }
+                }
+                (false, true) => quote! { #existing, ::netabase_deps::__private::bincode::Encode },
+                (true, false) => quote! { #existing, ::netabase_deps::__private::bincode::Decode },
                 (true, true) => return, // Both already present
             };
 
@@ -139,7 +141,7 @@ impl VisitMut for DeriveVisitor {
             }
         } else {
             // No derive attribute exists, create one with Encode and Decode
-            i.attrs.push(parse_quote! { #[derive(Encode, Decode)] });
+            i.attrs.push(parse_quote! { #[derive(::netabase_deps::__private::bincode::Encode, ::netabase_deps::__private::bincode::Decode)] });
         }
 
         // Continue visiting child nodes

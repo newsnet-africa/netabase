@@ -26,15 +26,15 @@ pub fn generate_module_schema(
     );
 
     let schema_enum = parse_quote! {
-        #[derive(derive_more::From, derive_more::TryInto, Clone, Encode, Decode, Debug, strum::EnumDiscriminants)]
-        #[strum_discriminants(derive(strum::EnumIter, strum::AsRefStr, Hash))]
+        #[derive(::netabase_deps::__private::derive_more::From, ::netabase_deps::__private::derive_more::TryInto, Clone, ::netabase_deps::__private::bincode::Encode, ::netabase_deps::__private::bincode::Decode, Debug, ::netabase_deps::__private::serde::Serialize, ::netabase_deps::__private::serde::Deserialize, ::netabase_deps::__private::strum::EnumDiscriminants)]
+        #[strum_discriminants(derive(::netabase_deps::__private::strum::EnumIter, ::netabase_deps::__private::strum::AsRefStr, Hash))]
         pub enum #schema_name {
             #(#schemas),*
         }
     };
 
     let key_enum = parse_quote! {
-        #[derive(derive_more::From, derive_more::TryInto, Clone, Encode, Decode, Debug)]
+        #[derive(::netabase_deps::__private::derive_more::From, ::netabase_deps::__private::derive_more::TryInto, Clone, Debug, ::netabase_deps::__private::bincode::Encode, ::netabase_deps::__private::bincode::Decode, ::netabase_deps::__private::serde::Serialize, ::netabase_deps::__private::serde::Deserialize)]
         pub enum #key_name {
             #(#keys),*
         }

@@ -1,7 +1,8 @@
 [workspace]
 members = ["example_usage",
   "netabase_store",
-  "netabase_store/netabase_macros"
+  "netabase_store/netabase_macros",
+  "netabase_store/netabase_deps"
 ]
 
 [workspace.dependencies]

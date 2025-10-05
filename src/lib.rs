@@ -20,15 +20,14 @@
 //! use netabase::Netabase;
 //! use netabase_macros::{NetabaseModel, netabase_schema_module};
 //! use netabase::traits::NetabaseModel;
-//! use serde::{Serialize, Deserialize};
-//! use bincode::{Encode, Decode};
+//! use netabase::{bincode, serde}; // Re-exported for convenience
 //!
 //! // Define your data models
 //! #[netabase_schema_module(BlogSchema, BlogKeys)]
 //! mod blog {
 //!     use super::*;
 //!
-//!     #[derive(NetabaseModel, Clone, Encode, Decode, Debug, Serialize, Deserialize)]
+//!     #[derive(NetabaseModel, Clone, Debug, bincode::Encode, bincode::Decode, serde::Serialize, serde::Deserialize)]
 //!     #[key_name(UserKey)]
 //!     pub struct User {
 //!         #[key]
@@ -101,12 +100,11 @@
 //! mod blog {
 //!     use super::*;
 //!     use netabase_macros::NetabaseModel;
-//!     use bincode::{Encode, Decode};
-//!     use serde::{Serialize, Deserialize};
 //!     use netabase::traits::NetabaseModel;
+//!     use netabase::{bincode, serde}; // Re-exported for convenience
 //!
 //!
-//!     #[derive(NetabaseModel, Clone, Encode, Decode, Debug, Serialize, Deserialize)]
+//!     #[derive(NetabaseModel, Clone, Debug, bincode::Encode, bincode::Decode, serde::Serialize, serde::Deserialize)]
 //!     #[key_name(UserKey)]
 //!     pub struct User {
 //!         #[key]
@@ -141,23 +139,20 @@
 //! For distributed operations across multiple nodes:
 //!
 //! ```rust, ignore
-//! use bincode::{Decode, Encode};
 //! use netabase::Netabase;
 //! use netabase_macros::{NetabaseModel, netabase_schema_module};
 //! use netabase_store::traits::NetabaseModel;
-//! use serde::{Deserialize, Serialize};
+//! use netabase::{bincode, serde}; // Re-exported for convenience
 //! use tokio::main;
 //!
 //! /// Example schema module for testing netabase functionality
 //! #[netabase_schema_module(TestSchema, TestSchemaKeys)]
 //! mod test_schema {
 //!     use super::*;
-//!     use bincode::{Decode, Encode};
-//!     use serde::{Serialize, Deserialize};
 //!     use netabase_macros::{NetabaseModel, key_name};
 //!
 //!     /// Test user model
-//!     #[derive(NetabaseModel, Clone, Encode, Decode, Debug, PartialEq, Serialize, Deserialize)]
+//!     #[derive(NetabaseModel, Clone, Debug, PartialEq, bincode::Encode, bincode::Decode, serde::Serialize, serde::Deserialize)]
 //!     #[key_name(TestUserKey)]
 //!     pub struct TestUser {
 //!         #[key]
@@ -235,7 +230,32 @@
 /// ```
 ///
 /// This crate re-exports the core functionality from `netabase_store` for convenience.
+///
+//! ## Macro Hygiene
+//!
+//! All macros in this crate are hygienic - they use absolute paths to reference all internal
+//! dependencies like `serde`, `bincode`, `strum`, etc. Users need to add these as derives
+//! to their structs but can import them conveniently through the re-exports provided.
+//!
+//! ### Required Derives
+//!
+//! When using `#[derive(NetabaseModel)]`, you must also include:
+//! - `bincode::Encode` and `bincode::Decode` for serialization
+//! - `serde::Serialize` and `serde::Deserialize` for JSON support
+//! - Standard derives like `Clone`, `Debug` as needed
+//!
+//! ### Convenience Re-exports
+//!
+//! All necessary dependencies are re-exported for easy access:
+//! ```rust
+//! use netabase::{bincode, serde, strum, derive_more, sled};
+//! ```
 pub use netabase_store::*;
+
+/// Re-export macro dependencies for user convenience.
+/// Users can access these through `netabase::serde`, `netabase::bincode`, etc.
+/// but the macros will work even without manual imports thanks to hygiene.
+pub use netabase_store::__macro_deps::*;
 pub mod errors;
 
 #[cfg(feature = "native")]

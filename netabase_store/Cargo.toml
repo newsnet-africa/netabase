@@ -16,6 +16,7 @@ bincode = { version = "2.0", features = ["derive", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 derive_more = { version = "2.0.1", features = ["from", "try_into", "into"] }
 libp2p = { version = "0.56.0", features = ["kad", "wasm-bindgen"], optional = true }
+netabase_deps = { path = "netabase_deps" }
 netabase_macros = { path = "netabase_macros" }
 serde = { version = "1.0", features = ["derive"] }
 sled = { version = "0.34.7", optional = true }

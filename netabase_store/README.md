@@ -17,8 +17,7 @@ Add netabase_store to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-netabase_store = { path = "path/to/netabase_store" }
-netabase_macros = { path = "path/to/netabase_macros" }
+netabase_store = { path = "https://github.com/newsnet-africa/netabase_store.git" }
 ```
 
 ## Usage

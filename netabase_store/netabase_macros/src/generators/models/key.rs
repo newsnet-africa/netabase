@@ -34,17 +34,17 @@ impl<'ast> NetabaseModelVisitor<'ast> {
 
         // Generate primary key struct
         let mut primary_key_derive = quote::quote!(
-            bincode::Encode,
-            bincode::Decode,
+            ::netabase_deps::__private::bincode::Encode,
+            ::netabase_deps::__private::bincode::Decode,
             Debug,
             Clone,
             PartialEq,
             Eq,
             Hash,
-            derive_more::From,
-            derive_more::Into,
-            serde::Serialize,
-            serde::Deserialize
+            ::netabase_deps::__private::derive_more::From,
+            ::netabase_deps::__private::derive_more::Into,
+            ::netabase_deps::__private::serde::Serialize,
+            ::netabase_deps::__private::serde::Deserialize
         );
         if let Some(keys) = self.key_derive {
             keys.tokens.clone().to_tokens(&mut primary_key_derive);
@@ -88,7 +88,7 @@ impl<'ast> NetabaseModelVisitor<'ast> {
         let secondary_keys_enum: ItemEnum = if secondary_key_variants.is_empty() {
             // Create a placeholder enum if no secondary keys exist
             parse_quote! {
-                #[derive(bincode::Encode, bincode::Decode, Debug, Clone, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+                #[derive(::netabase_deps::__private::bincode::Encode, ::netabase_deps::__private::bincode::Decode, Debug, Clone, Hash, PartialEq, Eq, ::netabase_deps::__private::serde::Serialize, ::netabase_deps::__private::serde::Deserialize)]
                 pub enum #secondary_keys_name {
                     #[doc = "Placeholder for models with no secondary keys"]
                     _NoSecondaryKeys,
@@ -96,8 +96,8 @@ impl<'ast> NetabaseModelVisitor<'ast> {
             }
         } else {
             parse_quote! {
-                #[derive(bincode::Encode, bincode::Decode, Debug, Clone, Hash, PartialEq, Eq, strum::EnumIter, strum::EnumDiscriminants, serde::Serialize, serde::Deserialize)]
-                #[strum_discriminants(derive(strum::EnumIter, strum::AsRefStr, Hash))]
+                #[derive(::netabase_deps::__private::bincode::Encode, ::netabase_deps::__private::bincode::Decode, Debug, Clone, Hash, PartialEq, Eq, ::netabase_deps::__private::strum::EnumIter, ::netabase_deps::__private::strum::EnumDiscriminants, ::netabase_deps::__private::serde::Serialize, ::netabase_deps::__private::serde::Deserialize)]
+                #[strum_discriminants(derive(::netabase_deps::__private::strum::EnumIter, ::netabase_deps::__private::strum::AsRefStr, Hash))]
                 pub enum #secondary_keys_name {
                     #(#secondary_key_variants),*
                 }
@@ -106,7 +106,7 @@ impl<'ast> NetabaseModelVisitor<'ast> {
 
         // Generate relations enum (always empty placeholder now)
         let relations_enum: ItemEnum = parse_quote! {
-            #[derive(bincode::Encode, bincode::Decode, Debug, Clone, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+            #[derive(::netabase_deps::__private::bincode::Encode, ::netabase_deps::__private::bincode::Decode, Debug, Clone, Hash, PartialEq, Eq, ::netabase_deps::__private::serde::Serialize, ::netabase_deps::__private::serde::Deserialize)]
             pub enum #relations_name {
                 #[doc = "Placeholder for models with no relations"]
                 _NoRelations,
@@ -115,7 +115,7 @@ impl<'ast> NetabaseModelVisitor<'ast> {
 
         // Generate main key enum with Primary and Secondary variants
         let main_key_enum: ItemEnum = parse_quote! {
-            #[derive(bincode::Encode, bincode::Decode, Debug, Clone, PartialEq, Eq, Hash, derive_more::From, derive_more::TryInto, serde::Serialize, serde::Deserialize)]
+            #[derive(::netabase_deps::__private::bincode::Encode, ::netabase_deps::__private::bincode::Decode, Debug, Clone, PartialEq, Eq, Hash, ::netabase_deps::__private::derive_more::From, ::netabase_deps::__private::derive_more::TryInto, ::netabase_deps::__private::serde::Serialize, ::netabase_deps::__private::serde::Deserialize)]
             pub enum #key_name {
                 Primary(#primary_key_name),
                 Secondary(#secondary_keys_name),
@@ -162,7 +162,7 @@ impl<'ast> NetabaseModelVisitor<'ast> {
                 type SecondaryKeysDiscriminants = #secondary_keys_discriminants;
 
                 fn secondary_key_discriminants() -> Vec<Self::SecondaryKeysDiscriminants> {
-                    <Self::SecondaryKeysDiscriminants as strum::IntoEnumIterator>::iter().collect()
+                    <Self::SecondaryKeysDiscriminants as ::netabase_deps::__private::strum::IntoEnumIterator>::iter().collect()
                 }
 
                 fn primary_keys(&self) -> Option<&Self::PrimaryKey> {
@@ -248,10 +248,10 @@ impl<'ast> NetabaseModelVisitor<'ast> {
 
         let error_path = netabase_error_type_path();
         parse_quote! {
-            impl TryFrom<sled::IVec> for #secondary_keys_name {
+            impl TryFrom<::netabase_deps::__private::sled::IVec> for #secondary_keys_name {
                 type Error = #error_path;
-                fn try_from(ivec: sled::IVec) -> Result<Self, Self::Error> {
-                    Ok(bincode::decode_from_slice::<Self, _>(&ivec, bincode::config::standard())?.0)
+                fn try_from(ivec: ::netabase_deps::__private::sled::IVec) -> Result<Self, Self::Error> {
+                    Ok(::netabase_deps::__private::bincode::decode_from_slice::<Self, _>(&ivec, ::netabase_deps::__private::bincode::config::standard())?.0)
                 }
             }
         }
@@ -267,10 +267,10 @@ impl<'ast> NetabaseModelVisitor<'ast> {
 
         let error_path = netabase_error_type_path();
         parse_quote! {
-            impl TryFrom<#secondary_keys_name> for sled::IVec {
+            impl TryFrom<#secondary_keys_name> for ::netabase_deps::__private::sled::IVec {
                 type Error = #error_path;
                 fn try_from(value: #secondary_keys_name) -> Result<Self, Self::Error> {
-                    Ok(sled::IVec::from(bincode::encode_to_vec(&value, bincode::config::standard())?))
+                    Ok(::netabase_deps::__private::sled::IVec::from(::netabase_deps::__private::bincode::encode_to_vec(&value, ::netabase_deps::__private::bincode::config::standard())?))
                 }
             }
         }
@@ -300,10 +300,10 @@ impl<'ast> NetabaseModelVisitor<'ast> {
 
         let error_path = netabase_error_type_path();
         parse_quote! {
-            impl TryFrom<sled::IVec> for #relations_name {
+            impl TryFrom<::netabase_deps::__private::sled::IVec> for #relations_name {
                 type Error = #error_path;
-                fn try_from(ivec: sled::IVec) -> Result<Self, Self::Error> {
-                    Ok(bincode::decode_from_slice::<Self, _>(&ivec, bincode::config::standard())?.0)
+                fn try_from(ivec: ::netabase_deps::__private::sled::IVec) -> Result<Self, Self::Error> {
+                    Ok(::netabase_deps::__private::bincode::decode_from_slice::<Self, _>(&ivec, ::netabase_deps::__private::bincode::config::standard())?.0)
                 }
             }
         }
@@ -319,10 +319,10 @@ impl<'ast> NetabaseModelVisitor<'ast> {
 
         let error_path = netabase_error_type_path();
         parse_quote! {
-            impl TryFrom<#relations_name> for sled::IVec {
+            impl TryFrom<#relations_name> for ::netabase_deps::__private::sled::IVec {
                 type Error = #error_path;
                 fn try_from(value: #relations_name) -> Result<Self, Self::Error> {
-                    Ok(sled::IVec::from(bincode::encode_to_vec(&value, bincode::config::standard())?))
+                    Ok(::netabase_deps::__private::sled::IVec::from(::netabase_deps::__private::bincode::encode_to_vec(&value, ::netabase_deps::__private::bincode::config::standard())?))
                 }
             }
         }
@@ -380,10 +380,10 @@ impl<'ast> NetabaseModelVisitor<'ast> {
         if self.secondary_key_fields.is_empty() {
             // Generate trait implementations for placeholder enum
             quote::quote! {
-                impl strum::IntoEnumIterator for #secondary_keys_name {
-                    type Iterator = std::iter::Once<Self>;
+                impl ::netabase_deps::__private::strum::IntoEnumIterator for #secondary_keys_name {
+                    type Iterator = ::netabase_deps::__private::std::iter::Once<Self>;
                     fn iter() -> Self::Iterator {
-                        std::iter::once(#secondary_keys_name::_NoSecondaryKeys)
+                        ::netabase_deps::__private::std::iter::once(#secondary_keys_name::_NoSecondaryKeys)
                     }
                 }
 
@@ -409,10 +409,10 @@ impl<'ast> NetabaseModelVisitor<'ast> {
 
         // Always generate trait implementations for placeholder enum
         quote::quote! {
-            impl strum::IntoEnumIterator for #relations_name {
-                type Iterator = std::iter::Once<Self>;
+            impl ::netabase_deps::__private::strum::IntoEnumIterator for #relations_name {
+                type Iterator = ::netabase_deps::__private::std::iter::Once<Self>;
                 fn iter() -> Self::Iterator {
-                    std::iter::once(#relations_name::_NoRelations)
+                    ::netabase_deps::__private::std::iter::once(#relations_name::_NoRelations)
                 }
             }
 
@@ -438,17 +438,17 @@ impl<'ast> NetabaseModelVisitor<'ast> {
         let error_path = netabase_error_type_path();
 
         quote::quote! {
-            impl TryFrom<sled::IVec> for #key_name {
+            impl TryFrom<::netabase_deps::__private::sled::IVec> for #key_name {
                 type Error = #error_path;
-                fn try_from(ivec: sled::IVec) -> Result<Self, Self::Error> {
-                    Ok(bincode::decode_from_slice::<Self, _>(&ivec, bincode::config::standard())?.0)
+                fn try_from(ivec: ::netabase_deps::__private::sled::IVec) -> Result<Self, Self::Error> {
+                    Ok(::netabase_deps::__private::bincode::decode_from_slice::<Self, _>(&ivec, ::netabase_deps::__private::bincode::config::standard())?.0)
                 }
             }
 
-            impl TryFrom<#key_name> for sled::IVec {
+            impl TryFrom<#key_name> for ::netabase_deps::__private::sled::IVec {
                 type Error = #error_path;
                 fn try_from(value: #key_name) -> Result<Self, Self::Error> {
-                    Ok(sled::IVec::from(bincode::encode_to_vec(&value, bincode::config::standard())?))
+                    Ok(::netabase_deps::__private::sled::IVec::from(::netabase_deps::__private::bincode::encode_to_vec(&value, ::netabase_deps::__private::bincode::config::standard())?))
                 }
             }
         }
@@ -463,17 +463,17 @@ impl<'ast> NetabaseModelVisitor<'ast> {
         let error_path = netabase_error_type_path();
 
         quote::quote! {
-            impl TryFrom<sled::IVec> for #name {
+            impl TryFrom<::netabase_deps::__private::sled::IVec> for #name {
                 type Error = #error_path;
-                fn try_from(ivec: sled::IVec) -> Result<Self, Self::Error> {
-                    Ok(bincode::decode_from_slice::<Self, _>(&ivec, bincode::config::standard())?.0)
+                fn try_from(ivec: ::netabase_deps::__private::sled::IVec) -> Result<Self, Self::Error> {
+                    Ok(::netabase_deps::__private::bincode::decode_from_slice::<Self, _>(&ivec, ::netabase_deps::__private::bincode::config::standard())?.0)
                 }
             }
 
-            impl TryFrom<#name> for sled::IVec {
+            impl TryFrom<#name> for ::netabase_deps::__private::sled::IVec {
                 type Error = #error_path;
                 fn try_from(value: #name) -> Result<Self, Self::Error> {
-                    Ok(sled::IVec::from(bincode::encode_to_vec(&value, bincode::config::standard())?))
+                    Ok(::netabase_deps::__private::sled::IVec::from(::netabase_deps::__private::bincode::encode_to_vec(&value, ::netabase_deps::__private::bincode::config::standard())?))
                 }
             }
         }

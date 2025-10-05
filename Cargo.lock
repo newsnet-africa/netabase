@@ -2215,14 +2215,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "netabase_deps"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "derive_more",
+ "serde",
+ "sled",
+ "strum",
+]
+
+[[package]]
 name = "netabase_macros"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bincode",
  "derive_more",
  "heck",
  "proc-macro2",
  "quote",
+ "serde",
+ "sled",
  "strum",
  "strum_macros",
  "syn 2.0.106",
@@ -2240,6 +2254,7 @@ dependencies = [
  "js-sys",
  "libp2p",
  "log",
+ "netabase_deps",
  "netabase_macros",
  "quickcheck",
  "rand 0.8.5",
