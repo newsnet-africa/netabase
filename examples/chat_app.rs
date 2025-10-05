@@ -119,7 +119,14 @@ impl ChatApp {
         println!("🚀 Starting chat application for user: {}", username);
         println!("📡 Initializing P2P network...");
 
-        let mut netabase = Netabase::<ChatSchema>::new()?;
+        // Create a unique database path for each user to prevent conflicts
+        let db_path = std::env::temp_dir()
+            .join("netabase_chat")
+            .join(format!("{}_{}", username, room));
+
+        println!("📁 Using database path: {}", db_path.display());
+
+        let mut netabase = Netabase::<ChatSchema>::new_with_path(db_path)?;
         netabase.start_swarm().await?;
 
         let app = Self {
