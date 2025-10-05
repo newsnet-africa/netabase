@@ -12,8 +12,7 @@ use ux_test_suite::{TestConfig, TestDatabase, TestModelFactory, TestResult, Test
 /// Test complete local database workflow with macro hygiene
 #[tokio::test]
 async fn test_local_database_integration() -> TestResult {
-    use netabase_deps::{bincode, serde};
-    use netabase_macros::{netabase_schema_module, NetabaseModel};
+    use netabase_store::{bincode, netabase_schema_module, serde, NetabaseModel};
     use netabase_store::{
         database::NetabaseDatabase,
         traits::{NetabaseModel, NetabaseSecondaryKeyQuery},
@@ -22,6 +21,28 @@ async fn test_local_database_integration() -> TestResult {
     #[netabase_schema_module(LocalSchema, LocalSchemaKeys)]
     mod local_schema {
         use super::*;
+        use netabase_store::{traits::NetabaseModel as _, NetabaseModel};
+
+        #[derive(
+            Clone,
+            Debug,
+            PartialEq,
+            Eq,
+            Hash,
+            Default,
+            serde::Serialize,
+            serde::Deserialize,
+            bincode::Encode,
+            bincode::Decode,
+        )]
+        pub enum ProjectStatus {
+            #[default]
+            Planning,
+            Active,
+            OnHold,
+            Completed,
+            Cancelled,
+        }
 
         #[derive(
             NetabaseModel,
@@ -218,8 +239,7 @@ async fn test_local_database_integration() -> TestResult {
 #[ignore] // Disabled due to netabase compilation issues
 async fn test_distributed_integration() -> TestResult {
     // use netabase::Netabase;
-    use netabase_deps::{bincode, serde};
-    use netabase_macros::{netabase_schema_module, NetabaseModel};
+    use netabase_store::{bincode, netabase_schema_module, serde, NetabaseModel};
 
     #[netabase_schema_module(DistributedSchema, DistributedSchemaKeys)]
     mod distributed_schema {
@@ -343,9 +363,8 @@ async fn test_distributed_integration() -> TestResult {
 /// Test error handling and recovery scenarios
 #[tokio::test]
 async fn test_error_handling_integration() -> TestResult {
-    use netabase_deps::{bincode, serde};
-    use netabase_macros::{netabase_schema_module, NetabaseModel};
     use netabase_store::database::NetabaseDatabase;
+    use netabase_store::{bincode, netabase_schema_module, serde, NetabaseModel};
 
     #[netabase_schema_module(ErrorSchema, ErrorSchemaKeys)]
     mod error_schema {
@@ -402,9 +421,8 @@ async fn test_error_handling_integration() -> TestResult {
 /// Test performance under load
 #[tokio::test]
 async fn test_performance_integration() -> TestResult {
-    use netabase_deps::{bincode, serde};
-    use netabase_macros::{netabase_schema_module, NetabaseModel};
     use netabase_store::database::NetabaseDatabase;
+    use netabase_store::{bincode, netabase_schema_module, serde, NetabaseModel};
     use std::time::Instant;
 
     #[netabase_schema_module(PerfSchema, PerfSchemaKeys)]
@@ -499,9 +517,8 @@ async fn test_performance_integration() -> TestResult {
 /// Test concurrent access patterns
 #[tokio::test]
 async fn test_concurrent_integration() -> TestResult {
-    use netabase_deps::{bincode, serde};
-    use netabase_macros::{netabase_schema_module, NetabaseModel};
     use netabase_store::database::NetabaseDatabase;
+    use netabase_store::{bincode, netabase_schema_module, serde, NetabaseModel};
     use std::sync::Arc;
     use tokio::task;
 
@@ -606,8 +623,7 @@ async fn test_integration_with_framework() -> TestResult {
     let runner = TestRunner::new(config);
 
     runner.run(|config| {
-        use netabase_deps::{bincode, serde};
-        use netabase_macros::{netabase_schema_module, NetabaseModel};
+        use netabase_store::{bincode, netabase_schema_module, serde, NetabaseModel};
 
         #[netabase_schema_module(FrameworkSchema, FrameworkSchemaKeys)]
         mod framework_schema {
@@ -670,9 +686,8 @@ async fn test_integration_with_framework() -> TestResult {
 /// Test schema evolution and compatibility
 #[tokio::test]
 async fn test_schema_evolution() -> TestResult {
-    use netabase_deps::{bincode, serde};
-    use netabase_macros::{netabase_schema_module, NetabaseModel};
     use netabase_store::database::NetabaseDatabase;
+    use netabase_store::{bincode, netabase_schema_module, serde, NetabaseModel};
 
     // Original schema version
     #[netabase_schema_module(EvolutionSchemaV1, EvolutionSchemaV1Keys)]

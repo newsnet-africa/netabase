@@ -1,5 +1,6 @@
 /target
 **/target
+/my_local_db
 
 
 # Added by cargo

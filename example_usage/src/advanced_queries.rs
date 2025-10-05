@@ -11,13 +11,12 @@
 //! Run with: `cargo run --example advanced_queries`
 
 use std::collections::HashMap;
-use std::time::Duration;
 
 use bincode::{Decode, Encode};
 use netabase_macros::{NetabaseModel, netabase_schema_module};
 use netabase_store::{
     database::sled::{NetabaseSledDatabase, NetabaseSledTree},
-    traits::{NetabaseAdvancedQuery, NetabaseModel, NetabaseSecondaryKeyQuery},
+    traits::{NetabaseAdvancedQuery, NetabaseModel},
 };
 use serde::{Deserialize, Serialize};
 

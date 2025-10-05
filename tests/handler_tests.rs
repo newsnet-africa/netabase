@@ -384,14 +384,13 @@ async fn test_mode_handlers() {
     tokio::time::sleep(Duration::from_millis(200)).await;
 
     // Test get_mode handler
-    let get_mode_result: Result<Mode, anyhow::Error> =
-        timeout(Duration::from_secs(2), netabase.get_mode()).await;
+    let get_mode_result = timeout(Duration::from_secs(2), netabase.get_mode()).await;
     assert!(
         get_mode_result.is_ok(),
         "Get mode handler should not timeout"
     );
 
-    let current_mode = get_mode_result.unwrap();
+    let current_mode = get_mode_result.unwrap().unwrap();
     println!("Current mode from handler: {:?}", current_mode);
 
     // Test set_mode handler

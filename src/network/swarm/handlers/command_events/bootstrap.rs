@@ -8,7 +8,7 @@ use tokio::sync::oneshot::Sender;
 use super::super::swarm_events::behaviour::kad::store_query_response_channel;
 use crate::network::behaviour::NetabaseBehaviour;
 
-pub fn handle_bootstrap<S: NetabaseSchema>(
+pub(crate) fn handle_bootstrap<S: NetabaseSchema>(
     swarm: &mut Swarm<NetabaseBehaviour<S>>,
     response_channel: Sender<Result<QueryResult, NoKnownPeers>>,
 ) {

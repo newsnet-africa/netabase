@@ -3,7 +3,7 @@ use netabase_store::traits::{NetabaseKeys, NetabaseSchema};
 
 use crate::network::behaviour::NetabaseBehaviour;
 
-pub fn handle_remove_record<S: NetabaseSchema>(
+pub(crate) fn handle_remove_record<S: NetabaseSchema>(
     swarm: &mut Swarm<NetabaseBehaviour<S>>,
     key: S::Keys,
 ) {

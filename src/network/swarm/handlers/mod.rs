@@ -6,7 +6,7 @@ use libp2p::{Swarm, futures::StreamExt};
 #[cfg(feature = "native")]
 use crate::network::{
     behaviour::{NetabaseBehaviour, clone_impl::NetabaseSwarmEvent},
-    swarm::handlers::command_events::{Command, handle_command_events},
+    swarm::handlers::command_events::handle_command_events,
 };
 
 #[cfg(feature = "native")]
@@ -16,7 +16,7 @@ pub mod swarm_events;
 
 // Native implementation with full swarm event loop
 #[cfg(feature = "native")]
-pub async fn start_swarm_loop<S: NetabaseSchema>(
+pub(crate) async fn start_swarm_loop<S: NetabaseSchema>(
     mut swarm: Swarm<NetabaseBehaviour<S>>,
     swarm_event_sender: tokio::sync::broadcast::Sender<NetabaseSwarmEvent<S>>,
     mut command_event_listener: tokio::sync::mpsc::Receiver<command_events::Command<S>>,
@@ -40,7 +40,7 @@ pub async fn start_swarm_loop<S: NetabaseSchema>(
 
 // WASM placeholder - networking not yet implemented
 #[cfg(all(feature = "wasm", not(feature = "native")))]
-pub async fn start_swarm_loop<S: NetabaseSchema>(
+pub(crate) async fn start_swarm_loop<S: NetabaseSchema>(
     _swarm: (),
     _swarm_event_sender: (),
     _command_event_listener: (),

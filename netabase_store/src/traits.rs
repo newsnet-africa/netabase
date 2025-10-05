@@ -1276,7 +1276,6 @@ pub mod database_traits {
         errors::NetabaseError,
         traits::{DatabaseIVec, NetabaseModel, NetabaseModelKey},
     };
-    use std::collections::HashMap;
 
     pub trait NetabaseSledDatabase {
         fn new(name: &str) -> Self;

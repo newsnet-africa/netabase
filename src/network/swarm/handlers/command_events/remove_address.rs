@@ -7,7 +7,7 @@ use tokio::sync::oneshot::Sender;
 
 use crate::network::behaviour::NetabaseBehaviour;
 
-pub fn handle_remove_address<S: NetabaseSchema>(
+pub(crate) fn handle_remove_address<S: NetabaseSchema>(
     swarm: &mut Swarm<NetabaseBehaviour<S>>,
     peer: PeerId,
     address: Multiaddr,

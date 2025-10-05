@@ -3,7 +3,7 @@ use netabase_store::traits::NetabaseSchema;
 
 use crate::network::behaviour::NetabaseBehaviour;
 
-pub fn handle_set_mode<S: NetabaseSchema>(
+pub(crate) fn handle_set_mode<S: NetabaseSchema>(
     swarm: &mut Swarm<NetabaseBehaviour<S>>,
     mode: Option<Mode>,
 ) {

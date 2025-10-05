@@ -5,9 +5,12 @@ use bincode::{Decode, Encode};
 use libp2p::{Multiaddr, PeerId};
 use netabase::Netabase;
 use netabase_macros::{NetabaseModel, netabase_schema_module};
-use netabase_store::traits::NetabaseModel as NetabaseModelTrait;
+use netabase_store::traits::{
+    NetabaseModel as NetabaseModelTrait, NetabaseSchema, NetabaseSchemaQuery,
+};
 use serde::{Deserialize, Serialize};
 use tempfile::TempDir;
+use test_schema::*;
 use tokio::time::timeout;
 
 static INIT: Once = Once::new();
@@ -551,4 +554,154 @@ async fn test_peer_management_operations() {
     println!("Remove peer result: {:?}", result.unwrap());
 
     netabase.stop_swarm().await.unwrap();
+}
+
+#[tokio::test]
+async fn test_direct_database_access() {
+    init_logger();
+
+    let (_temp_dir, db_path) = create_temp_db();
+    let netabase = Netabase::<TestSchema>::new_with_path(&db_path).unwrap();
+
+    // Test direct database access without starting swarm
+    let mut db = netabase.database().unwrap();
+
+    // Initialize trees for the schema discriminants
+    let discriminants = TestSchema::all_schema_discriminants();
+    db.initialize_trees_from_discriminants(&discriminants)
+        .unwrap();
+
+    // Create a test user
+    let user = create_test_user(1);
+    let user_schema = TestSchema::TestUser(user.clone());
+
+    // Store directly in database
+    let result = db.put_schema(&user_schema);
+    assert!(
+        result.is_ok(),
+        "Direct database put should succeed: {:?}",
+        result.err()
+    );
+
+    // Retrieve directly from database using model's key
+    let user_key = user.key();
+    let schema_key = TestSchemaKeys::from(user_key);
+    let retrieved_schema = db.get_schema(&schema_key).unwrap();
+
+    match retrieved_schema {
+        Some(TestSchema::TestUser(retrieved_user)) => {
+            assert_eq!(retrieved_user.id, user.id);
+            assert_eq!(retrieved_user.name, user.name);
+            assert_eq!(retrieved_user.email, user.email);
+        }
+        _ => panic!("Expected TestUser schema"),
+    }
+}
+
+#[tokio::test]
+async fn test_direct_database_mutable_access() {
+    init_logger();
+
+    let (_temp_dir, db_path) = create_temp_db();
+    let netabase = Netabase::<TestSchema>::new_with_path(&db_path).unwrap();
+
+    // Test mutable database access
+    let mut db = netabase.database_mut().unwrap();
+
+    // Initialize trees for the schema discriminants
+    let discriminants = TestSchema::all_schema_discriminants();
+    db.initialize_trees_from_discriminants(&discriminants)
+        .unwrap();
+
+    // Create test data
+    let user = create_test_user(1);
+    let post = create_test_post(1, user.id);
+
+    let user_schema = TestSchema::TestUser(user.clone());
+    let post_schema = TestSchema::TestPost(post.clone());
+
+    // Store multiple items
+    assert!(db.put_schema(&user_schema).is_ok());
+    assert!(db.put_schema(&post_schema).is_ok());
+
+    // Verify both items exist
+    let user_key = user.key();
+    let post_key = post.key();
+    let user_schema_key = TestSchemaKeys::from(user_key);
+    let post_schema_key = TestSchemaKeys::from(post_key);
+
+    let retrieved_user = db.get_schema(&user_schema_key).unwrap();
+    let retrieved_post = db.get_schema(&post_schema_key).unwrap();
+
+    assert!(retrieved_user.is_some());
+    assert!(retrieved_post.is_some());
+}
+
+#[tokio::test]
+async fn test_direct_vs_network_operations() {
+    init_logger();
+
+    let (_temp_dir, db_path) = create_temp_db();
+    let mut netabase = Netabase::<TestSchema>::new_with_path(&db_path).unwrap();
+
+    // Store data directly in database
+    let user = create_test_user(1);
+    let mut db = netabase.database().unwrap();
+
+    // Initialize trees for the schema discriminants
+    let discriminants = TestSchema::all_schema_discriminants();
+    db.initialize_trees_from_discriminants(&discriminants)
+        .unwrap();
+
+    let user_schema = TestSchema::TestUser(user.clone());
+    assert!(db.put_schema(&user_schema).is_ok());
+
+    // Now start swarm and verify network operations work
+    netabase.start_swarm().await.unwrap();
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    // Try to retrieve via network (should find locally stored data)
+    let user_key = user.key();
+    let _network_result = timeout(
+        Duration::from_secs(2),
+        netabase.get_record(user_key.clone()),
+    )
+    .await;
+
+    // Network operation might timeout in single-node setup, but direct access should work
+    let mut direct_db = netabase.database().unwrap();
+
+    // Initialize trees for reading
+    let discriminants = TestSchema::all_schema_discriminants();
+    direct_db
+        .initialize_trees_from_discriminants(&discriminants)
+        .unwrap();
+
+    let schema_key = TestSchemaKeys::from(user_key);
+    let direct_result = direct_db.get_schema(&schema_key).unwrap();
+    assert!(direct_result.is_some());
+
+    netabase.stop_swarm().await.unwrap();
+}
+
+#[tokio::test]
+async fn test_database_error_handling() {
+    init_logger();
+
+    // Test with invalid path
+    let invalid_netabase =
+        Netabase::<TestSchema>::new_with_path("/invalid/path/that/does/not/exist").unwrap();
+    let db_result = invalid_netabase.database();
+
+    // Should handle database creation errors gracefully
+    // Note: sled might create directories, so this test checks error handling exists
+    match db_result {
+        Ok(_) => {
+            // If sled created the directory, that's fine - just verify we can access it
+            println!("Database created successfully even with unusual path");
+        }
+        Err(e) => {
+            println!("Database access failed as expected: {}", e);
+        }
+    }
 }

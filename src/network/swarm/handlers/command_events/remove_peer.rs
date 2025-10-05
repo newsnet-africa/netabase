@@ -7,7 +7,7 @@ use tokio::sync::oneshot::Sender;
 
 use crate::network::behaviour::NetabaseBehaviour;
 
-pub fn handle_remove_peer<S: NetabaseSchema>(
+pub(crate) fn handle_remove_peer<S: NetabaseSchema>(
     swarm: &mut Swarm<NetabaseBehaviour<S>>,
     peer: PeerId,
     response_channel: Sender<Option<EntryView<KBucketKey<PeerId>, Addresses>>>,

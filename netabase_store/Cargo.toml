@@ -7,7 +7,7 @@ edition = "2024"
 default = ["native"]
 native = ["sled"]
 wasm = ["web-sys", "js-sys", "wasm-bindgen"]
-libp2p = ["dep:libp2p"]
+libp2p = ["dep:libp2p", "netabase_macros/libp2p"]
 record-store = ["libp2p"]
 
 [dependencies]
@@ -34,3 +34,12 @@ rand = "0.8"
 quickcheck = "1.0"
 log = "0.4"
 env_logger = "0.10"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "sled_comparison"
+harness = false
+
+[[bench]]
+name = "quick_comparison"
+harness = false

@@ -11,8 +11,7 @@ use ux_test_suite::{TestConfig, TestDatabase, TestModelFactory, TestResult, Test
 /// Test a complete blog system scenario
 #[tokio::test]
 async fn test_blog_system_scenario() -> TestResult {
-    use netabase_deps::{bincode, serde, strum};
-    use netabase_macros::{netabase_schema_module, NetabaseModel};
+    use netabase_store::{bincode, netabase_schema_module, serde, strum, NetabaseModel};
     use netabase_store::{
         database::NetabaseDatabase,
         traits::{NetabaseModel, NetabaseSecondaryKeyQuery},
@@ -367,8 +366,7 @@ async fn test_blog_system_scenario() -> TestResult {
 /// Test an e-commerce system scenario
 #[tokio::test]
 async fn test_ecommerce_scenario() -> TestResult {
-    use netabase_deps::{bincode, serde, strum};
-    use netabase_macros::{netabase_schema_module, NetabaseModel};
+    use netabase_store::{bincode, netabase_schema_module, serde, strum, NetabaseModel};
     use netabase_store::{
         database::NetabaseDatabase,
         traits::{NetabaseModel, NetabaseSecondaryKeyQuery},
@@ -673,8 +671,7 @@ async fn test_ecommerce_scenario() -> TestResult {
 #[ignore] // Disabled due to netabase compilation issues
 async fn test_chat_system_scenario() -> TestResult {
     // use netabase::Netabase;
-    use netabase_deps::{bincode, serde, strum};
-    use netabase_macros::{netabase_schema_module, NetabaseModel};
+    use netabase_store::{bincode, netabase_schema_module, serde, strum, NetabaseModel};
 
     #[netabase_schema_module(ChatSchema, ChatSchemaKeys)]
     mod chat_schema {

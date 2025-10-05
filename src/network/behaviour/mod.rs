@@ -1,8 +1,4 @@
-use libp2p::{
-    PeerId, connection_limits, identify,
-    identity::{Keypair, PublicKey},
-    swarm::NetworkBehaviour,
-};
+use libp2p::{PeerId, connection_limits, identity::Keypair, swarm::NetworkBehaviour};
 use netabase_store::{database::NetabaseDatabase, traits::NetabaseSchema};
 pub mod clone_impl;
 

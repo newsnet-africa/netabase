@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 description = "Comprehensive user experience test suite for Netabase macro hygiene and dependency auto-export"
 
+[features]
+default = ["libp2p"]
+libp2p = ["dep:libp2p"]
+
 [dependencies]
 # Core netabase dependency - this is the only dependency users should need
 netabase_store = { path = "../netabase_store" }
@@ -15,6 +19,9 @@ bincode = { version = "2.0", features = ["derive", "serde"] }
 strum = { version = "0.27.2", features = ["derive", "strum_macros"] }
 derive_more = { version = "2.0.1", features = ["from", "try_into", "into"] }
 sled = "0.34.7"
+
+# Optional libp2p support
+libp2p = { version = "0.56.0", features = ["kad"], optional = true }
 
 # Test utilities
 tempfile = "3.0"

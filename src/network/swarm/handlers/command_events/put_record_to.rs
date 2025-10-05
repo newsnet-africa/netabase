@@ -7,7 +7,7 @@ use tokio::sync::oneshot::Sender;
 
 use crate::network::behaviour::NetabaseBehaviour;
 
-pub fn handle_put_record_to<S: NetabaseSchema>(
+pub(crate) fn handle_put_record_to<S: NetabaseSchema>(
     swarm: &mut Swarm<NetabaseBehaviour<S>>,
     record: S,
     peers: Vec<PeerId>,

@@ -14,7 +14,7 @@ use netabase::Netabase;
 use netabase_macros::{NetabaseModel, netabase_schema_module};
 use netabase_store::{
     database::sled::{NetabaseSledDatabase, NetabaseSledTree},
-    traits::{NetabaseAdvancedQuery, NetabaseModel, NetabaseSecondaryKeyQuery},
+    traits::{NetabaseAdvancedQuery, NetabaseModel},
 };
 use serde::{Deserialize, Serialize};
 use tempfile::TempDir;
@@ -451,7 +451,7 @@ impl DistributedBlogService {
         let key = PostKey::Primary(PostPrimaryKey(post_id));
 
         match timeout(Duration::from_secs(10), self.netabase.get_record(key)).await {
-            Ok(result) => {
+            Ok(_result) => {
                 // Process the query result to extract the post
                 // This is a simplified example - in practice you'd parse the QueryResult
                 println!("Attempted to retrieve post {} from network", post_id);

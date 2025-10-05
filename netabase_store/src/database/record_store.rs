@@ -235,8 +235,10 @@ mod tests {
     use super::*;
     use libp2p::multihash::Multihash;
 
+    #[cfg(test)]
     const SHA_256_MH: u64 = 0x12;
 
+    #[cfg(test)]
     fn random_multihash() -> Multihash<64> {
         use rand::RngCore;
         let mut rng = rand::thread_rng();
@@ -245,6 +247,7 @@ mod tests {
         Multihash::wrap(SHA_256_MH, &bytes).unwrap()
     }
 
+    #[cfg(test)]
     fn create_test_key(key_data: &[u8]) -> RecordKey {
         RecordKey::new(&key_data.to_vec())
     }

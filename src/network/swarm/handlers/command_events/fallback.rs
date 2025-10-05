@@ -2,7 +2,8 @@ use netabase_store::traits::NetabaseSchema;
 
 use super::Command;
 
-pub fn handle_fallback_command<S: NetabaseSchema>(command: Command<S>) {
+#[allow(dead_code)]
+pub(crate) fn handle_fallback_command<S: NetabaseSchema>(command: Command<S>) {
     // TODO: Handle any unmatched command events or implement proper error handling
     println!("Fallback command handler: unhandled command={:?}", command);
 

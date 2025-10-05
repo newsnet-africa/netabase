@@ -4,7 +4,7 @@ use tokio::sync::oneshot::Sender;
 
 use crate::network::behaviour::NetabaseBehaviour;
 
-pub fn handle_start_providing<S: NetabaseSchema>(
+pub(crate) fn handle_start_providing<S: NetabaseSchema>(
     swarm: &mut Swarm<NetabaseBehaviour<S>>,
     key: S::Keys,
     response_channel: Sender<Result<kad::QueryResult, kad::store::Error>>,

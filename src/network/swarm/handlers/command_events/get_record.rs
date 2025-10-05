@@ -4,7 +4,7 @@ use tokio::sync::oneshot::Sender;
 
 use crate::network::behaviour::NetabaseBehaviour;
 
-pub fn handle_get_record<S: NetabaseSchema>(
+pub(crate) fn handle_get_record<S: NetabaseSchema>(
     swarm: &mut Swarm<NetabaseBehaviour<S>>,
     key: S::Keys,
     response_channel: Sender<QueryResult>,

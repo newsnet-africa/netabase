@@ -1,11 +1,11 @@
 use libp2p::Multiaddr;
 use libp2p::TransportError;
-use libp2p::kad::store::RecordStore;
+
 use libp2p::swarm;
 use libp2p::swarm::ConnectionDenied;
 use libp2p::swarm::ConnectionError;
 use libp2p::swarm::SwarmEvent;
-use netabase_store::database::NetabaseDatabase;
+
 use netabase_store::traits::NetabaseSchema;
 
 use crate::network::behaviour::NetabaseBehaviourEvent;

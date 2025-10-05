@@ -14,7 +14,9 @@ use kad::handle_kad_event;
 use mdns::handle_mdns_event;
 
 /// Handle all NetabaseBehaviour events by delegating to specific handlers
-pub fn handle_behaviour_event<S: NetabaseSchema>(behaviour_event: NetabaseBehaviourEvent<S>) {
+pub(crate) fn handle_behaviour_event<S: NetabaseSchema>(
+    behaviour_event: NetabaseBehaviourEvent<S>,
+) {
     match behaviour_event {
         NetabaseBehaviourEvent::Kad(kad_event) => {
             handle_kad_event::<S>(kad_event);

@@ -3,12 +3,16 @@ name = "example_usage"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = ["libp2p"]
+libp2p = ["dep:libp2p"]
+
 [dependencies]
 bincode.workspace = true
 chrono.workspace = true
 derive_more.workspace = true
 env_logger.workspace = true
-libp2p = { workspace = true, features = ["kad"] }
+libp2p = { workspace = true, features = ["kad"], optional = true }
 log.workspace = true
 netabase = { version = "0.1.0", path = ".." }
 netabase_macros = { version = "0.1.0", path = "../netabase_store/netabase_macros" }

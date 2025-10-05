@@ -6,6 +6,9 @@ edition = "2024"
 [lib]
 proc-macro = true
 
+[features]
+libp2p = []
+
 [dependencies]
 anyhow = "1.0.100"
 bincode = { version = "2.0", features = ["derive", "serde"] }

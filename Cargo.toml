@@ -32,7 +32,9 @@ edition = "2024"
 
 [features]
 default = ["native"]
+libp2p = ["netabase_store/libp2p"]
 native = [
+    "libp2p",
     "netabase_store/native",
     "libp2p/tcp",
     "libp2p/quic",
@@ -49,6 +51,7 @@ native = [
     "tokio/full"
 ]
 wasm = [
+    "libp2p",
     "netabase_store/wasm",
     "libp2p/wasm-bindgen",
     "libp2p/websocket-websys",
@@ -78,7 +81,7 @@ wasm = [
 anyhow.workspace = true
 derive_more.workspace = true
 libp2p.workspace = true
-netabase_store = { path = "netabase_store", default-features = false, features = ["libp2p"] }
+netabase_store = { path = "netabase_store", default-features = false }
 once_cell = "1.19"
 thiserror.workspace = true
 tokio = { version = "1.47.1", default-features = false }
@@ -108,3 +111,7 @@ chrono = { workspace = true }
 uuid = { workspace = true }
 futures = { workspace = true }
 getrandom = { workspace = true }
+
+[[example]]
+name = "chat_app"
+path = "examples/chat_app.rs"

@@ -3,10 +3,7 @@ use std::time::Duration;
 use libp2p::Swarm;
 use netabase_store::traits::NetabaseSchema;
 
-use crate::network::{
-    behaviour::{NetabaseBehaviour, clone_impl::NetabaseSwarmEvent},
-    swarm::handlers::{command_events::Command, start_swarm_loop},
-};
+use crate::network::behaviour::NetabaseBehaviour;
 
 pub mod handlers;
 

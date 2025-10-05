@@ -18,9 +18,9 @@
 //!
 //! ```rust
 //! use netabase::Netabase;
-//! use netabase_macros::{NetabaseModel, netabase_schema_module};
-//! use netabase::traits::NetabaseModel;
-//! use netabase::{bincode, serde}; // Re-exported for convenience
+//! use netabase_store::{NetabaseModel, netabase_schema_module};
+//! use netabase_store::traits::NetabaseModel;
+//! use netabase_store::{bincode, serde}; // Re-exported for convenience
 //!
 //! // Define your data models
 //! #[netabase_schema_module(BlogSchema, BlogKeys)]
@@ -91,17 +91,17 @@
 //! For local-only database operations without networking:
 //!
 //! ```rust
-//! use netabase_store::database::{NetabaseSledDatabase, NetabaseSledTree};
+//! use netabase_store::database::sled::{NetabaseSledDatabase, NetabaseSledTree};
 //! use netabase_store::traits::{NetabaseModel, NetabaseSecondaryKeyQuery};
-//! use netabase_macros::netabase_schema_module;
+//! use netabase_store::netabase_schema_module;
 //!
 // Define your data models
 //! #[netabase_schema_module(BlogSchema, BlogKeys)]
 //! mod blog {
 //!     use super::*;
-//!     use netabase_macros::NetabaseModel;
-//!     use netabase::traits::NetabaseModel;
-//!     use netabase::{bincode, serde}; // Re-exported for convenience
+//!     use netabase_store::NetabaseModel;
+//!     use netabase_store::traits::NetabaseModel;
+//!     use netabase_store::{bincode, serde}; // Re-exported for convenience
 //!
 //!
 //!     #[derive(NetabaseModel, Clone, Debug, bincode::Encode, bincode::Decode, serde::Serialize, serde::Deserialize)]
@@ -231,30 +231,33 @@
 ///
 /// This crate re-exports the core functionality from `netabase_store` for convenience.
 ///
-//! ## Macro Hygiene
-//!
-//! All macros in this crate are hygienic - they use absolute paths to reference all internal
-//! dependencies like `serde`, `bincode`, `strum`, etc. Users need to add these as derives
-//! to their structs but can import them conveniently through the re-exports provided.
-//!
-//! ### Required Derives
-//!
-//! When using `#[derive(NetabaseModel)]`, you must also include:
-//! - `bincode::Encode` and `bincode::Decode` for serialization
-//! - `serde::Serialize` and `serde::Deserialize` for JSON support
-//! - Standard derives like `Clone`, `Debug` as needed
-//!
-//! ### Convenience Re-exports
-//!
-//! All necessary dependencies are re-exported for easy access:
-//! ```rust
-//! use netabase::{bincode, serde, strum, derive_more, sled};
-//! ```
+// ## Macro Hygiene
+//
+// All macros in this crate are hygienic - they use absolute paths to reference all internal
+// dependencies like `serde`, `bincode`, `strum`, etc. Users need to add these as derives
+// to their structs but can import them conveniently through the re-exports provided.
+//
+// ### Required Derives
+//
+// When using `#[derive(NetabaseModel)]`, you must also include:
+// - `bincode::Encode` and `bincode::Decode` for serialization
+// - `serde::Serialize` and `serde::Deserialize` for JSON support
+// - Standard derives like `Clone`, `Debug` as needed
+//
+// ### Convenience Re-exports
+//
+// All necessary dependencies are re-exported for easy access:
+// ```rust
+// use netabase::{bincode, serde, strum, derive_more, sled};
+// ```
 pub use netabase_store::*;
 
 /// Re-export macro dependencies for user convenience.
 /// Users can access these through `netabase::serde`, `netabase::bincode`, etc.
 /// but the macros will work even without manual imports thanks to hygiene.
+// Re-export macro dependencies conditionally when macros are used
+#[doc(hidden)]
+#[cfg(all(feature = "native", feature = "libp2p"))]
 pub use netabase_store::__macro_deps::*;
 pub mod errors;
 
@@ -1419,6 +1422,89 @@ impl<S: NetabaseSchemaT + 'static> Netabase<S> {
 
         self.command_sender.send(command).await?;
         Ok(())
+    }
+
+    /// Get direct access to the local database.
+    ///
+    /// This provides access to the underlying database for local operations
+    /// without routing through the Kademlia swarm. Useful for:
+    /// - Direct local reads and writes
+    /// - Bypassing network overhead for local operations
+    /// - Database administration and maintenance
+    /// - Testing and debugging
+    ///
+    /// # Returns
+    ///
+    /// A reference to the underlying `NetabaseDatabase` instance.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use netabase::Netabase;
+    /// use netabase_store::traits::NetabaseSchemaQuery;
+    /// use netabase_macros::netabase_schema_module;
+    ///
+    /// #[netabase_schema_module(MySchema, MyKeys)]
+    /// mod my_schema {
+    ///     // Define your models here
+    /// }
+    ///
+    /// let netabase = Netabase::<MySchema>::new().unwrap();
+    ///
+    /// // Direct database access
+    /// let db = netabase.database().unwrap();
+    /// let result = db.get_schema(&my_key);
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database cannot be opened with the configured path.
+    pub fn database(&self) -> anyhow::Result<database::NetabaseDatabase<S>> {
+        match &self.database_path {
+            Some(path) => database::NetabaseDatabase::<S>::new_with_path(path),
+            None => database::NetabaseDatabase::<S>::new(),
+        }
+        .map_err(|e| anyhow::anyhow!("Failed to open database: {}", e))
+    }
+
+    /// Get mutable access to a new database instance.
+    ///
+    /// This creates a new database instance with mutable access for operations
+    /// that require writing to the database. Each call creates a new connection,
+    /// so this should be used sparingly for write-heavy operations.
+    ///
+    /// # Returns
+    ///
+    /// A mutable `NetabaseDatabase` instance.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use netabase::Netabase;
+    /// use netabase_store::traits::NetabaseSchemaQuery;
+    /// use netabase_macros::netabase_schema_module;
+    ///
+    /// #[netabase_schema_module(MySchema, MyKeys)]
+    /// mod my_schema {
+    ///     // Define your models here
+    /// }
+    ///
+    /// let netabase = Netabase::<MySchema>::new().unwrap();
+    ///
+    /// // Direct mutable database access
+    /// let mut db = netabase.database_mut().unwrap();
+    /// db.put_schema(&my_schema).unwrap();
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database cannot be opened with the configured path.
+    pub fn database_mut(&self) -> anyhow::Result<database::NetabaseDatabase<S>> {
+        match &self.database_path {
+            Some(path) => database::NetabaseDatabase::<S>::new_with_path(path),
+            None => database::NetabaseDatabase::<S>::new(),
+        }
+        .map_err(|e| anyhow::anyhow!("Failed to open database: {}", e))
     }
 }
 

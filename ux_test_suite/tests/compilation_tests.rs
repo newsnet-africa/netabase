@@ -11,9 +11,17 @@ use ux_test_suite::{TestConfig, TestResult, TestRunner};
 #[test]
 fn test_basic_compilation() -> TestResult {
     // This test validates that basic model compilation works
-    use netabase_macros::NetabaseModel;
+    use netabase_store::NetabaseModel;
 
-    #[derive(NetabaseModel, Clone, Debug)]
+    #[derive(
+        NetabaseModel,
+        Clone,
+        Debug,
+        netabase_store::bincode::Encode,
+        netabase_store::bincode::Decode,
+        netabase_store::serde::Serialize,
+        netabase_store::serde::Deserialize,
+    )]
     #[key_name(BasicCompilationKey)]
     struct BasicCompilation {
         #[key]
@@ -34,10 +42,18 @@ fn test_basic_compilation() -> TestResult {
 /// Test that models with various field types compile
 #[test]
 fn test_field_types_compilation() -> TestResult {
-    use netabase_macros::NetabaseModel;
+    use netabase_store::NetabaseModel;
     use std::collections::HashMap;
 
-    #[derive(NetabaseModel, Clone, Debug)]
+    #[derive(
+        NetabaseModel,
+        Clone,
+        Debug,
+        netabase_store::bincode::Encode,
+        netabase_store::bincode::Decode,
+        netabase_store::serde::Serialize,
+        netabase_store::serde::Deserialize,
+    )]
     #[key_name(FieldTypesKey)]
     struct FieldTypes {
         #[key]
@@ -98,7 +114,7 @@ fn test_field_types_compilation() -> TestResult {
 /// Test that enums compile correctly as secondary keys
 #[test]
 fn test_enum_compilation() -> TestResult {
-    use netabase_macros::NetabaseModel;
+    use netabase_store::NetabaseModel;
 
     #[derive(Clone, Debug, PartialEq)]
     enum Status {
@@ -115,7 +131,15 @@ fn test_enum_compilation() -> TestResult {
         Critical,
     }
 
-    #[derive(NetabaseModel, Clone, Debug)]
+    #[derive(
+        NetabaseModel,
+        Clone,
+        Debug,
+        netabase_store::bincode::Encode,
+        netabase_store::bincode::Decode,
+        netabase_store::serde::Serialize,
+        netabase_store::serde::Deserialize,
+    )]
     #[key_name(EnumTestKey)]
     struct EnumTest {
         #[key]
@@ -142,10 +166,18 @@ fn test_enum_compilation() -> TestResult {
 /// Test that models with complex generic types compile
 #[test]
 fn test_generic_compilation() -> TestResult {
-    use netabase_macros::NetabaseModel;
+    use netabase_store::NetabaseModel;
     use std::collections::{BTreeMap, HashSet};
 
-    #[derive(NetabaseModel, Clone, Debug)]
+    #[derive(
+        NetabaseModel,
+        Clone,
+        Debug,
+        netabase_store::bincode::Encode,
+        netabase_store::bincode::Decode,
+        netabase_store::serde::Serialize,
+        netabase_store::serde::Deserialize,
+    )]
     #[key_name(GenericTestKey)]
     struct GenericTest {
         #[key]
@@ -194,13 +226,21 @@ fn test_generic_compilation() -> TestResult {
 /// Test that schema modules compile with multiple models
 #[test]
 fn test_schema_module_compilation() -> TestResult {
-    use netabase_macros::{netabase_schema_module, NetabaseModel};
+    use netabase_store::{netabase_schema_module, NetabaseModel};
 
     #[netabase_schema_module(CompilationSchema, CompilationSchemaKeys)]
     mod compilation_schema {
         use super::*;
 
-        #[derive(NetabaseModel, Clone, Debug)]
+        #[derive(
+            NetabaseModel,
+            Clone,
+            Debug,
+            netabase_store::bincode::Encode,
+            netabase_store::bincode::Decode,
+            netabase_store::serde::Serialize,
+            netabase_store::serde::Deserialize,
+        )]
         #[key_name(User1Key)]
         pub struct User1 {
             #[key]
@@ -210,7 +250,15 @@ fn test_schema_module_compilation() -> TestResult {
             pub email: String,
         }
 
-        #[derive(NetabaseModel, Clone, Debug)]
+        #[derive(
+            NetabaseModel,
+            Clone,
+            Debug,
+            netabase_store::bincode::Encode,
+            netabase_store::bincode::Decode,
+            netabase_store::serde::Serialize,
+            netabase_store::serde::Deserialize,
+        )]
         #[key_name(User2Key)]
         pub struct User2 {
             #[key]
@@ -220,7 +268,15 @@ fn test_schema_module_compilation() -> TestResult {
             pub active: bool,
         }
 
-        #[derive(NetabaseModel, Clone, Debug)]
+        #[derive(
+            NetabaseModel,
+            Clone,
+            Debug,
+            netabase_store::bincode::Encode,
+            netabase_store::bincode::Decode,
+            netabase_store::serde::Serialize,
+            netabase_store::serde::Deserialize,
+        )]
         #[key_name(PostKey)]
         pub struct Post {
             #[key]
@@ -233,7 +289,15 @@ fn test_schema_module_compilation() -> TestResult {
             pub published: bool,
         }
 
-        #[derive(NetabaseModel, Clone, Debug)]
+        #[derive(
+            NetabaseModel,
+            Clone,
+            Debug,
+            netabase_store::bincode::Encode,
+            netabase_store::bincode::Decode,
+            netabase_store::serde::Serialize,
+            netabase_store::serde::Deserialize,
+        )]
         #[key_name(CommentKey)]
         pub struct Comment {
             #[key]
@@ -287,12 +351,20 @@ fn test_schema_module_compilation() -> TestResult {
 /// Test that models with lifetime parameters compile (if supported)
 #[test]
 fn test_borrowed_data_compilation() -> TestResult {
-    use netabase_macros::NetabaseModel;
+    use netabase_store::NetabaseModel;
 
     // Test with owned data (borrowed data would require lifetime parameters)
-    #[derive(NetabaseModel, Clone, Debug)]
-    #[key_name(BorrowedTestKey)]
-    struct BorrowedTest {
+    #[derive(
+        NetabaseModel,
+        Clone,
+        Debug,
+        netabase_store::bincode::Encode,
+        netabase_store::bincode::Decode,
+        netabase_store::serde::Serialize,
+        netabase_store::serde::Deserialize,
+    )]
+    #[key_name(BorrowedDataKey)]
+    struct BorrowedData {
         #[key]
         id: u64,
         // Use owned data instead of borrowed for now
@@ -302,7 +374,7 @@ fn test_borrowed_data_compilation() -> TestResult {
         category: String,
     }
 
-    let model = BorrowedTest {
+    let model = BorrowedData {
         id: 1,
         name: "Test".to_string(),
         description: "Description".to_string(),
@@ -316,10 +388,18 @@ fn test_borrowed_data_compilation() -> TestResult {
 /// Test that models with attributes in different orders compile
 #[test]
 fn test_attribute_order_compilation() -> TestResult {
-    use netabase_macros::NetabaseModel;
+    use netabase_store::NetabaseModel;
 
     // Test different attribute orderings
-    #[derive(Clone, NetabaseModel, Debug)]
+    #[derive(
+        Clone,
+        NetabaseModel,
+        Debug,
+        netabase_store::bincode::Encode,
+        netabase_store::bincode::Decode,
+        netabase_store::serde::Serialize,
+        netabase_store::serde::Deserialize,
+    )]
     #[key_name(Order1Key)]
     struct Order1 {
         #[key]
@@ -327,7 +407,15 @@ fn test_attribute_order_compilation() -> TestResult {
         name: String,
     }
 
-    #[derive(Debug, Clone, NetabaseModel)]
+    #[derive(
+        Debug,
+        Clone,
+        NetabaseModel,
+        netabase_store::bincode::Encode,
+        netabase_store::bincode::Decode,
+        netabase_store::serde::Serialize,
+        netabase_store::serde::Deserialize,
+    )]
     #[key_name(Order2Key)]
     struct Order2 {
         #[key]
@@ -336,7 +424,15 @@ fn test_attribute_order_compilation() -> TestResult {
     }
 
     #[key_name(Order3Key)]
-    #[derive(NetabaseModel, Clone, Debug)]
+    #[derive(
+        NetabaseModel,
+        Clone,
+        Debug,
+        netabase_store::bincode::Encode,
+        netabase_store::bincode::Decode,
+        netabase_store::serde::Serialize,
+        netabase_store::serde::Deserialize,
+    )]
     struct Order3 {
         #[key]
         id: u64,
@@ -365,9 +461,17 @@ fn test_attribute_order_compilation() -> TestResult {
 /// Test that models with many secondary keys compile efficiently
 #[test]
 fn test_many_secondary_keys_compilation() -> TestResult {
-    use netabase_macros::NetabaseModel;
+    use netabase_store::NetabaseModel;
 
-    #[derive(NetabaseModel, Clone, Debug)]
+    #[derive(
+        NetabaseModel,
+        Clone,
+        Debug,
+        netabase_store::bincode::Encode,
+        netabase_store::bincode::Decode,
+        netabase_store::serde::Serialize,
+        netabase_store::serde::Deserialize,
+    )]
     #[key_name(ManyKeysKey)]
     struct ManyKeys {
         #[key]
@@ -430,9 +534,17 @@ fn test_many_secondary_keys_compilation() -> TestResult {
 /// Test that models with conditional compilation work
 #[test]
 fn test_conditional_compilation() -> TestResult {
-    use netabase_macros::NetabaseModel;
+    use netabase_store::NetabaseModel;
 
-    #[derive(NetabaseModel, Clone, Debug)]
+    #[derive(
+        NetabaseModel,
+        Clone,
+        Debug,
+        netabase_store::bincode::Encode,
+        netabase_store::bincode::Decode,
+        netabase_store::serde::Serialize,
+        netabase_store::serde::Deserialize,
+    )]
     #[key_name(ConditionalKey)]
     struct Conditional {
         #[key]
@@ -479,10 +591,18 @@ fn test_conditional_compilation() -> TestResult {
 /// Test that generated code doesn't produce warnings
 #[test]
 fn test_no_warnings_compilation() -> TestResult {
-    use netabase_macros::NetabaseModel;
+    use netabase_store::NetabaseModel;
 
     // This model is designed to potentially trigger warnings if code generation is not clean
-    #[derive(NetabaseModel, Clone, Debug)]
+    #[derive(
+        NetabaseModel,
+        Clone,
+        Debug,
+        netabase_store::bincode::Encode,
+        netabase_store::bincode::Decode,
+        netabase_store::serde::Serialize,
+        netabase_store::serde::Deserialize,
+    )]
     #[key_name(NoWarningsKey)]
     struct NoWarnings {
         #[key]
@@ -521,9 +641,17 @@ fn test_compilation_with_framework() -> TestResult {
     let runner = TestRunner::new(config);
 
     runner.run(|_config| {
-        use netabase_macros::NetabaseModel;
+        use netabase_store::NetabaseModel;
 
-        #[derive(NetabaseModel, Clone, Debug)]
+        #[derive(
+            NetabaseModel,
+            Clone,
+            Debug,
+            netabase_store::bincode::Encode,
+            netabase_store::bincode::Decode,
+            netabase_store::serde::Serialize,
+            netabase_store::serde::Deserialize,
+        )]
         #[key_name(FrameworkCompilationKey)]
         struct FrameworkCompilation {
             #[key]
@@ -551,14 +679,22 @@ fn test_compilation_with_framework() -> TestResult {
 /// Test that large models compile in reasonable time
 #[test]
 fn test_compilation_performance() -> TestResult {
-    use netabase_macros::NetabaseModel;
+    use netabase_store::NetabaseModel;
     use std::time::Instant;
 
     // This test measures compilation performance by timing the test execution
     // In a real scenario, you'd measure actual compilation time
     let start = Instant::now();
 
-    #[derive(NetabaseModel, Clone, Debug)]
+    #[derive(
+        NetabaseModel,
+        Clone,
+        Debug,
+        netabase_store::bincode::Encode,
+        netabase_store::bincode::Decode,
+        netabase_store::serde::Serialize,
+        netabase_store::serde::Deserialize,
+    )]
     #[key_name(PerfCompilationKey)]
     struct PerfCompilation {
         #[key]

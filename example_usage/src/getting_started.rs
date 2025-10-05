@@ -16,7 +16,7 @@ use netabase::Netabase;
 use netabase_macros::{NetabaseModel, netabase_schema_module};
 use netabase_store::{
     database::{NetabaseDatabase, NetabaseTree},
-    traits::{NetabaseModel, NetabaseSecondaryKeyQuery},
+    traits::NetabaseModel,
 };
 use serde::{Deserialize, Serialize};
 use tokio::time::timeout;
@@ -181,7 +181,7 @@ async fn local_database_example() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("All users in database:");
     for result in user_tree.iter() {
-        let (key, user) = result?;
+        let (_key, user) = result?;
         println!(
             "  - {} ({}) - Active: {}",
             user.name, user.email, user.active
@@ -190,7 +190,7 @@ async fn local_database_example() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("\nAll tasks in database:");
     for result in task_tree.iter() {
-        let (key, task) = result?;
+        let (_key, task) = result?;
         println!(
             "  - '{}' (User: {}, Completed: {})",
             task.title, task.user_id, task.completed

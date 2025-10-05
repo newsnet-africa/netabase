@@ -45,13 +45,14 @@ pub mod stop_providing;
 
 #[cfg(feature = "native")]
 #[derive(Debug)]
-pub enum Command<S: NetabaseSchema> {
+pub(crate) enum Command<S: NetabaseSchema> {
     Kademlia(KademliaCommand<S>),
 }
 
 #[cfg(feature = "native")]
 #[derive(Debug)]
-pub enum KademliaCommand<S: NetabaseSchema> {
+#[allow(dead_code)]
+pub(crate) enum KademliaCommand<S: NetabaseSchema> {
     AddAddress {
         peer: PeerId,
         address: Multiaddr,
@@ -112,10 +113,11 @@ pub enum KademliaCommand<S: NetabaseSchema> {
 
 #[cfg(feature = "native")]
 #[derive(Debug)]
-pub enum LocalStoreCommand {}
+#[allow(dead_code)]
+pub(crate) enum LocalStoreCommand {}
 
 #[cfg(feature = "native")]
-pub fn handle_command_events<S: NetabaseSchema>(
+pub(crate) fn handle_command_events<S: NetabaseSchema>(
     swarm: &mut Swarm<NetabaseBehaviour<S>>,
     command: Command<S>,
 ) {
@@ -127,7 +129,7 @@ pub fn handle_command_events<S: NetabaseSchema>(
 }
 
 #[cfg(feature = "native")]
-pub fn handle_kademlia_command<S: NetabaseSchema>(
+pub(crate) fn handle_kademlia_command<S: NetabaseSchema>(
     swarm: &mut Swarm<NetabaseBehaviour<S>>,
     command: KademliaCommand<S>,
 ) {
