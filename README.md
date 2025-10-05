@@ -201,11 +201,11 @@ Add Netabase to your `Cargo.toml`:
 ```toml
 [dependencies]
 # For local-only database operations
-netabase_store = { path = "path/to/netabase/netabase_store" }
-netabase_macros = { path = "path/to/netabase/netabase_store/netabase_macros" }
+netabase_store = { git = "https://github.com/newsnet-africa/netabase_store.git" }
+netabase_macros = { git = "https://github.com/newsnet-africa/netabase_macros.git" }
 
 # For distributed P2P operations (includes everything above)
-netabase = { path = "path/to/netabase", features = ["libp2p"] }
+netabase = { git = "https://github.com/newsnet-africa/netabase.git", features = ["libp2p"] }
 
 # Required for serialization
 bincode = { version = "2.0", features = ["derive"] }
@@ -484,15 +484,13 @@ netabase.stop_providing(post_key).await?;
 
 Check out the `examples/` directory for comprehensive demonstrations:
 
-- **[getting_started.rs](examples/getting_started.rs)** - Basic usage and CRUD operations
-- **[blog_system.rs](examples/blog_system.rs)** - Complete blog system with multiple models
-- **[advanced_queries.rs](examples/advanced_queries.rs)** - Complex queries and analytics
+- **[getting_started.rs](example_usage/getting_started.rs)** - Basic usage and CRUD operations
+- **[blog_system.rs](example_usage/blog_system.rs)** - Complete blog system with multiple models
+- **[advanced_queries.rs](example_usage/advanced_queries.rs)** - Complex queries and analytics
 
-Run examples with:
+Run examples (from with `example_usage` folder) with:
 ```bash
-cargo run --example getting_started
-cargo run --example blog_system
-cargo run --example advanced_queries
+cargo run 
 ```
 
 ## 🧪 Testing
