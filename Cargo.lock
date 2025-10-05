@@ -3623,6 +3623,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "ux_test_suite"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "derive_more",
+ "env_logger 0.10.2",
+ "log",
+ "netabase_deps",
+ "netabase_macros",
+ "netabase_store",
+ "serde",
+ "serde_json",
+ "sled",
+ "strum",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
 name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
