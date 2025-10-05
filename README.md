@@ -201,11 +201,11 @@ Add Netabase to your `Cargo.toml`:
 ```toml
 [dependencies]
 # For local-only database operations
-netabase_store = { path = "path/to/netabase/netabase_store" }
-netabase_macros = { path = "path/to/netabase/netabase_store/netabase_macros" }
+netabase_store = { git = "https://github.com/newsnet-africa/netabase_store.git" }
+netabase_macros = { git = "https://github.com/newsnet-africa/netabase_macros.git" }
 
 # For distributed P2P operations (includes everything above)
-netabase = { path = "path/to/netabase", features = ["libp2p"] }
+netabase = { git = "https://github.com/newsnet-africa/netabase.git", features = ["libp2p"] }
 
 # Required for serialization
 bincode = { version = "2.0", features = ["derive"] }
