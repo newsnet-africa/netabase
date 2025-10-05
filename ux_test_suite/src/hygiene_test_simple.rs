@@ -4,9 +4,9 @@
 //! without requiring manual imports of dependencies. This is the core test
 //! of macro hygiene - users should only need to import the macro itself.
 
-use netabase_macros::NetabaseModel;
+use netabase_store::NetabaseModel;
 // Use re-exported dependencies for convenience - this tests that they work correctly
-use netabase_deps::{bincode, serde};
+use netabase_store::{bincode, serde};
 
 /// Test that basic NetabaseModel works with convenient re-exports
 #[derive(

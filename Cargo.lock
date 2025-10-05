@@ -3630,8 +3630,6 @@ dependencies = [
  "derive_more",
  "env_logger 0.10.2",
  "log",
- "netabase_deps",
- "netabase_macros",
  "netabase_store",
  "serde",
  "serde_json",

@@ -269,7 +269,10 @@ pub mod relational;
 
 pub mod traits;
 
-// Re-export macros with hygienic dependencies
+// Re-export macros for convenient access
+pub use netabase_macros::*;
+
+// Re-export the macro crate for advanced users
 pub use netabase_macros;
 
 /// Re-exports for macro hygiene - provides all dependencies needed by generated code.

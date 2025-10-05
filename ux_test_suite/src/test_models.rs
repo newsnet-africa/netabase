@@ -4,10 +4,10 @@
 //! dependency auto-export, and user experience across different scenarios.
 //! These models are designed to test edge cases and common usage patterns.
 
-use netabase_macros::{netabase_schema_module, NetabaseModel};
+use netabase_store::{netabase_schema_module, NetabaseModel};
 
 // Re-export dependencies for convenience in tests
-pub use netabase_deps::{bincode, derive_more, serde, sled, strum};
+pub use netabase_store::{bincode, derive_more, serde, sled, strum};
 
 /// Basic model with minimal fields for hygiene testing
 #[derive(

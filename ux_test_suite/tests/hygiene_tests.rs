@@ -7,16 +7,13 @@
 //!
 //! These tests are designed to fail at compile time if hygiene is broken.
 
-use ux_test_suite::{TestConfig, TestResult, TestRunner};
+use netabase_store::{bincode, netabase_schema_module, serde, NetabaseModel};
+use ux_test_suite::TestResult;
 
-/// Test that basic model derivation works without any manual imports
-/// This test only imports the macro itself - no other dependencies
+/// Test that basic model derivation works with just netabase_store import
 #[test]
-fn test_basic_hygiene_no_imports() -> TestResult {
-    use netabase_deps::{bincode, serde};
-    use netabase_macros::NetabaseModel;
-
-    // This should compile without requiring manual imports of serde, bincode, etc.
+fn test_basic_hygiene_single_import() -> TestResult {
+    // Users only need to import from netabase_store - no separate macro or deps crates
     #[derive(
         NetabaseModel,
         Clone,
@@ -43,12 +40,9 @@ fn test_basic_hygiene_no_imports() -> TestResult {
     Ok(())
 }
 
-/// Test that models with secondary keys work without manual imports
+/// Test that models with secondary keys work with single import
 #[test]
 fn test_secondary_keys_hygiene() -> TestResult {
-    use netabase_deps::{bincode, serde};
-    use netabase_macros::NetabaseModel;
-
     #[derive(
         NetabaseModel,
         Clone,
@@ -78,16 +72,12 @@ fn test_secondary_keys_hygiene() -> TestResult {
 }
 
 /// Test that schema modules work without manual imports
-/// Test that schema modules work with basic hygiene
+/// Test that schema modules work with single import
 #[test]
 fn test_schema_module_hygiene() -> TestResult {
-    use netabase_deps::{bincode, serde};
-    use netabase_macros::{netabase_schema_module, NetabaseModel};
-
     #[netabase_schema_module(HygieneSchema, HygieneSchemaKeys)]
     mod hygiene_schema {
         use super::*;
-        use netabase_macros::NetabaseModel;
         use netabase_store::traits::NetabaseModel as NetabaseModelTrait;
 
         #[derive(
@@ -144,12 +134,9 @@ fn test_schema_module_hygiene() -> TestResult {
 }
 
 /// Test that complex types work without manual imports
-/// Test that macros handle complex types and user-defined symbols correctly
+/// Test that macros handle edge cases correctly
 #[test]
 fn test_edge_cases_hygiene() -> TestResult {
-    use netabase_deps::{bincode, serde};
-    use netabase_macros::NetabaseModel;
-
     #[derive(
         NetabaseModel,
         Clone,
@@ -178,7 +165,7 @@ fn test_edge_cases_hygiene() -> TestResult {
 /// Test that models work when user defines conflicting names
 #[test]
 fn test_name_conflict_isolation() -> TestResult {
-    use netabase_macros::NetabaseModel;
+    // Import already available from top-level use statement
 
     // Define user variables with names that could conflict with macro internals
     let serde = "user_defined_serde";
@@ -221,12 +208,9 @@ fn test_name_conflict_isolation() -> TestResult {
     Ok(())
 }
 
-/// Test that multiple models in the same scope don't interfere
+/// Test that multiple models work independently
 #[test]
 fn test_order_independence() -> TestResult {
-    use netabase_deps::{bincode, serde};
-    use netabase_macros::NetabaseModel;
-
     #[derive(
         NetabaseModel,
         Clone,
@@ -274,12 +258,8 @@ fn test_order_independence() -> TestResult {
 }
 
 /// Test that nested modules work correctly
-/// Test that nested modules work correctly with hygiene
 #[test]
 fn test_nested_modules_hygiene() -> TestResult {
-    use netabase_deps::{bincode, serde};
-    use netabase_macros::NetabaseModel;
-
     #[derive(
         NetabaseModel,
         Clone,
@@ -308,9 +288,6 @@ fn test_nested_modules_hygiene() -> TestResult {
 /// Test that macros work with generic contexts
 #[test]
 fn test_generic_context_hygiene() -> TestResult {
-    use netabase_deps::{bincode, serde};
-    use netabase_macros::NetabaseModel;
-
     #[derive(
         NetabaseModel,
         Clone,
@@ -339,9 +316,6 @@ fn test_generic_context_hygiene() -> TestResult {
 /// Test that attribute order doesn't matter
 #[test]
 fn test_attribute_order_flexibility() -> TestResult {
-    use netabase_deps::{bincode, serde};
-    use netabase_macros::NetabaseModel;
-
     #[derive(
         NetabaseModel,
         Clone,
@@ -391,9 +365,6 @@ fn test_attribute_order_flexibility() -> TestResult {
 /// Test that macros work with conditional compilation
 #[test]
 fn test_conditional_compilation_hygiene() -> TestResult {
-    use netabase_deps::{bincode, serde};
-    use netabase_macros::NetabaseModel;
-
     #[derive(
         NetabaseModel,
         Clone,
@@ -429,17 +400,12 @@ fn test_conditional_compilation_hygiene() -> TestResult {
 }
 
 /// Integration test using the test runner framework
-/// Test that demonstrates the "before and after" of hygiene
-/// This test shows what users would have had to do without hygiene
+/// Test that demonstrates the simplified user experience
 #[test]
 fn test_hygiene_comparison() -> TestResult {
-    // In the old days, this would have been required:
-    // use serde::{Serialize, Deserialize};
-    // use bincode::{Encode, Decode};
-    // use strum::{EnumString, Display};
-    // etc.
-    use netabase_deps::{bincode, serde};
-    use netabase_macros::NetabaseModel;
+    // With netabase_store: Only one import needed
+    // Before: users had to separately import netabase_macros, netabase_deps,
+    // serde, bincode, strum, derive_more, etc.
 
     #[derive(
         NetabaseModel,
@@ -466,12 +432,9 @@ fn test_hygiene_comparison() -> TestResult {
     Ok(())
 }
 
-/// Test error cases that should still compile but behave correctly
+/// Test minimal model definition
 #[test]
 fn test_minimal_model() -> TestResult {
-    use netabase_deps::{bincode, serde};
-    use netabase_macros::NetabaseModel;
-
     #[derive(
         NetabaseModel,
         Clone,
