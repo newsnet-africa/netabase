@@ -488,11 +488,9 @@ Check out the `examples/` directory for comprehensive demonstrations:
 - **[blog_system.rs](example_usage/blog_system.rs)** - Complete blog system with multiple models
 - **[advanced_queries.rs](example_usage/advanced_queries.rs)** - Complex queries and analytics
 
-Run examples with:
+Run examples (from with `example_usage` folder) with:
 ```bash
-cargo run --example getting_started
-cargo run --example blog_system
-cargo run --example advanced_queries
+cargo run 
 ```
 
 ## 🧪 Testing
