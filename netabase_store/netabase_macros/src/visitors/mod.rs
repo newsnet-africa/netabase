@@ -1,2 +1,2 @@
-pub mod netabase_schema_derive;
-pub mod schema_module;
+pub mod definitions_visitor;
+pub mod model_visitor;

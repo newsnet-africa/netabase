@@ -1,10 +1,10 @@
 use libp2p::{Swarm, kad::Mode};
-use netabase_store::traits::NetabaseSchema;
+use netabase_store::traits::definition::NetabaseDefinition;
 
 use crate::network::behaviour::NetabaseBehaviour;
 
-pub(crate) fn handle_set_mode<S: NetabaseSchema>(
-    swarm: &mut Swarm<NetabaseBehaviour<S>>,
+pub(crate) fn handle_set_mode<D: NetabaseDefinition + Send + Sync + 'static>(
+    swarm: &mut Swarm<NetabaseBehaviour<D>>,
     mode: Option<Mode>,
 ) {
     println!("SetMode command: mode={:?}", mode);

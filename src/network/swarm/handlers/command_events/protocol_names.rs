@@ -1,11 +1,11 @@
 use libp2p::{StreamProtocol, Swarm};
-use netabase_store::traits::NetabaseSchema;
+use netabase_store::traits::definition::NetabaseDefinition;
 use tokio::sync::oneshot::Sender;
 
 use crate::network::behaviour::NetabaseBehaviour;
 
-pub(crate) fn handle_protocol_names<S: NetabaseSchema>(
-    swarm: &mut Swarm<NetabaseBehaviour<S>>,
+pub(crate) fn handle_protocol_names<D: NetabaseDefinition + Send + Sync + 'static>(
+    swarm: &mut Swarm<NetabaseBehaviour<D>>,
     response_channel: Sender<StreamProtocol>,
 ) {
     println!("ProtocolNames command received");

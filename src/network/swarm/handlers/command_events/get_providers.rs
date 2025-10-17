@@ -1,12 +1,12 @@
 use libp2p::{Swarm, kad::QueryResult};
-use netabase_store::traits::{NetabaseKeys, NetabaseSchema};
+use netabase_store::traits::definition::{NetabaseDefinition, NetabaseDefinitionKey};
 use tokio::sync::oneshot::Sender;
 
 use crate::network::behaviour::NetabaseBehaviour;
 
-pub(crate) fn handle_get_providers<S: NetabaseSchema>(
-    swarm: &mut Swarm<NetabaseBehaviour<S>>,
-    key: S::Keys,
+pub(crate) fn handle_get_providers<D: NetabaseDefinition>(
+    swarm: &mut Swarm<NetabaseBehaviour<D>>,
+    key: D::Keys,
     response_channel: Sender<QueryResult>,
 ) {
     println!("GetProviders command: key={:?}", key);

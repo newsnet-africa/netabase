@@ -1,11 +1,11 @@
 use libp2p::{Multiaddr, PeerId, Swarm, kad::RoutingUpdate};
-use netabase_store::traits::NetabaseSchema;
+use netabase_store::traits::definition::NetabaseDefinition;
 use tokio::sync::oneshot::Sender;
 
 use crate::network::behaviour::NetabaseBehaviour;
 
-pub(crate) fn handle_add_address<S: NetabaseSchema>(
-    swarm: &mut Swarm<NetabaseBehaviour<S>>,
+pub(crate) fn handle_add_address<D: NetabaseDefinition + Send + Sync + 'static>(
+    swarm: &mut Swarm<NetabaseBehaviour<D>>,
     peer: PeerId,
     address: Multiaddr,
     response_channel: Sender<RoutingUpdate>,

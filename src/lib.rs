@@ -4,7 +4,9 @@
 //!
 //! Netabase is a distributed, peer-to-peer database system built on top of [sled](https://github.com/spacejam/sled)
 //! with [libp2p](https://libp2p.io/) integration. It provides a type-safe, macro-driven approach to
-//! defining database schemas and models with support for primary keys, secondary keys, and relational queries.
+//! defining database definitions and models with support for primary keys, secondary keys, and relational queries.
+//!
+//! This crate is an attempt to provide a persistent Object mapped store for use in the libp2p implementation of the kademlia protocol
 //!
 //! ## Key Features
 //!
@@ -18,12 +20,12 @@
 //!
 //! ```rust
 //! use netabase::Netabase;
-//! use netabase_store::{NetabaseModel, netabase_schema_module};
-//! use netabase_store::traits::NetabaseModel;
+//! use netabase_store::{NetabaseModel, netabase_definition_module};
+//! use netabase_store::traits::model::NetabaseModel;
 //! use netabase_store::{bincode, serde}; // Re-exported for convenience
 //!
 //! // Define your data models
-//! #[netabase_schema_module(BlogSchema, BlogKeys)]
+//! #[netabase_definition_module(BlogDefinition, BlogKeys)]
 //! mod blog {
 //!     use super::*;
 //!
@@ -43,7 +45,7 @@
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     // Create a distributed database instance
-//!     let mut netabase = Netabase::<BlogSchema>::new()?;
+//!     let mut netabase = Netabase::<BlogDefinition>::new()?;
 //!     netabase.start_swarm().await?;
 //!
 //!     // Create and store a user
@@ -93,10 +95,10 @@
 //! ```rust
 //! use netabase_store::database::sled::{NetabaseSledDatabase, NetabaseSledTree};
 //! use netabase_store::traits::{NetabaseModel, NetabaseSecondaryKeyQuery};
-//! use netabase_store::netabase_schema_module;
+//! use netabase_store::netabase_definition_module;
 //!
 // Define your data models
-//! #[netabase_schema_module(BlogSchema, BlogKeys)]
+//! #[netabase_definition_module(BlogDefinition, BlogKeys)]
 //! mod blog {
 //!     use super::*;
 //!     use netabase_store::NetabaseModel;
@@ -119,7 +121,7 @@
 //! // See examples/ directory for complete working examples
 //!
 //! // Create local database
-//! let db = NetabaseSledDatabase::<blog::BlogSchema>::new_with_path("./my_local_db").unwrap();
+//! let db = NetabaseSledDatabase::<blog::BlogDefinition>::new_with_path("./my_local_db").unwrap();
 //! let user_tree: NetabaseSledTree<blog::User, blog::UserKey> = db.get_main_tree().unwrap();
 //!
 //! let user = blog::User { id: 1, name: "Some Name".to_string(), email: "some@email.com".to_string() };
@@ -140,14 +142,14 @@
 //!
 //! ```rust, ignore
 //! use netabase::Netabase;
-//! use netabase_macros::{NetabaseModel, netabase_schema_module};
+//! use netabase_macros::{NetabaseModel, netabase_definition_module};
 //! use netabase_store::traits::NetabaseModel;
 //! use netabase::{bincode, serde}; // Re-exported for convenience
 //! use tokio::main;
 //!
-//! /// Example schema module for testing netabase functionality
-//! #[netabase_schema_module(TestSchema, TestSchemaKeys)]
-//! mod test_schema {
+//! /// Example definition module for testing netabase functionality
+//! #[netabase_definition_module(TestDefinition, TestDefinitionKeys)]
+//! mod test_definition {
 //!     use super::*;
 //!     use netabase_macros::{NetabaseModel, key_name};
 //!
@@ -163,8 +165,8 @@
 //! #[tokio::main]
 //! pub async fn main() {
 //!     // Create distributed instance
-//!     let mut netabase = Netabase::<test_schema::TestSchema>::new().expect("Failed to initialise database for some reason");
-//!     let user = test_schema::TestUser { id:1, name:"Some Name".to_string() };
+//!     let mut netabase = Netabase::<test_definition::TestDefinition>::new().expect("Failed to initialise database for some reason");
+//!     let user = test_definition::TestUser { id:1, name:"Some Name".to_string() };
 //!     let key = user.key();
 //!     let start_swarm_result = netabase.start_swarm().await;
 //!
@@ -256,9 +258,9 @@ pub use netabase_store::*;
 /// Users can access these through `netabase::serde`, `netabase::bincode`, etc.
 /// but the macros will work even without manual imports thanks to hygiene.
 // Re-export macro dependencies conditionally when macros are used
-#[doc(hidden)]
-#[cfg(all(feature = "native", feature = "libp2p"))]
-pub use netabase_store::__macro_deps::*;
+// #[doc(hidden)]
+// #[cfg(all(feature = "native", feature = "libp2p"))]
+// pub use netabase_store::__macro_deps::*;
 pub mod errors;
 
 #[cfg(feature = "native")]
@@ -266,7 +268,10 @@ pub mod network;
 
 #[cfg(feature = "native")]
 use libp2p::kad::QueryResult;
-use netabase_store::traits::{NetabaseModel, NetabaseModelKey, NetabaseSchema as NetabaseSchemaT};
+use netabase_store::traits::{
+    definition::NetabaseDefinition,
+    model::{NetabaseModel, NetabaseModelKey},
+};
 #[cfg(feature = "native")]
 use tokio::sync::{broadcast, mpsc, oneshot};
 
@@ -302,10 +307,10 @@ use tokio::sync::{broadcast, mpsc, oneshot};
 ///
 /// ```rust,ignore
 /// use netabase::Netabase;
-/// use netabase_macros::{NetabaseModel, netabase_schema_module};
+/// use netabase_macros::{NetabaseModel, netabase_definition_module};
 ///
-/// #[netabase_schema_module(MySchema, MyKeys)]
-/// mod schema {
+/// #[netabase_definition_module(MyDefinition, MyKeys)]
+/// mod definition {
 ///     use super::*;
 ///
 ///     #[derive(NetabaseModel)]
@@ -316,10 +321,10 @@ use tokio::sync::{broadcast, mpsc, oneshot};
 ///     }
 /// }
 ///
-/// use schema::*;
+/// use definition::*;
 ///
 /// // Create and start the distributed database
-/// let mut netabase = Netabase::<MySchema>::new().unwrap();
+/// let mut netabase = Netabase::<MyDefinition>::new().unwrap();
 /// netabase.start_swarm().await.unwrap();
 ///
 /// // Store data in the distributed network
@@ -332,31 +337,35 @@ use tokio::sync::{broadcast, mpsc, oneshot};
 ///
 /// netabase.stop_swarm().await.unwrap();
 /// ```
-pub struct Netabase<S: NetabaseSchemaT> {
+pub struct Netabase<D: NetabaseDefinition + Send + Sync> {
     /// Handle to the background swarm task
     swarm_thread: Option<tokio::task::JoinHandle<anyhow::Result<()>>>,
     /// Channel for sending commands to the swarm
-    command_sender: mpsc::Sender<network::swarm::handlers::command_events::Command<S>>,
+    command_sender: mpsc::Sender<network::swarm::handlers::command_events::Command<D>>,
     /// Channel for receiving broadcast events from the network
-    broadcast_receiver: broadcast::Receiver<network::behaviour::clone_impl::NetabaseSwarmEvent<S>>,
+    broadcast_receiver: broadcast::Receiver<network::behaviour::clone_impl::NetabaseSwarmEvent<D>>,
     /// Optional custom database path
     database_path: Option<String>,
 }
 
-/// WASM-compatible Netabase instance for local database operations only.
-///
-/// This version provides only local database functionality without networking,
-/// suitable for WebAssembly environments where networking capabilities are limited.
-#[cfg(all(feature = "wasm", not(feature = "native")))]
-pub struct Netabase<S: NetabaseSchemaT> {
-    /// Local database instance
-    database: database::NetabaseDatabase<S>,
-    /// Optional custom database name for WASM storage
-    database_name: Option<String>,
-}
+// /// WASM-compatible Netabase instance for local database operations only.
+// ///
+// /// This version provides only local database functionality without networking,
+// /// suitable for WebAssembly environments where networking capabilities are limited.
+// #[cfg(all(feature = "wasm", not(feature = "native")))]
+// pub struct Netabase<D: NetabaseDefinition + Send + Sync> {
+//     /// Local database instance
+//     database: database::NetabaseDatabase<D>,
+//     /// Optional custom database name for WASM storage
+//     database_name: Option<String>,
+// }
 
 #[cfg(feature = "native")]
-impl<S: NetabaseSchemaT + 'static> Netabase<S> {
+impl<D: NetabaseDefinition + Send + Sync + 'static> Netabase<D>
+where
+    D: netabase_store::traits::convert::ToIVec,
+    D::Keys: netabase_store::traits::convert::ToIVec,
+{
     /// Create a new Netabase instance with default settings.
     ///
     /// This creates a new distributed database instance with:
@@ -376,12 +385,12 @@ impl<S: NetabaseSchemaT + 'static> Netabase<S> {
     ///
     /// ```rust,ignore
     /// use netabase::Netabase;
-    /// use netabase_macros::netabase_schema_module;
+    /// use netabase_macros::netabase_definition_module;
     ///
-    /// #[netabase_schema_module(MySchema, MyKeys)]
-    /// mod my_schema {}
+    /// #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// mod my_definition {}
     ///
-    /// let netabase = Netabase::<MySchema>::new().unwrap();
+    /// let netabase = Netabase::<MyDefinition>::new().unwrap();
     /// ```
     pub fn new() -> anyhow::Result<Self> {
         let (command_sender, _command_receiver) = mpsc::channel(100);
@@ -417,17 +426,17 @@ impl<S: NetabaseSchemaT + 'static> Netabase<S> {
     /// ```rust,ignore
     /// use netabase::Netabase;
     /// use std::path::Path;
-    /// use netabase_macros::netabase_schema_module;
+    /// use netabase_macros::netabase_definition_module;
     ///
-    /// #[netabase_schema_module(MySchema, MyKeys)]
-    /// mod my_schema {}
+    /// #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// mod my_definition {}
     ///
     /// // Use a custom database path
-    /// let netabase = Netabase::<MySchema>::new_with_path("./my_app_data").unwrap();
+    /// let netabase = Netabase::<MyDefinition>::new_with_path("./my_app_data").unwrap();
     ///
     /// // For testing with temporary directories
     /// let temp_dir = tempfile::TempDir::new().unwrap();
-    /// let netabase = Netabase::<MySchema>::new_with_path(temp_dir.path()).unwrap();
+    /// let netabase = Netabase::<MyDefinition>::new_with_path(temp_dir.path()).unwrap();
     /// ```
     pub fn new_with_path<P: AsRef<std::path::Path>>(path: P) -> anyhow::Result<Self> {
         let (command_sender, _command_receiver) = mpsc::channel(100);
@@ -469,12 +478,12 @@ impl<S: NetabaseSchemaT + 'static> Netabase<S> {
     ///
     /// ```rust,ignore
     /// use netabase::Netabase;
-    /// use netabase_macros::netabase_schema_module;
+    /// use netabase_macros::netabase_definition_module;
     ///
-    /// #[netabase_schema_module(MySchema, MyKeys)]
-    /// mod my_schema {}
+    /// #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// mod my_definition {}
     ///
-    /// let mut netabase = Netabase::<MySchema>::new().unwrap();
+    /// let mut netabase = Netabase::<MyDefinition>::new().unwrap();
     ///
     /// // Start network operations
     /// netabase.start_swarm().await.unwrap();
@@ -497,7 +506,10 @@ impl<S: NetabaseSchemaT + 'static> Netabase<S> {
         self.broadcast_receiver = broadcast_receiver;
 
         // Generate and start swarm
-        let swarm = network::swarm::generate_swarm_with_name::<S>(self.database_path.clone())?;
+        let swarm = network::swarm::generate_swarm_with_name::<D>(self.database_path.clone())?;
+
+        // Setup swarm with listening addresses (required for mDNS discovery)
+        let swarm = network::swarm::setup_swarm(swarm).await?;
 
         let handle = tokio::spawn(async move {
             network::swarm::handlers::start_swarm_loop(swarm, broadcast_sender, command_receiver)
@@ -531,12 +543,12 @@ impl<S: NetabaseSchemaT + 'static> Netabase<S> {
     ///
     /// ```rust,ignore
     /// use netabase::Netabase;
-    /// use netabase_macros::netabase_schema_module;
+    /// use netabase_macros::netabase_definition_module;
     ///
-    /// #[netabase_schema_module(MySchema, MyKeys)]
-    /// mod my_schema {}
+    /// #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// mod my_definition {}
     ///
-    /// let mut netabase = Netabase::<MySchema>::new().unwrap();
+    /// let mut netabase = Netabase::<MyDefinition>::new().unwrap();
     /// netabase.start_swarm().await.unwrap();
     ///
     /// // Perform operations...
@@ -589,12 +601,12 @@ impl<S: NetabaseSchemaT + 'static> Netabase<S> {
     ///
     /// ```rust,ignore
     /// use netabase::Netabase;
-    /// use netabase_macros::netabase_schema_module;
+    /// use netabase_macros::netabase_definition_module;
     ///
-    /// #[netabase_schema_module(MySchema, MyKeys)]
-    /// mod my_schema {}
+    /// #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// mod my_definition {}
     ///
-    /// let mut netabase = Netabase::<MySchema>::new().unwrap();
+    /// let mut netabase = Netabase::<MyDefinition>::new().unwrap();
     /// let mut receiver = netabase.subscribe_to_broadcasts();
     ///
     /// // Start the swarm first
@@ -615,7 +627,7 @@ impl<S: NetabaseSchemaT + 'static> Netabase<S> {
     /// high-throughput scenarios.
     pub fn subscribe_to_broadcasts(
         &self,
-    ) -> broadcast::Receiver<network::behaviour::clone_impl::NetabaseSwarmEvent<S>> {
+    ) -> broadcast::Receiver<network::behaviour::clone_impl::NetabaseSwarmEvent<D>> {
         self.broadcast_receiver.resubscribe()
     }
 
@@ -676,15 +688,15 @@ impl<S: NetabaseSchemaT + 'static> Netabase<S> {
     /// especially during network partitions or with limited peers.
     pub async fn put_record<M: NetabaseModel>(&self, model: M) -> anyhow::Result<QueryResult>
     where
-        S: From<M>,
+        D: From<M>,
     {
-        let schema = S::from(model);
+        let definition = D::from(model);
 
         let (response_tx, response_rx) = oneshot::channel();
 
         let command = network::swarm::handlers::command_events::Command::Kademlia(
             network::swarm::handlers::command_events::KademliaCommand::PutRecord {
-                record: schema,
+                record: definition,
                 response_channel: response_tx,
             },
         );
@@ -751,15 +763,15 @@ impl<S: NetabaseSchemaT + 'static> Netabase<S> {
     /// The cache TTL depends on network configuration.
     pub async fn get_record<K: NetabaseModelKey>(&self, key: K) -> anyhow::Result<QueryResult>
     where
-        S::Keys: From<K>,
+        D::Keys: From<K>,
     {
-        let schema_key = S::Keys::from(key);
+        let definition_key = D::Keys::from(key);
 
         let (response_tx, response_rx) = oneshot::channel();
 
         let command = network::swarm::handlers::command_events::Command::Kademlia(
             network::swarm::handlers::command_events::KademliaCommand::GetRecord {
-                key: schema_key,
+                key: definition_key,
                 response_channel: response_tx,
             },
         );
@@ -808,15 +820,15 @@ impl<S: NetabaseSchemaT + 'static> Netabase<S> {
     /// ```
     pub async fn get_providers<K: NetabaseModelKey>(&self, key: K) -> anyhow::Result<QueryResult>
     where
-        S::Keys: From<K>,
+        D::Keys: From<K>,
     {
-        let schema_key = S::Keys::from(key);
+        let definition_key = D::Keys::from(key);
 
         let (response_tx, response_rx) = oneshot::channel();
 
         let command = network::swarm::handlers::command_events::Command::Kademlia(
             network::swarm::handlers::command_events::KademliaCommand::GetProviders {
-                key: schema_key,
+                key: definition_key,
                 response_channel: response_tx,
             },
         );
@@ -872,15 +884,15 @@ impl<S: NetabaseSchemaT + 'static> Netabase<S> {
     /// ```
     pub async fn start_providing<K: NetabaseModelKey>(&self, key: K) -> anyhow::Result<QueryResult>
     where
-        S::Keys: From<K>,
+        D::Keys: From<K>,
     {
-        let schema_key = S::Keys::from(key);
+        let definition_key = D::Keys::from(key);
 
         let (response_tx, response_rx) = oneshot::channel();
 
         let command = network::swarm::handlers::command_events::Command::Kademlia(
             network::swarm::handlers::command_events::KademliaCommand::StartProviding {
-                key: schema_key,
+                key: definition_key,
                 response_channel: response_tx,
             },
         );
@@ -922,13 +934,13 @@ impl<S: NetabaseSchemaT + 'static> Netabase<S> {
     /// ```
     pub async fn stop_providing<K: NetabaseModelKey>(&self, key: K) -> anyhow::Result<()>
     where
-        S::Keys: From<K>,
+        D::Keys: From<K>,
     {
-        let schema_key = S::Keys::from(key);
+        let definition_key = D::Keys::from(key);
 
         let command = network::swarm::handlers::command_events::Command::Kademlia(
             network::swarm::handlers::command_events::KademliaCommand::StopProviding {
-                key: schema_key,
+                key: definition_key,
             },
         );
 
@@ -1048,11 +1060,11 @@ impl<S: NetabaseSchemaT + 'static> Netabase<S> {
     ///
     /// use bincode::{Decode, Encode};
     /// use netabase::Netabase;
-    /// use netabase_macros::{NetabaseModel, netabase_schema_module};
+    /// use netabase_macros::{NetabaseModel, netabase_definition_module};
     /// use netabase_store::traits::NetabaseModel;
     /// use serde::{Deserialize, Serialize};
     /// // Define your data models
-    /// #[netabase_schema_module(BlogSchema, BlogKeys)]
+    /// #[netabase_definition_module(BlogDefinition, BlogKeys)]
     /// mod blog {
     ///     use super::*;
     ///     #[derive(NetabaseModel, Clone, Encode, Decode, Debug, Serialize, Deserialize)]
@@ -1069,7 +1081,7 @@ impl<S: NetabaseSchemaT + 'static> Netabase<S> {
     /// #[tokio::main]
     /// pub async fn main() {
     ///     // Add a bootstrap peer
-    ///     let netabase = Netabase::<blog::BlogSchema>::new().expect("Netabase creation failed for some reason");
+    ///     let netabase = Netabase::<blog::BlogDefinition>::new().expect("Netabase creation failed for some reason");
     ///     let peer_id = PeerId::random(); // In practice, use a known peer ID
     ///     let address: Multiaddr = "/ip4/192.168.1.100/tcp/4001".parse().unwrap();
     ///
@@ -1410,13 +1422,13 @@ impl<S: NetabaseSchemaT + 'static> Netabase<S> {
     /// with other nodes or implement a distributed deletion protocol.
     pub async fn remove_record<K: NetabaseModelKey>(&self, key: K) -> anyhow::Result<()>
     where
-        S::Keys: From<K>,
+        D::Keys: From<K>,
     {
-        let schema_key = S::Keys::from(key);
+        let definition_key = D::Keys::from(key);
 
         let command = network::swarm::handlers::command_events::Command::Kademlia(
             network::swarm::handlers::command_events::KademliaCommand::RemoveRecord {
-                key: schema_key,
+                key: definition_key,
             },
         );
 
@@ -1424,130 +1436,186 @@ impl<S: NetabaseSchemaT + 'static> Netabase<S> {
         Ok(())
     }
 
-    /// Get direct access to the local database.
+    /// Query records from the local database store.
     ///
-    /// This provides access to the underlying database for local operations
-    /// without routing through the Kademlia swarm. Useful for:
-    /// - Direct local reads and writes
-    /// - Bypassing network overhead for local operations
-    /// - Database administration and maintenance
-    /// - Testing and debugging
+    /// This method retrieves records directly from the local Kademlia store
+    /// managed by the swarm thread. It's useful for getting a snapshot of
+    /// locally stored data without performing network queries.
+    ///
+    /// # Arguments
+    ///
+    /// * `limit` - Optional maximum number of records to retrieve. If `None`, returns all records.
     ///
     /// # Returns
     ///
-    /// A reference to the underlying `NetabaseDatabase` instance.
+    /// A `Vec<D>` containing the requested records from local storage.
     ///
     /// # Example
     ///
     /// ```rust,ignore
-    /// use netabase::Netabase;
-    /// use netabase_store::traits::NetabaseSchemaQuery;
-    /// use netabase_macros::netabase_schema_module;
-    ///
-    /// #[netabase_schema_module(MySchema, MyKeys)]
-    /// mod my_schema {
-    ///     // Define your models here
+    /// // Get all records from local store
+    /// match netabase.query_local_records(None).await {
+    ///     Ok(records) => {
+    ///         println!("Found {} records in local store", records.len());
+    ///         for record in records {
+    ///             println!("Record: {:?}", record);
+    ///         }
+    ///     }
+    ///     Err(e) => eprintln!("Query failed: {}", e),
     /// }
     ///
-    /// let netabase = Netabase::<MySchema>::new().unwrap();
-    ///
-    /// // Direct database access
-    /// let db = netabase.database().unwrap();
-    /// let result = db.get_schema(&my_key);
+    /// // Get only the first 10 records
+    /// let recent_records = netabase.query_local_records(Some(10)).await?;
     /// ```
     ///
-    /// # Errors
+    /// # Note
     ///
-    /// Returns an error if the database cannot be opened with the configured path.
-    pub fn database(&self) -> anyhow::Result<database::NetabaseDatabase<S>> {
-        match &self.database_path {
-            Some(path) => database::NetabaseDatabase::<S>::new_with_path(path),
-            None => database::NetabaseDatabase::<S>::new(),
+    /// This method only queries the local store. It does not perform network
+    /// queries to retrieve records from other peers.
+    pub async fn query_local_records(&self, limit: Option<usize>) -> anyhow::Result<Vec<D>> {
+        let (response_tx, response_rx) = oneshot::channel();
+
+        let command = network::swarm::handlers::command_events::Command::Kademlia(
+            network::swarm::handlers::command_events::KademliaCommand::LocalStore(
+                network::swarm::handlers::command_events::LocalStoreCommand::QueryRecords {
+                    limit,
+                    response_channel: response_tx,
+                },
+            ),
+        );
+
+        self.command_sender.send(command).await?;
+
+        match response_rx.await? {
+            Ok(records) => Ok(records),
+            Err(e) => Err(anyhow::anyhow!("Query local records failed: {}", e)),
         }
-        .map_err(|e| anyhow::anyhow!("Failed to open database: {}", e))
     }
 
-    /// Get mutable access to a new database instance.
-    ///
-    /// This creates a new database instance with mutable access for operations
-    /// that require writing to the database. Each call creates a new connection,
-    /// so this should be used sparingly for write-heavy operations.
-    ///
-    /// # Returns
-    ///
-    /// A mutable `NetabaseDatabase` instance.
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// use netabase::Netabase;
-    /// use netabase_store::traits::NetabaseSchemaQuery;
-    /// use netabase_macros::netabase_schema_module;
-    ///
-    /// #[netabase_schema_module(MySchema, MyKeys)]
-    /// mod my_schema {
-    ///     // Define your models here
-    /// }
-    ///
-    /// let netabase = Netabase::<MySchema>::new().unwrap();
-    ///
-    /// // Direct mutable database access
-    /// let mut db = netabase.database_mut().unwrap();
-    /// db.put_schema(&my_schema).unwrap();
-    /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the database cannot be opened with the configured path.
-    pub fn database_mut(&self) -> anyhow::Result<database::NetabaseDatabase<S>> {
-        match &self.database_path {
-            Some(path) => database::NetabaseDatabase::<S>::new_with_path(path),
-            None => database::NetabaseDatabase::<S>::new(),
-        }
-        .map_err(|e| anyhow::anyhow!("Failed to open database: {}", e))
-    }
+    // /// Get direct access to the local database.
+    // ///
+    // /// This provides access to the underlying database for local operations
+    // /// without routing through the Kademlia swarm. Useful for:
+    // /// - Direct local reads and writes
+    // /// - Bypassing network overhead for local operations
+    // /// - Database administration and maintenance
+    // /// - Testing and debugging
+    // ///
+    // /// # Returns
+    // ///
+    // /// A reference to the underlying `NetabaseDatabase` instance.
+    // ///
+    // /// # Example
+    // ///
+    // /// ```rust,ignore
+    // /// use netabase::Netabase;
+    // /// use netabase_store::traits::NetabaseSchemaQuery;
+    // /// use netabase_macros::netabase_definition_module;
+    // ///
+    // /// #[netabase_definition_module(MyDefinition, MyKeys)]
+    // /// mod my_definition {
+    // ///     // Define your models here
+    // /// }
+    // ///
+    // /// let netabase = Netabase::<MyDefinition>::new().unwrap();
+    // ///
+    // /// // Direct database access
+    // /// let db = netabase.database().unwrap();
+    // /// let result = db.get_definition(&my_key);
+    // /// ```
+    // ///
+    // /// # Errors
+    // ///
+    // /// Returns an error if the database cannot be opened with the configured path.
+    // pub fn database(&self) -> anyhow::Result<database::NetabaseDatabase<D>> {
+    //     match &self.database_path {
+    //         Some(path) => database::NetabaseDatabase::<D>::new_with_path(path),
+    //         None => database::NetabaseDatabase::<D>::new(),
+    //     }
+    //     .map_err(|e| anyhow::anyhow!("Failed to open database: {}", e))
+    // }
+
+    // /// Get mutable access to a new database instance.
+    // ///
+    // /// This creates a new database instance with mutable access for operations
+    // /// that require writing to the database. Each call creates a new connection,
+    // /// so this should be used sparingly for write-heavy operations.
+    // ///
+    // /// # Returns
+    // ///
+    // /// A mutable `NetabaseDatabase` instance.
+    // ///
+    // /// # Example
+    // ///
+    // /// ```rust,ignore
+    // /// use netabase::Netabase;
+    // /// use netabase_store::traits::NetabaseSchemaQuery;
+    // /// use netabase_macros::netabase_definition_module;
+    // ///
+    // /// #[netabase_definition_module(MyDefinition, MyKeys)]
+    // /// mod my_definition {
+    // ///     // Define your models here
+    // /// }
+    // ///
+    // /// let netabase = Netabase::<MyDefinition>::new().unwrap();
+    // ///
+    // /// // Direct mutable database access
+    // /// let mut db = netabase.database_mut().unwrap();
+    // /// db.put_definition(&my_definition).unwrap();
+    // /// ```
+    // ///
+    // /// # Errors
+    // ///
+    // /// Returns an error if the database cannot be opened with the configured path.
+    // pub fn database_mut(&self) -> anyhow::Result<database::NetabaseDatabase<D>> {
+    //     match &self.database_path {
+    //         Some(path) => database::NetabaseDatabase::<D>::new_with_path(path),
+    //         None => database::NetabaseDatabase::<D>::new(),
+    //     }
+    //     .map_err(|e| anyhow::anyhow!("Failed to open database: {}", e))
+    // }
 }
 
-/// WASM-specific implementation with local database operations only
-#[cfg(all(feature = "wasm", not(feature = "native")))]
-impl<S: NetabaseSchemaT + 'static> Netabase<S> {
-    /// Create a new WASM Netabase instance for local operations.
-    ///
-    /// This creates a local-only database instance suitable for WASM environments.
-    /// No networking functionality is available.
-    pub fn new() -> anyhow::Result<Self> {
-        let database = database::NetabaseDatabase::<S>::new()?;
-        Ok(Self {
-            database,
-            database_name: None,
-        })
-    }
+// /// WASM-specific implementation with local database operations only
+// #[cfg(all(feature = "wasm", not(feature = "native")))]
+// impl<D: NetabaseDefinition + Send + Sync + 'static> Netabase<D> {
+//     /// Create a new WASM Netabase instance for local operations.
+//     ///
+//     /// This creates a local-only database instance suitable for WASM environments.
+//     /// No networking functionality is available.
+//     pub fn new() -> anyhow::Result<Self> {
+//         let database = database::NetabaseDatabase::<D>::new()?;
+//         Ok(Self {
+//             database,
+//             database_name: None,
+//         })
+//     }
 
-    /// Create a new WASM Netabase instance with a custom name.
-    pub fn new_with_name(name: String) -> anyhow::Result<Self> {
-        let database = database::NetabaseDatabase::<S>::new()?;
-        Ok(Self {
-            database,
-            database_name: Some(name),
-        })
-    }
+//     /// Create a new WASM Netabase instance with a custom name.
+//     pub fn new_with_name(name: String) -> anyhow::Result<Self> {
+//         let database = database::NetabaseDatabase::<D>::new()?;
+//         Ok(Self {
+//             database,
+//             database_name: Some(name),
+//         })
+//     }
 
-    /// Get direct access to the local database for WASM environments.
-    ///
-    /// Since networking is not available in WASM, this provides direct access
-    /// to the underlying database for local operations.
-    pub fn database(&self) -> &database::NetabaseDatabase<S> {
-        &self.database
-    }
+//     /// Get direct access to the local database for WASM environments.
+//     ///
+//     /// Since networking is not available in WASM, this provides direct access
+//     /// to the underlying database for local operations.
+//     pub fn database(&self) -> &database::NetabaseDatabase<D> {
+//         &self.database
+//     }
 
-    /// Get mutable access to the local database for WASM environments.
-    pub fn database_mut(&mut self) -> &mut database::NetabaseDatabase<S> {
-        &mut self.database
-    }
-}
+//     /// Get mutable access to the local database for WASM environments.
+//     pub fn database_mut(&mut self) -> &mut database::NetabaseDatabase<D> {
+//         &mut self.database
+//     }
+// }
 
 #[cfg(feature = "native")]
-impl<S: NetabaseSchemaT> Drop for Netabase<S> {
+impl<D: NetabaseDefinition + Send + Sync> Drop for Netabase<D> {
     fn drop(&mut self) {
         if let Some(handle) = self.swarm_thread.take() {
             handle.abort();
@@ -1559,11 +1627,11 @@ impl<S: NetabaseSchemaT> Drop for Netabase<S> {
 mod tests {
     use super::*;
     use bincode::{Decode, Encode};
-    use netabase_macros::{NetabaseModel, netabase_schema_module};
+    use netabase_macros::{NetabaseModel, netabase_definition_module};
     use serde::{Deserialize, Serialize};
 
-    #[netabase_schema_module(TestSchema, TestSchemaKeys)]
-    mod test_schema {
+    #[netabase_definition_module(TestDefinition, TestDefinitionKeys)]
+    mod test_definition {
         use super::*;
 
         #[derive(
@@ -1577,11 +1645,11 @@ mod tests {
         }
     }
 
-    use test_schema::TestSchema;
+    use test_definition::TestDefinition;
 
     #[test]
     fn test_subscribe_to_broadcasts_is_not_async() {
-        let netabase = Netabase::<TestSchema>::new().unwrap();
+        let netabase = Netabase::<TestDefinition>::new().unwrap();
 
         // This should compile without .await - proving the method is synchronous
         let _receiver = netabase.subscribe_to_broadcasts();
@@ -1589,7 +1657,7 @@ mod tests {
 
     #[test]
     fn test_multiple_broadcast_subscriptions() {
-        let netabase = Netabase::<TestSchema>::new().unwrap();
+        let netabase = Netabase::<TestDefinition>::new().unwrap();
 
         // Test that we can create multiple receivers without Arc wrapping
         let receiver1 = netabase.subscribe_to_broadcasts();
@@ -1608,7 +1676,7 @@ mod tests {
 
     #[test]
     fn test_broadcast_receiver_cloning() {
-        let netabase = Netabase::<TestSchema>::new().unwrap();
+        let netabase = Netabase::<TestDefinition>::new().unwrap();
 
         // Get a receiver
         let mut receiver1 = netabase.subscribe_to_broadcasts();

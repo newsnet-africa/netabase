@@ -1,5 +1,5 @@
 #[cfg(feature = "native")]
-use netabase_store::traits::NetabaseSchema;
+use netabase_store::traits::definition::NetabaseDefinition;
 
 #[cfg(feature = "native")]
 use crate::network::behaviour::clone_impl::NetabaseSwarmEvent;
@@ -39,10 +39,10 @@ pub mod new_listen_addr;
 pub mod outgoing_connection_error;
 
 #[cfg(feature = "native")]
-pub fn handle_swarm_events<S: NetabaseSchema>(event: NetabaseSwarmEvent<S>) {
+pub fn handle_swarm_events<D: NetabaseDefinition + Send + Sync + 'static>(event: NetabaseSwarmEvent<D>) {
     match event.0 {
         libp2p::swarm::SwarmEvent::Behaviour(behaviour_event) => {
-            behaviour::handle_behaviour_event::<S>(behaviour_event);
+            behaviour::handle_behaviour_event::<D>(behaviour_event);
         }
         libp2p::swarm::SwarmEvent::ConnectionEstablished {
             peer_id,
@@ -52,7 +52,7 @@ pub fn handle_swarm_events<S: NetabaseSchema>(event: NetabaseSwarmEvent<S>) {
             concurrent_dial_errors,
             established_in,
         } => {
-            connection_established::handle_connection_established::<S>(
+            connection_established::handle_connection_established::<D>(
                 peer_id,
                 connection_id,
                 endpoint,
@@ -68,7 +68,7 @@ pub fn handle_swarm_events<S: NetabaseSchema>(event: NetabaseSwarmEvent<S>) {
             num_established,
             cause,
         } => {
-            connection_closed::handle_connection_closed::<S>(
+            connection_closed::handle_connection_closed::<D>(
                 peer_id,
                 connection_id,
                 endpoint,
@@ -81,7 +81,7 @@ pub fn handle_swarm_events<S: NetabaseSchema>(event: NetabaseSwarmEvent<S>) {
             local_addr,
             send_back_addr,
         } => {
-            incoming_connection::handle_incoming_connection::<S>(
+            incoming_connection::handle_incoming_connection::<D>(
                 connection_id,
                 local_addr,
                 send_back_addr,
@@ -94,7 +94,7 @@ pub fn handle_swarm_events<S: NetabaseSchema>(event: NetabaseSwarmEvent<S>) {
             error,
             peer_id,
         } => {
-            incoming_connection_error::handle_incoming_connection_error::<S>(
+            incoming_connection_error::handle_incoming_connection_error::<D>(
                 connection_id,
                 local_addr,
                 send_back_addr,
@@ -107,7 +107,7 @@ pub fn handle_swarm_events<S: NetabaseSchema>(event: NetabaseSwarmEvent<S>) {
             peer_id,
             error,
         } => {
-            outgoing_connection_error::handle_outgoing_connection_error::<S>(
+            outgoing_connection_error::handle_outgoing_connection_error::<D>(
                 connection_id,
                 peer_id,
                 error,
@@ -117,44 +117,44 @@ pub fn handle_swarm_events<S: NetabaseSchema>(event: NetabaseSwarmEvent<S>) {
             listener_id,
             address,
         } => {
-            new_listen_addr::handle_new_listen_addr::<S>(listener_id, address);
+            new_listen_addr::handle_new_listen_addr::<D>(listener_id, address);
         }
         libp2p::swarm::SwarmEvent::ExpiredListenAddr {
             listener_id,
             address,
         } => {
-            expired_listen_addr::handle_expired_listen_addr::<S>(listener_id, address);
+            expired_listen_addr::handle_expired_listen_addr::<D>(listener_id, address);
         }
         libp2p::swarm::SwarmEvent::ListenerClosed {
             listener_id,
             addresses,
             reason,
         } => {
-            listener_closed::handle_listener_closed::<S>(listener_id, addresses, reason);
+            listener_closed::handle_listener_closed::<D>(listener_id, addresses, reason);
         }
         libp2p::swarm::SwarmEvent::ListenerError { listener_id, error } => {
-            listener_error::handle_listener_error::<S>(listener_id, error);
+            listener_error::handle_listener_error::<D>(listener_id, error);
         }
         libp2p::swarm::SwarmEvent::Dialing {
             peer_id,
             connection_id,
         } => {
-            dialing::handle_dialing::<S>(peer_id, connection_id);
+            dialing::handle_dialing::<D>(peer_id, connection_id);
         }
         libp2p::swarm::SwarmEvent::NewExternalAddrCandidate { address } => {
-            new_external_addr_candidate::handle_new_external_addr_candidate::<S>(address);
+            new_external_addr_candidate::handle_new_external_addr_candidate::<D>(address);
         }
         libp2p::swarm::SwarmEvent::ExternalAddrConfirmed { address } => {
-            external_addr_confirmed::handle_external_addr_confirmed::<S>(address);
+            external_addr_confirmed::handle_external_addr_confirmed::<D>(address);
         }
         libp2p::swarm::SwarmEvent::ExternalAddrExpired { address } => {
-            external_addr_expired::handle_external_addr_expired::<S>(address);
+            external_addr_expired::handle_external_addr_expired::<D>(address);
         }
         libp2p::swarm::SwarmEvent::NewExternalAddrOfPeer { peer_id, address } => {
-            new_external_addr_of_peer::handle_new_external_addr_of_peer::<S>(peer_id, address);
+            new_external_addr_of_peer::handle_new_external_addr_of_peer::<D>(peer_id, address);
         }
         _ => {
-            fallback::handle_fallback_event::<S>(event);
+            fallback::handle_fallback_event::<D>(event);
         }
     }
 }

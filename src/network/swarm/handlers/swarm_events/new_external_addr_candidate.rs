@@ -1,7 +1,7 @@
 use libp2p::Multiaddr;
-use netabase_store::traits::NetabaseSchema;
+use netabase_store::traits::definition::NetabaseDefinition;
 
-pub fn handle_new_external_addr_candidate<S: NetabaseSchema>(address: Multiaddr) {
+pub fn handle_new_external_addr_candidate<D: NetabaseDefinition + Send + Sync + 'static>(address: Multiaddr) {
     // TODO: Implement new external address candidate handling
     println!("New external address candidate discovered: {:?}", address);
 

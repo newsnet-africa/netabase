@@ -1,4 +1,4 @@
-use netabase_store::traits::NetabaseSchema;
+use netabase_store::traits::definition::NetabaseDefinition;
 
 #[cfg(feature = "native")]
 use libp2p::{Swarm, futures::StreamExt};
@@ -16,22 +16,46 @@ pub mod swarm_events;
 
 // Native implementation with full swarm event loop
 #[cfg(feature = "native")]
-pub(crate) async fn start_swarm_loop<S: NetabaseSchema>(
-    mut swarm: Swarm<NetabaseBehaviour<S>>,
-    swarm_event_sender: tokio::sync::broadcast::Sender<NetabaseSwarmEvent<S>>,
-    mut command_event_listener: tokio::sync::mpsc::Receiver<command_events::Command<S>>,
-) {
+pub(crate) async fn start_swarm_loop<D: NetabaseDefinition + Send + Sync + 'static>(
+    mut swarm: Swarm<NetabaseBehaviour<D>>,
+    swarm_event_sender: tokio::sync::broadcast::Sender<NetabaseSwarmEvent<D>>,
+    mut command_event_listener: tokio::sync::mpsc::Receiver<command_events::Command<D>>,
+)
+where
+    D: netabase_store::traits::convert::ToIVec,
+{
     loop {
         tokio::select! {
             Some(command) = command_event_listener.recv() => {
-                println!("Swarm Received command: {command:?}");
                 handle_command_events(&mut swarm, command);
             },
             Some(event) = swarm.next() => {
-                println!("Swarm Event received: {event:?}");
+                // Handle mDNS peer discovery by adding peers to Kademlia
+                #[cfg(feature = "native")]
+                if let libp2p::swarm::SwarmEvent::Behaviour(
+                    crate::network::behaviour::NetabaseBehaviourEvent::Mdns(
+                        libp2p::mdns::Event::Discovered(peers)
+                    )
+                ) = &event {
+                    for (peer_id, multiaddr) in peers {
+                        // Add the peer to Kademlia routing table
+                        swarm.behaviour_mut().kad.add_address(peer_id, multiaddr.clone());
+                        // Dial the peer to establish connection
+                        if let Err(e) = swarm.dial(peer_id.clone()) {
+                            eprintln!("Failed to dial mDNS peer {}: {:?}", peer_id, e);
+                        }
+                    }
+
+                    // Bootstrap after discovering peers to join the DHT network
+                    if !peers.is_empty() {
+                        if let Err(e) = swarm.behaviour_mut().kad.bootstrap() {
+                            eprintln!("Failed to bootstrap Kademlia: {:?}", e);
+                        }
+                    }
+                }
+
                 let event = NetabaseSwarmEvent(event);
-                let result = swarm_event_sender.send(event.clone());
-                println!("Sending Event: {result:?}");
+                let _ = swarm_event_sender.send(event.clone());
                 swarm_events::handle_swarm_events(event);
             }
         }
@@ -40,7 +64,7 @@ pub(crate) async fn start_swarm_loop<S: NetabaseSchema>(
 
 // WASM placeholder - networking not yet implemented
 #[cfg(all(feature = "wasm", not(feature = "native")))]
-pub(crate) async fn start_swarm_loop<S: NetabaseSchema>(
+pub(crate) async fn start_swarm_loop<D: NetabaseDefinition + Send + Sync + 'static>(
     _swarm: (),
     _swarm_event_sender: (),
     _command_event_listener: (),

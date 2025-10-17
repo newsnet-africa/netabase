@@ -1,10 +1,10 @@
-use netabase_store::traits::NetabaseSchema;
+use netabase_store::traits::definition::NetabaseDefinition;
 use std::convert::Infallible;
 
 /// Handle connection limit behaviour events
 /// Note: libp2p connection limits use Infallible as the event type,
 /// meaning this behaviour never emits events
-pub fn handle_connection_limit_event<S: NetabaseSchema>(event: Infallible) {
+pub fn handle_connection_limit_event<D: NetabaseDefinition + Send + Sync + 'static>(event: Infallible) {
     // This match is unreachable since Infallible can never be constructed
     // But we include it for completeness and future-proofing
     match event {}

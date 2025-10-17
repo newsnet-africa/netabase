@@ -1,10 +1,10 @@
 #[cfg(feature = "native")]
 use libp2p::{
     Multiaddr, PeerId, StreamProtocol, Swarm,
-    kad::{self, EntryView, KBucketKey, Mode, NoKnownPeers, QueryResult, Quorum, RoutingUpdate},
+    kad::{self, EntryView, KBucketKey, Mode, NoKnownPeers, QueryResult, Quorum, RoutingUpdate, store::RecordStore},
 };
 #[cfg(feature = "native")]
-use netabase_store::traits::NetabaseSchema;
+use netabase_store::traits::{definition::NetabaseDefinition, convert::ToIVec};
 #[cfg(feature = "native")]
 use tokio::sync::oneshot::Sender;
 
@@ -45,14 +45,14 @@ pub mod stop_providing;
 
 #[cfg(feature = "native")]
 #[derive(Debug)]
-pub(crate) enum Command<S: NetabaseSchema> {
-    Kademlia(KademliaCommand<S>),
+pub(crate) enum Command<D: NetabaseDefinition + Send + Sync + 'static> {
+    Kademlia(KademliaCommand<D>),
 }
 
 #[cfg(feature = "native")]
 #[derive(Debug)]
 #[allow(dead_code)]
-pub(crate) enum KademliaCommand<S: NetabaseSchema> {
+pub(crate) enum KademliaCommand<D: NetabaseDefinition + Send + Sync + 'static> {
     AddAddress {
         peer: PeerId,
         address: Multiaddr,
@@ -62,11 +62,11 @@ pub(crate) enum KademliaCommand<S: NetabaseSchema> {
         response_channel: Sender<Result<QueryResult, NoKnownPeers>>,
     },
     GetProviders {
-        key: S::Keys,
+        key: D::Keys,
         response_channel: Sender<QueryResult>,
     },
     GetRecord {
-        key: S::Keys,
+        key: D::Keys,
         response_channel: Sender<QueryResult>,
     },
     Mode {
@@ -76,11 +76,11 @@ pub(crate) enum KademliaCommand<S: NetabaseSchema> {
         response_channel: Sender<StreamProtocol>,
     },
     PutRecord {
-        record: S,
+        record: D,
         response_channel: Sender<Result<QueryResult, kad::store::Error>>,
     },
     PutRecordTo {
-        record: S,
+        record: D,
         peers: Vec<PeerId>,
         quorum: Quorum,
         response_channel: Sender<QueryResult>,
@@ -95,32 +95,40 @@ pub(crate) enum KademliaCommand<S: NetabaseSchema> {
         response_channel: Sender<Option<EntryView<KBucketKey<PeerId>, kad::Addresses>>>,
     },
     RemoveRecord {
-        key: S::Keys,
+        key: D::Keys,
     },
     SetMode {
         mode: Option<Mode>,
     },
     StartProviding {
-        key: S::Keys,
+        key: D::Keys,
         response_channel: Sender<Result<QueryResult, kad::store::Error>>,
     },
     StopProviding {
-        key: S::Keys,
+        key: D::Keys,
     },
 
-    LocalStore(LocalStoreCommand),
+    LocalStore(LocalStoreCommand<D>),
 }
 
 #[cfg(feature = "native")]
 #[derive(Debug)]
 #[allow(dead_code)]
-pub(crate) enum LocalStoreCommand {}
+pub(crate) enum LocalStoreCommand<D: NetabaseDefinition + Send + Sync + 'static> {
+    QueryRecords {
+        limit: Option<usize>,
+        response_channel: Sender<Result<Vec<D>, String>>,
+    },
+}
 
 #[cfg(feature = "native")]
-pub(crate) fn handle_command_events<S: NetabaseSchema>(
-    swarm: &mut Swarm<NetabaseBehaviour<S>>,
-    command: Command<S>,
-) {
+pub(crate) fn handle_command_events<D: NetabaseDefinition + Send + Sync + 'static>(
+    swarm: &mut Swarm<NetabaseBehaviour<D>>,
+    command: Command<D>,
+)
+where
+    D: ToIVec,
+{
     match command {
         Command::Kademlia(kad_command) => {
             handle_kademlia_command(swarm, kad_command);
@@ -129,10 +137,13 @@ pub(crate) fn handle_command_events<S: NetabaseSchema>(
 }
 
 #[cfg(feature = "native")]
-pub(crate) fn handle_kademlia_command<S: NetabaseSchema>(
-    swarm: &mut Swarm<NetabaseBehaviour<S>>,
-    command: KademliaCommand<S>,
-) {
+pub(crate) fn handle_kademlia_command<D: NetabaseDefinition + Send + Sync + 'static>(
+    swarm: &mut Swarm<NetabaseBehaviour<D>>,
+    command: KademliaCommand<D>,
+)
+where
+    D: ToIVec,
+{
     match command {
         KademliaCommand::AddAddress {
             peer,
@@ -203,6 +214,55 @@ pub(crate) fn handle_kademlia_command<S: NetabaseSchema>(
         }
         KademliaCommand::StopProviding { key } => {
             stop_providing::handle_stop_providing(swarm, key);
+        }
+        KademliaCommand::LocalStore(local_store_command) => {
+            handle_local_store_command(swarm, local_store_command);
+        }
+    }
+}
+
+#[cfg(feature = "native")]
+pub(crate) fn handle_local_store_command<D: NetabaseDefinition + Send + Sync + 'static>(
+    swarm: &mut Swarm<NetabaseBehaviour<D>>,
+    command: LocalStoreCommand<D>,
+)
+where
+    D: ToIVec,
+{
+    match command {
+        LocalStoreCommand::QueryRecords {
+            limit,
+            response_channel,
+        } => {
+            // Access the Kademlia store directly
+            let store = swarm.behaviour_mut().kad.store_mut();
+
+            // Collect records from the store
+            let mut records = Vec::new();
+            let mut count = 0;
+
+            for record in store.records() {
+                if let Some(max_count) = limit {
+                    if count >= max_count {
+                        break;
+                    }
+                }
+
+                // Try to decode the record value
+                // Convert Vec<u8> to IVec - use owned conversion
+                let ivec = record.value.as_slice().to_vec().into();
+                match D::from_ivec(&ivec) {
+                    Ok(definition) => {
+                        records.push(definition);
+                        count += 1;
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to decode record: {}", e);
+                    }
+                }
+            }
+
+            let _ = response_channel.send(Ok(records));
         }
     }
 }

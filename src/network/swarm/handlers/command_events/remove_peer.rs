@@ -2,13 +2,13 @@ use libp2p::{
     PeerId, Swarm,
     kad::{Addresses, EntryView, KBucketKey},
 };
-use netabase_store::traits::NetabaseSchema;
+use netabase_store::traits::definition::NetabaseDefinition;
 use tokio::sync::oneshot::Sender;
 
 use crate::network::behaviour::NetabaseBehaviour;
 
-pub(crate) fn handle_remove_peer<S: NetabaseSchema>(
-    swarm: &mut Swarm<NetabaseBehaviour<S>>,
+pub(crate) fn handle_remove_peer<D: NetabaseDefinition + Send + Sync + 'static>(
+    swarm: &mut Swarm<NetabaseBehaviour<D>>,
     peer: PeerId,
     response_channel: Sender<Option<EntryView<KBucketKey<PeerId>, Addresses>>>,
 ) {

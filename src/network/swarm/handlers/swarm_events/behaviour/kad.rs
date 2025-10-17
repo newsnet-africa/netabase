@@ -5,7 +5,7 @@ use libp2p::{
         QueryStats,
     },
 };
-use netabase_store::traits::NetabaseSchema;
+use netabase_store::traits::definition::NetabaseDefinition;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -26,10 +26,10 @@ pub fn store_query_response_channel<T: 'static + Send>(query_id: QueryId, sender
 }
 
 /// Handle Kademlia behaviour events
-pub fn handle_kad_event<S: NetabaseSchema>(kad_event: KadEvent) {
+pub fn handle_kad_event<D: NetabaseDefinition + Send + Sync + 'static>(kad_event: KadEvent) {
     match kad_event {
         KadEvent::InboundRequest { request } => {
-            handle_inbound_request::<S>(request);
+            handle_inbound_request::<D>(request);
         }
         KadEvent::OutboundQueryProgressed {
             id,
@@ -37,7 +37,7 @@ pub fn handle_kad_event<S: NetabaseSchema>(kad_event: KadEvent) {
             stats,
             step,
         } => {
-            handle_outbound_query_progressed::<S>(id, result, stats, step);
+            handle_outbound_query_progressed::<D>(id, result, stats, step);
         }
         KadEvent::RoutingUpdated {
             peer,
@@ -46,43 +46,44 @@ pub fn handle_kad_event<S: NetabaseSchema>(kad_event: KadEvent) {
             bucket_range,
             old_peer,
         } => {
-            handle_routing_updated::<S>(peer, is_new_peer, addresses, bucket_range, old_peer);
+            handle_routing_updated::<D>(peer, is_new_peer, addresses, bucket_range, old_peer);
         }
         KadEvent::UnroutablePeer { peer } => {
-            handle_unroutable_peer::<S>(peer);
+            handle_unroutable_peer::<D>(peer);
         }
         KadEvent::RoutablePeer { peer, address } => {
-            handle_routable_peer::<S>(peer, address);
+            handle_routable_peer::<D>(peer, address);
         }
         KadEvent::PendingRoutablePeer { peer, address } => {
-            handle_pending_routable_peer::<S>(peer, address);
+            handle_pending_routable_peer::<D>(peer, address);
         }
         KadEvent::ModeChanged { new_mode } => {
-            handle_mode_changed::<S>(new_mode);
+            handle_mode_changed::<D>(new_mode);
         }
     }
 }
 
 /// Handle inbound Kademlia requests
-fn handle_inbound_request<S: NetabaseSchema>(request: InboundRequest) {
-    println!("Handling Kademlia inbound request: {:?}", request);
+fn handle_inbound_request<D: NetabaseDefinition + Send + Sync + 'static>(request: InboundRequest) {
+    // Only log PutRecord requests in a clean format
+    if let InboundRequest::PutRecord { source, record, .. } = &request {
+        let peer_short = format!("{}", source).chars().take(8).collect::<String>();
+        println!("📥 Receiving message from peer {}...", peer_short);
+        if record.is_some() {
+            println!("   Record received and stored\n");
+        }
+    }
 }
 
 /// Handle outbound query progress - wait for ProgressStep.last and return result
-fn handle_outbound_query_progressed<S: NetabaseSchema>(
+fn handle_outbound_query_progressed<D: NetabaseDefinition + Send + Sync + 'static>(
     id: QueryId,
     result: QueryResult,
-    stats: QueryStats,
+    _stats: QueryStats,
     step: ProgressStep,
 ) {
-    println!(
-        "Handling Kademlia outbound query progress - ID: {:?}, Result: {:?}, Stats: {:?}, Step: {:?}",
-        id, result, stats, step
-    );
-
     // Check if this is the last step of the query
     if step.last {
-        println!("Query {:?} completed - this is the last step", id);
 
         // Try to find and send the result through the stored response channel
         if let Ok(mut pending_queries) = PENDING_QUERIES.lock() {
@@ -151,58 +152,43 @@ fn handle_outbound_query_progressed<S: NetabaseSchema>(
                 };
 
                 if !sent {
-                    println!(
+                    eprintln!(
                         "Failed to send result for query {:?} - channel type mismatch",
                         id
                     );
                 }
-            } else {
-                println!("No response channel found for completed query {:?}", id);
             }
-        } else {
-            println!("Failed to acquire lock on pending queries");
         }
-    } else {
-        println!("Query {:?} in progress - step is not last", id);
     }
 }
 
 /// Handle routing table updates
-fn handle_routing_updated<S: NetabaseSchema>(
-    peer: PeerId,
-    is_new_peer: bool,
-    addresses: Addresses,
-    bucket_range: (KBucketDistance, KBucketDistance),
-    old_peer: Option<PeerId>,
+fn handle_routing_updated<D: NetabaseDefinition + Send + Sync + 'static>(
+    _peer: PeerId,
+    _is_new_peer: bool,
+    _addresses: Addresses,
+    _bucket_range: (KBucketDistance, KBucketDistance),
+    _old_peer: Option<PeerId>,
 ) {
-    println!(
-        "Handling Kademlia routing update - Peer: {:?}, New: {}, Addresses: {:?}, Bucket range: {:?}, Old peer: {:?}",
-        peer, is_new_peer, addresses, bucket_range, old_peer
-    );
+    // Silent - routing updates are internal DHT operations
 }
 
 /// Handle unroutable peer events
-fn handle_unroutable_peer<S: NetabaseSchema>(peer: PeerId) {
-    println!("Handling Kademlia unroutable peer: {:?}", peer);
+fn handle_unroutable_peer<D: NetabaseDefinition + Send + Sync + 'static>(_peer: PeerId) {
+    // Silent - unroutable peers are normal in P2P networks
 }
 
 /// Handle routable peer events
-fn handle_routable_peer<S: NetabaseSchema>(peer: PeerId, address: Multiaddr) {
-    println!(
-        "Handling Kademlia routable peer: {:?} at {:?}",
-        peer, address
-    );
+fn handle_routable_peer<D: NetabaseDefinition + Send + Sync + 'static>(_peer: PeerId, _address: Multiaddr) {
+    // Silent - routable peer detection is internal
 }
 
 /// Handle pending routable peer events
-fn handle_pending_routable_peer<S: NetabaseSchema>(peer: PeerId, address: Multiaddr) {
-    println!(
-        "Handling Kademlia pending routable peer: {:?} at {:?}",
-        peer, address
-    );
+fn handle_pending_routable_peer<D: NetabaseDefinition + Send + Sync + 'static>(_peer: PeerId, _address: Multiaddr) {
+    // Silent - pending peer routing is internal
 }
 
 /// Handle mode change events
-fn handle_mode_changed<S: NetabaseSchema>(new_mode: Mode) {
-    println!("Handling Kademlia mode change to: {:?}", new_mode);
+fn handle_mode_changed<D: NetabaseDefinition + Send + Sync + 'static>(_new_mode: Mode) {
+    // Silent - mode changes are internal DHT operations
 }

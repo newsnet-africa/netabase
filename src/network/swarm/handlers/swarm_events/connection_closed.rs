@@ -1,24 +1,14 @@
 use libp2p::PeerId;
 use libp2p::core::ConnectedPoint;
 use libp2p::swarm::{ConnectionError, ConnectionId};
-use netabase_store::traits::NetabaseSchema;
+use netabase_store::traits::definition::NetabaseDefinition;
 
-pub fn handle_connection_closed<S: NetabaseSchema>(
-    peer_id: PeerId,
-    connection_id: ConnectionId,
-    endpoint: ConnectedPoint,
-    num_established: u32,
-    cause: Option<ConnectionError>,
+pub fn handle_connection_closed<D: NetabaseDefinition + Send + Sync + 'static>(
+    _peer_id: PeerId,
+    _connection_id: ConnectionId,
+    _endpoint: ConnectedPoint,
+    _num_established: u32,
+    _cause: Option<ConnectionError>,
 ) {
-    // TODO: Implement connection closed handling
-    println!(
-        "Connection closed with peer: {:?}, connection_id: {:?}, endpoint: {:?}, num_established: {:?}",
-        peer_id, connection_id, endpoint, num_established
-    );
-
-    if let Some(error) = &cause {
-        println!("Connection closed due to error: {:?}", error);
-    } else {
-        println!("Connection closed gracefully");
-    }
+    // Silent - connection closures are handled internally
 }

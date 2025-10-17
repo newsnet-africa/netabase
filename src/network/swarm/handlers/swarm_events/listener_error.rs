@@ -1,7 +1,7 @@
 use libp2p::core::transport::ListenerId;
-use netabase_store::traits::NetabaseSchema;
+use netabase_store::traits::definition::NetabaseDefinition;
 
-pub fn handle_listener_error<S: NetabaseSchema>(listener_id: ListenerId, error: std::io::Error) {
+pub fn handle_listener_error<D: NetabaseDefinition + Send + Sync + 'static>(listener_id: ListenerId, error: std::io::Error) {
     // TODO: Implement listener error handling
     println!(
         "Listener error: listener_id: {:?}, error: {:?}",

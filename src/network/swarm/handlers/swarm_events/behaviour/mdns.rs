@@ -1,38 +1,27 @@
 use libp2p::{Multiaddr, PeerId, mdns::Event as MdnsEvent};
-use netabase_store::traits::NetabaseSchema;
+use netabase_store::traits::definition::NetabaseDefinition;
 
 /// Handle mDNS behaviour events
-pub fn handle_mdns_event<S: NetabaseSchema>(mdns_event: MdnsEvent) {
+pub fn handle_mdns_event<D: NetabaseDefinition + Send + Sync + 'static>(mdns_event: MdnsEvent) {
     match mdns_event {
         MdnsEvent::Discovered(peer_addresses) => {
-            handle_discovered::<S>(peer_addresses);
+            handle_discovered::<D>(peer_addresses);
         }
         MdnsEvent::Expired(peer_addresses) => {
-            handle_expired::<S>(peer_addresses);
+            handle_expired::<D>(peer_addresses);
         }
     }
 }
 
 /// Handle discovered peers via mDNS
-fn handle_discovered<S: NetabaseSchema>(peer_addresses: Vec<(PeerId, Multiaddr)>) {
-    // TODO: Implement discovered peers handling
-    println!("Handling mDNS discovered peers: {:?}", peer_addresses);
-
-    for (peer_id, multiaddr) in peer_addresses {
-        println!("  Discovered peer: {:?} at {:?}", peer_id, multiaddr);
-        // TODO: Add peer to routing table or peer store
-        // TODO: Potentially initiate connection to discovered peer
+fn handle_discovered<D: NetabaseDefinition + Send + Sync + 'static>(peer_addresses: Vec<(PeerId, Multiaddr)>) {
+    for (peer_id, _) in peer_addresses {
+        let peer_short = format!("{}", peer_id).chars().take(8).collect::<String>();
+        println!("🔍 Discovered peer {} via mDNS\n", peer_short);
     }
 }
 
 /// Handle expired peer addresses from mDNS
-fn handle_expired<S: NetabaseSchema>(peer_addresses: Vec<(PeerId, Multiaddr)>) {
-    // TODO: Implement expired peers handling
-    println!("Handling mDNS expired peers: {:?}", peer_addresses);
-
-    for (peer_id, multiaddr) in peer_addresses {
-        println!("  Expired peer: {:?} at {:?}", peer_id, multiaddr);
-        // TODO: Remove peer from routing table or peer store
-        // TODO: Close connections if they exist
-    }
+fn handle_expired<D: NetabaseDefinition + Send + Sync + 'static>(_peer_addresses: Vec<(PeerId, Multiaddr)>) {
+    // Silent - peer expiration is normal in P2P networks
 }

@@ -1,6 +1,6 @@
 #[cfg(feature = "native")]
 use libp2p::websocket::error;
-use netabase_store::errors::NetabaseError;
+use netabase_store::error::NetabaseError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]

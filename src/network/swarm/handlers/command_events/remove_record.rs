@@ -1,11 +1,11 @@
 use libp2p::Swarm;
-use netabase_store::traits::{NetabaseKeys, NetabaseSchema};
+use netabase_store::traits::definition::{NetabaseDefinition, NetabaseDefinitionKey};
 
 use crate::network::behaviour::NetabaseBehaviour;
 
-pub(crate) fn handle_remove_record<S: NetabaseSchema>(
-    swarm: &mut Swarm<NetabaseBehaviour<S>>,
-    key: S::Keys,
+pub(crate) fn handle_remove_record<D: NetabaseDefinition>(
+    swarm: &mut Swarm<NetabaseBehaviour<D>>,
+    key: D::Keys,
 ) {
     println!("RemoveRecord command: key={:?}", key);
 

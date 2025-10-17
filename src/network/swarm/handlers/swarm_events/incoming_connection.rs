@@ -1,8 +1,8 @@
 use libp2p::Multiaddr;
 use libp2p::swarm::ConnectionId;
-use netabase_store::traits::NetabaseSchema;
+use netabase_store::traits::definition::NetabaseDefinition;
 
-pub fn handle_incoming_connection<S: NetabaseSchema>(
+pub fn handle_incoming_connection<D: NetabaseDefinition + Send + Sync + 'static>(
     connection_id: ConnectionId,
     local_addr: Multiaddr,
     send_back_addr: Multiaddr,

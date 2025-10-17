@@ -1,7 +1,7 @@
 use libp2p::{Multiaddr, core::transport::ListenerId};
-use netabase_store::traits::NetabaseSchema;
+use netabase_store::traits::definition::NetabaseDefinition;
 
-pub fn handle_listener_closed<S: NetabaseSchema>(
+pub fn handle_listener_closed<D: NetabaseDefinition + Send + Sync + 'static>(
     listener_id: ListenerId,
     addresses: Vec<Multiaddr>,
     reason: Result<(), std::io::Error>,

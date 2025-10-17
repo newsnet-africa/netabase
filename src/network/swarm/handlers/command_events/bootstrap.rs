@@ -2,14 +2,14 @@ use libp2p::{
     Swarm,
     kad::{NoKnownPeers, QueryResult},
 };
-use netabase_store::traits::NetabaseSchema;
+use netabase_store::traits::definition::NetabaseDefinition;
 use tokio::sync::oneshot::Sender;
 
 use super::super::swarm_events::behaviour::kad::store_query_response_channel;
 use crate::network::behaviour::NetabaseBehaviour;
 
-pub(crate) fn handle_bootstrap<S: NetabaseSchema>(
-    swarm: &mut Swarm<NetabaseBehaviour<S>>,
+pub(crate) fn handle_bootstrap<D: NetabaseDefinition + Send + Sync + 'static>(
+    swarm: &mut Swarm<NetabaseBehaviour<D>>,
     response_channel: Sender<Result<QueryResult, NoKnownPeers>>,
 ) {
     println!("Bootstrap command received");

@@ -1,9 +1,8 @@
 [workspace]
-members = ["example_usage",
+members = [
   "netabase_store",
   "netabase_store/netabase_macros",
   "netabase_store/netabase_deps",
-  "ux_test_suite"
 ]
 
 [workspace.dependencies]
@@ -99,6 +98,7 @@ getrandom = { workspace = true }
 [dev-dependencies]
 netabase_store = { path = "netabase_store", features = ["libp2p"] }
 netabase_macros = { path = "netabase_store/netabase_macros" }
+netabase_deps = { path = "netabase_store/netabase_deps" }
 anyhow = { workspace = true }
 bincode = { workspace = true }
 log = { workspace = true }

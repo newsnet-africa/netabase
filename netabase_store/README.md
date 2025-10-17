@@ -1,219 +1,424 @@
-# netabase_store
+# Netabase Store
 
-A robust and efficient object-oriented key-value store built on top of sled db, providing advanced querying capabilities through primary and secondary key indexing.
+[![Rust](https://img.shields.io/badge/rust-2024+-orange.svg)](https://www.rust-lang.org)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
+**Netabase Store** is a type-safe, macro-driven database abstraction layer providing unified interfaces for multiple storage backends with first-class support for both native and WebAssembly environments.
 
 ## Features
 
-- Object-oriented wrapper around sled db with strong typing
-- Support for primary and secondary key indexing
-- Advanced querying capabilities
-- Batch operations with automatic indexing
-- Macro-based model definitions
-- Type-safe database operations
+### Core Capabilities
+- **Type-Safe Models**: Automatic code generation using proc macros with compile-time guarantees
+- **Primary & Secondary Keys**: Efficient indexing and querying with automatic key management
+- **Multiple Storage Backends**:
+  - **Sled** (native): High-performance embedded database
+  - **IndexedDB** (WASM): Browser-native persistent storage
+  - **Memory** (both): In-memory storage for testing and caching
+- **Cross-Platform**: Single API works seamlessly across native and WASM targets
+- **LibP2P Integration** (optional): Direct integration with Kademlia DHT for P2P applications
 
-## Getting Started
+### Architecture
+-  **Definition-Based**: Models are organized into type-safe enum-based schemas
+- **Zero-Cost Abstractions**: Compile-time code generation eliminates runtime overhead
+- **Trait-Driven**: Common traits enable generic programming across storage backends
+- **Automatic Conversions**: Seamless conversion between models, keys, and storage formats
 
-Add netabase_store to your `Cargo.toml`:
+## Installation
+
+Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-netabase_store = { path = "https://github.com/newsnet-africa/netabase_store.git" }
+# For native applications
+netabase_store = { version = "*", features = ["native"] }
+netabase_macros = "*"
+
+# For WASM applications
+netabase_store = { version = "*", features = ["wasm"], default-features = false }
+netabase_macros = "*"
+
+# For LibP2P integration
+netabase_store = { version = "*", features = ["native", "libp2p"] }
 ```
 
-## Usage
+### Feature Flags
 
-### Defining Models
+- **`native`**: Enables Sled backend for native platforms (includes `sled` dependency)
+- **`wasm`**: Enables IndexedDB backend for WebAssembly (includes `web-sys`, `js-sys`, etc.)
+- **`libp2p`**: Enables integration with libp2p Kademlia DHT (for P2P applications)
+- **`record-store`**: Additional record storage features for DHT operations
 
-Use the provided macros to define your models:
+## Quick Start
+
+### 1. Define Your Schema
+
+Use the `netabase_definition_module` macro to automatically generate all necessary types and traits:
 
 ```rust
-use netabase_macros::{NetabaseModel, netabase_schema_module};
+use netabase_macros::{NetabaseModel, netabase_definition_module};
+use netabase_deps::{bincode, serde};
 
-#[netabase_schema_module(MySchema, MySchemaKey)]
-pub mod schema {
-    #[derive(NetabaseModel, Clone, Encode, Decode, Debug)]
-    #[key_name(UserKey)]
+#[netabase_definition_module(BlogDefinition, BlogKeys)]
+mod blog {
+    use super::*;
+
+    /// User model with primary and secondary keys
+    #[derive(NetabaseModel, Clone, Debug, PartialEq, Eq,
+             bincode::Encode, bincode::Decode,
+             serde::Serialize, serde::Deserialize)]
     pub struct User {
-        #[key]
+        #[primary_key]
         pub id: u64,
         pub name: String,
         #[secondary_key]
         pub email: String,
-        pub created_at: u64,
     }
+
+    /// Post model with relational secondary key
+    #[derive(NetabaseModel, Clone, Debug, PartialEq, Eq,
+             bincode::Encode, bincode::Decode,
+             serde::Serialize, serde::Deserialize)]
+    pub struct Post {
+        #[primary_key]
+        pub id: u64,
+        pub title: String,
+        pub content: String,
+        #[secondary_key]
+        pub author_id: u64,
+        #[secondary_key]
+        pub published: bool,
+    }
+}
+
+use blog::*;
+```
+
+**What the macro generates:**
+- `BlogDefinition` enum: `BlogDefinition::User(User)` and `BlogDefinition::Post(Post)`
+- `BlogKeys` enum: `BlogKeys::User(UserKey)` and `BlogKeys::Post(PostKey)`
+- `UserKey` and `PostKey` enums with `Primary` and `Secondary` variants
+- Primary key newtypes: `UserPrimaryKey(u64)`, `PostPrimaryKey(u64)`
+- Secondary key enums: `UserSecondaryKeys`, `PostSecondaryKeys`
+- All required trait implementations for database operations
+
+### 2. Use with Native (Sled) Backend
+
+```rust
+use netabase_store::databases::sled_store::SledStore;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Create database
+    let temp_dir = tempfile::tempdir()?;
+    let store = SledStore::<BlogDefinition>::new(temp_dir.path())?;
+
+    // Open typed tree for User models
+    let user_tree = store.open_tree::<User>();
+
+    // Create and insert a user
+    let alice = User {
+        id: 1,
+        name: "Alice".to_string(),
+        email: "alice@example.com".to_string(),
+    };
+
+    user_tree.put(alice.clone())?;
+
+    // Retrieve by primary key
+    let retrieved = user_tree.get(UserPrimaryKey(1))?.unwrap();
+    assert_eq!(retrieved, alice);
+
+    // Query by secondary key (email)
+    let users = user_tree.get_by_secondary_key(
+        EmailSecondaryKey("alice@example.com".to_string())
+    )?;
+    assert_eq!(users.len(), 1);
+
+    Ok(())
 }
 ```
 
-### Key Features
-
-1. **Primary Keys**: Mark fields with `#[key]` attribute
-2. **Secondary Keys**: Add `#[secondary_key]` to enable indexing on additional fields
-3. **Custom Key Names**: Use `#[key_name(KeyName)]` to specify custom key type names
-
-### Basic Operations
+### 3. Use with WASM (IndexedDB) Backend
 
 ```rust
-// Initialize database
-let db = NetabaseSledDatabase::new_with_path("path/to/db")?;
+#[cfg(target_arch = "wasm32")]
+use netabase_store::databases::indexeddb_store::IndexedDBStore;
+use wasm_bindgen::prelude::*;
 
-// Get tree for specific model
-let user_tree: NetabaseSledTree<User, UserKey> = db.get_main_tree()?;
+#[wasm_bindgen]
+pub async fn run_wasm_example() -> Result<JsValue, JsValue> {
+    // Create IndexedDB store
+    let store = IndexedDBStore::<BlogDefinition>::new("my_blog_db")
+        .await
+        .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
 
-// CRUD operations
-user_tree.insert(user.key(), user)?;
-let user = user_tree.get(key)?;
-user_tree.remove(key)?;
+    // Same API as Sled!
+    let user_tree = store.open_tree::<User>();
+
+    let alice = User {
+        id: 1,
+        name: "Alice".to_string(),
+        email: "alice@example.com".to_string(),
+    };
+
+    user_tree.put(alice.clone())
+        .await
+        .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
+
+    Ok(JsValue::from_str("Success!"))
+}
 ```
 
-### Secondary Key Queries
+## Architecture Overview
+
+### Type Hierarchy
+
+```
+BlogDefinition (enum)
+├── User(User)
+└── Post(Post)
+
+BlogKeys (enum)
+├── User(UserKey)
+└── Post(PostKey)
+
+UserKey (enum)
+├── Primary(UserPrimaryKey)
+└── Secondary(UserSecondaryKeys)
+
+UserSecondaryKeys (enum)
+└── Email(EmailSecondaryKey)
+```
+
+### Storage Backends
+
+| Backend | Platform | Use Case | Performance |
+|---------|----------|----------|-------------|
+| **Sled** | Native | Production embedded DB | Excellent |
+| **IndexedDB** | WASM | Browser applications | Good |
+| **Memory** | Both | Testing/caching | Excellent |
+
+### Trait System
+
+All storage backends implement these core traits:
+
+- **`Store<D>`**: Store-level operations (open trees, discriminants)
+- **`StoreTree<M>`**: Tree-level CRUD operations
+- **`NetabaseModel`**: Model trait with key extraction
+- **`NetabaseDefinition`**: Definition enum trait for schema organization
+- **`NetabaseDefinitionKey`**: Keys enum trait for type-safe operations
+
+### LibP2P Integration
+
+When the `libp2p` feature is enabled, additional traits are available:
+
+- **`KademliaRecord`**: Convert definitions to/from libp2p `Record`
+- **`KademliaRecordKey`**: Convert keys to/from libp2p `RecordKey`
+- **`RecordStore`**: Full libp2p RecordStore trait implementation
 
 ```rust
-// Query by secondary key
-let users = user_tree.query_by_secondary_key(
-    UserSecondaryKeys::EmailKey("user@example.com".to_string())
-)?;
+#[cfg(feature = "libp2p")]
+use libp2p::kad::store::RecordStore;
+use netabase_store::traits::dht::KademliaRecord;
 
-// Query with custom filter
-let senior_users = user_tree.query_with_filter(|user| user.age >= 30)?;
+// Convert model to DHT record
+let user_def = BlogDefinition::User(alice);
+let record = user_def.try_to_record()?;
+
+// Store in Kademlia
+RecordStore::put(&mut store, record)?;
+
+// Retrieve from Kademlia
+let retrieved = RecordStore::get(&store, &record.key);
+```
+
+## Examples
+
+See the `examples/` directory for comprehensive demonstrations:
+
+- **`basic_store.rs`**: LibP2P Record conversion and DHT integration
+
+Run native examples:
+```bash
+cargo run --example basic_store --features "native,libp2p"
+```
+
+Build WASM examples:
+```bash
+wasm-pack build --features wasm --no-default-features
+```
+
+## Testing
+
+### Native Tests
+```bash
+# Run all tests
+cargo test --features native
+
+# Run specific test suite
+cargo test --features native --test sled_store_tests
+```
+
+### WASM Tests
+```bash
+# Install wasm-pack
+cargo install wasm-pack
+
+# Run WASM tests in headless browser
+wasm-pack test --headless --firefox --features wasm
+
+# Or with Chrome
+wasm-pack test --headless --chrome --features wasm
+```
+
+## API Documentation
+
+### Key Traits
+
+#### `NetabaseModel`
+```rust
+pub trait NetabaseModel {
+    type PrimaryKey: NetabaseModelKey;
+    type SecondaryKeys: NetabaseModelKey;
+    type Keys: NetabaseModelKey;
+
+    fn primary_key(&self) -> Self::PrimaryKey;
+    fn secondary_keys(&self) -> Vec<Self::SecondaryKeys>;
+    fn discriminant_name() -> &'static str;
+}
+```
+
+#### `Store<D>`
+```rust
+pub trait Store<D: NetabaseDefinition> {
+    fn open_tree<M: NetabaseModel>(&self) -> impl StoreTree<M>;
+    fn active_discriminants(&self) -> Vec<D::Discriminants>;
+}
+```
+
+#### `StoreTree<M>`
+```rust
+pub trait StoreTree<M: NetabaseModel> {
+    fn put(&self, model: M) -> Result<()>;
+    fn get(&self, key: M::PrimaryKey) -> Result<Option<M>>;
+    fn remove(&self, key: M::PrimaryKey) -> Result<bool>;
+    fn get_by_secondary_key(&self, key: M::SecondaryKeys) -> Result<Vec<M>>;
+    fn iter(&self) -> impl Iterator<Item = Result<(M::PrimaryKey, M)>>;
+    // ... more methods
+}
+```
+
+## Performance
+
+### Benchmarks
+
+See `benches/` for comprehensive performance tests:
+
+```bash
+cargo bench --features native
+```
+
+Expected performance (native/Sled):
+- **Put operations**: ~50-100μs per insert
+- **Get operations**: ~10-20μs per lookup
+- **Secondary key queries**: O(n) where n = matching records
+- **Iteration**: ~5-10μs per record
+
+## Advanced Features
+
+### Custom Serialization
+
+While `bincode` is the default, you can implement custom serialization:
+
+```rust
+// Custom conversion trait
+impl ToIVec for MyType {
+    fn to_ivec(&self) -> Result<sled::IVec> {
+        // Custom serialization logic
+    }
+}
 ```
 
 ### Batch Operations
 
 ```rust
-// Batch insert with automatic indexing
-let items = vec![(key1, value1), (key2, value2)];
-tree.batch_insert_with_indexing(items)?;
+// Batch inserts for better performance
+let users = vec![user1, user2, user3];
+for user in users {
+    user_tree.put(user)?;
+}
+user_tree.flush()?; // Ensure persistence
 ```
 
-## Available Macros
+### Atomic Operations
 
-1. `#[netabase_schema_module(Schema, SchemaKey)]`: Defines a schema module
-2. `#[derive(NetabaseModel)]`: Implements necessary traits for database models
-3. `#[key_name(KeyName)]`: Specifies the key type name for a model
-4. `#[key]`: Marks the primary key field
-5. `#[secondary_key]`: Marks fields for secondary indexing
+```rust
+// Compare-and-swap for atomic updates
+user_tree.compare_and_swap(
+    key,
+    Some(old_value),
+    Some(new_value)
+)?;
+```
 
-## Advanced Features
+## Migration Guide
 
-- Range queries with prefix matching
-- Count operations with predicates
-- Secondary key value extraction
-- Database-level indexing operations
-- Relationship support between models
+### From Old Macro System
 
-## TODO Items and Unimplemented Features
+If you're migrating from the older `netabase_schema_module` macro:
 
-### High Priority TODOs
+**Old:**
+```rust
+#[netabase_schema_module(BlogSchema, BlogKeys)]
+mod blog { ... }
+```
 
-#### Dead Code and Unused Imports
-- **Unused HashMap Import**: Remove unused import in traits.rs
-  - Location: `src/traits.rs:1279`
-  - Status: Warning - unused import `std::collections::HashMap`
-  - Action: Remove unused import or implement usage
+**New:**
+```rust
+#[netabase_definition_module(BlogDefinition, BlogKeys)]
+mod blog { ... }
+```
 
-- **Unused Cow Import**: Remove unused import in sled.rs
-  - Location: `src/database/sled.rs:11`
-  - Status: Warning - unused import `std::borrow::Cow`
-  - Action: Remove unused import
+Key changes:
+- Schema enums are now called "Definitions"
+- Automatic generation of all key types and variants
+- Simplified trait requirements
 
-- **Unused NetabaseSchemaQuery**: Remove unused import
-  - Location: `src/database/sled.rs:32`
-  - Status: Warning - unused import `NetabaseSchemaQuery`
-  - Action: Remove unused import or implement query functionality
+## Troubleshooting
 
-#### Documentation TODOs
-- **Bincode Explicit Requirement**: Fix old refactor issue
-  - Location: `src/traits.rs:285-289`
-  - Issue: Comment indicates "some old refactor did something weird that requires bincode to be explicit here"
-  - Status: Technical debt from previous refactor
-  - Action: Investigate and fix bincode requirement or document why it's needed
+### Common Issues
 
-- **Example Code in Documentation**: Incomplete examples in lib.rs
-  - Location: `src/lib.rs:207-208`
-  - Issue: Documentation example uses `todo!()` placeholder
-  - Status: Incomplete documentation
-  - Action: Complete the example with working code
+**"Type does not implement NetabaseModel"**
+- Ensure you've derived `NetabaseModel` on your struct
+- Check that `bincode::Encode` and `bincode::Decode` are derived
+- Verify `serde` traits are derived if using `libp2p` feature
 
-#### Test Implementation Gaps
-- **Conversion Function Tests**: Test functions are commented out
-  - Location: `tests/test_simple_record_store.rs:74-80`
-  - Issue: `_test_conversions` function has commented out test code using `unimplemented!()`
-  - Status: Tests not fully implemented
-  - Action: Implement proper test cases or remove placeholder
+**"Failed to open database"**
+- Check file permissions on the database directory
+- Ensure the path exists and is writable
+- For WASM, verify IndexedDB is supported in the browser
 
-- **Discriminant Method Tests**: Test methods are commented out
-  - Location: `tests/test_simple_record_store.rs:139-146`
-  - Issue: `_test_discriminant_methods` function has commented out test code using `unimplemented!()`
-  - Status: Tests not fully implemented
-  - Action: Implement proper test methods or document why they're disabled
+**"Secondary key query returns empty"**
+- Verify the secondary key field is marked with `#[secondary_key]`
+- Ensure data was inserted after the index was created
+- Check that the query key matches the field type exactly
 
-### Medium Priority TODOs
+## Contributing
 
-#### Feature Implementation
-- **WASM Compatibility**: Add WebAssembly support
-  - Current: Only native support implemented
-  - Action: Add conditional compilation for WASM builds
-  - Considerations: Browser storage APIs, limited file system access
+Contributions are welcome! Please:
 
-- **Async Operations**: Consider async database operations
-  - Current: Synchronous sled operations
-  - Action: Evaluate async sled features or wrapper implementations
+1. Add tests for new features
+2. Update documentation
+3. Follow Rust naming conventions
+4. Run `cargo fmt` and `cargo clippy`
 
-- **Distributed Features**: Network-aware database operations
-  - Current: Local database only
-  - Action: Add networking capabilities for distributed scenarios
+## License
 
-#### Performance Optimizations
-- **Batch Operation Efficiency**: Optimize large batch operations
-- **Index Performance**: Improve secondary key indexing performance
-- **Memory Usage**: Optimize memory usage for large datasets
+This project is licensed under the GNU GPL v3 License - see the [LICENSE](../LICENSE) file for details.
 
-### Low Priority TODOs
+## Acknowledgments
 
-#### Code Quality
-- **Error Handling**: Standardize error types across the crate
-- **Logging**: Add structured logging for database operations
-- **Metrics**: Add performance metrics and monitoring
-
-#### Testing
-- **Property Tests**: Add property-based tests for database operations
-- **Benchmark Tests**: Add performance benchmarks
-- **Integration Tests**: Add full integration test suite
-
-#### Documentation
-- **Migration Guide**: Create migration guide for schema changes
-- **Performance Guide**: Document performance characteristics
-- **Best Practices**: Expand best practices section
-
-## Platform Compatibility
-
-### Native Features
-- Full sled database functionality
-- File system access for database storage
-- Complete indexing and querying capabilities
-- Batch operations with atomic transactions
-
-### WASM Limitations
-- **File System**: No direct file system access in WASM
-- **Threading**: Limited threading capabilities
-- **Storage**: Must use browser storage APIs
-- **Performance**: May have different performance characteristics
-
-## Known Issues
-
-1. **Import Warnings**: Several unused imports need cleanup
-2. **Documentation Examples**: Some examples use placeholder code
-3. **Test Coverage**: Some test functions are incomplete
-4. **WASM Support**: No WebAssembly compatibility implemented
-5. **Async Support**: All operations are currently synchronous
-
-## Best Practices
-
-1. Always define primary keys for your models
-2. Use secondary keys for frequently queried fields
-3. Consider using batch operations for bulk updates
-4. Properly handle database errors in your application
-5. Use appropriate types for your keys and fields
-6. Clean up unused imports to avoid warnings
-7. Implement proper error handling for all database operations
-
+- [Sled](https://github.com/spacejam/sled) - Embedded database engine
+- [web-sys](https://rustwasm.github.io/wasm-bindgen/web-sys/index.html) - Web API bindings for Rust
+- [libp2p](https://libp2p.io/) - Modular peer-to-peer networking stack
+- [bincode](https://github.com/bincode-org/bincode) - Binary serialization
