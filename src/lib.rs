@@ -13,7 +13,6 @@
 //! - **Type-Safe Models**: Automatic code generation for database models using derive macros
 //! - **Primary & Secondary Keys**: Efficient indexing and querying capabilities
 //! - **Distributed Architecture**: Peer-to-peer networking with DHT-based record storage
-//! - **Relational Support**: Foreign key relationships and join-like operations
 //! - **Network Transparency**: Seamless data synchronization across network nodes
 //!
 //! ## Quick Start
@@ -199,10 +198,11 @@
 //! - Balance query performance vs. storage/write overhead
 //! - Use for fields with reasonable cardinality
 //!
-//! ### Relations
-//! - Use foreign key fields to reference other models
-//! - Enable efficient joins and referential integrity
-//! - Consider using `NetabaseRelationalQuery` for complex relationships
+//! ### TODO
+//! #### Relations
+//! [] Use foreign key fields to reference other models
+//! [] Enable efficient joins and referential integrity
+//! [] Consider using `NetabaseRelationalQuery` for complex relationships
 ///
 /// ## Performance Considerations
 ///
@@ -1626,6 +1626,7 @@ impl<D: NetabaseDefinition + Send + Sync> Drop for Netabase<D> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tests::test_definition::*;
     use bincode::{Decode, Encode};
     use netabase_macros::{NetabaseModel, netabase_definition_module};
     use serde::{Deserialize, Serialize};
@@ -1637,9 +1638,8 @@ mod tests {
         #[derive(
             NetabaseModel, Clone, Encode, Decode, Debug, PartialEq, Serialize, Deserialize,
         )]
-        #[key_name(TestUserKey)]
         pub struct TestUser {
-            #[key]
+            #[primary_key]
             pub id: u64,
             pub name: String,
         }

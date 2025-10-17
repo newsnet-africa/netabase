@@ -84,7 +84,6 @@ fn handle_outbound_query_progressed<D: NetabaseDefinition + Send + Sync + 'stati
 ) {
     // Check if this is the last step of the query
     if step.last {
-
         // Try to find and send the result through the stored response channel
         if let Ok(mut pending_queries) = PENDING_QUERIES.lock() {
             if let Some(sender_box) = pending_queries.remove(&id) {
@@ -179,12 +178,18 @@ fn handle_unroutable_peer<D: NetabaseDefinition + Send + Sync + 'static>(_peer: 
 }
 
 /// Handle routable peer events
-fn handle_routable_peer<D: NetabaseDefinition + Send + Sync + 'static>(_peer: PeerId, _address: Multiaddr) {
+fn handle_routable_peer<D: NetabaseDefinition + Send + Sync + 'static>(
+    _peer: PeerId,
+    _address: Multiaddr,
+) {
     // Silent - routable peer detection is internal
 }
 
 /// Handle pending routable peer events
-fn handle_pending_routable_peer<D: NetabaseDefinition + Send + Sync + 'static>(_peer: PeerId, _address: Multiaddr) {
+fn handle_pending_routable_peer<D: NetabaseDefinition + Send + Sync + 'static>(
+    _peer: PeerId,
+    _address: Multiaddr,
+) {
     // Silent - pending peer routing is internal
 }
 

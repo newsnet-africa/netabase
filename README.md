@@ -39,7 +39,7 @@ If you do make an issue, it may be moved to the [netabase_store](https://github.
 ### TODO:
 - **Advanced DHT Operations**: Enhanced integration with libp2p kademlia features
 
-## TODO & Unimplemented Features
+## TODO & Unimplemented Features + Defaults
 
 ### Code-Level TODOs from Codebase Analysis
 
@@ -52,26 +52,26 @@ If you do make an issue, it may be moved to the [netabase_store](https://github.
   - [ ] `handle_outgoing_connection_error` - Only prints debug info (src/network/swarm/handlers/swarm_events/outgoing_connection_error.rs:9)
   - [ ] `handle_dialing` - Only prints debug info (src/network/swarm/handlers/swarm_events/dialing.rs:5)
 
-#### mDNS Discovery Implementation
+#### mDNS Default Discovery Implementation
 - [ ] **mDNS Peer Management**: Discovery handlers need full implementation
   - [ ] `handle_discovered` - Add peer to routing table/peer store (src/network/swarm/handlers/swarm_events/behaviour/mdns.rs:17)
   - [ ] `handle_expired` - Remove peer from routing table, close connections (src/network/swarm/handlers/swarm_events/behaviour/mdns.rs:29)
 
-#### Identity/Identification System
+#### Default Identity/Identification System
 - [ ] **Peer Identification**: All identify event handlers are placeholders
   - [ ] `handle_received` - Process received peer identification (src/network/swarm/handlers/swarm_events/behaviour/identify.rs:42)
   - [ ] `handle_sent` - Handle sent identification events (src/network/swarm/handlers/swarm_events/behaviour/identify.rs:51)
   - [ ] `handle_pushed` - Process pushed identification info (src/network/swarm/handlers/swarm_events/behaviour/identify.rs:60)
   - [ ] `handle_error` - Implement identification error handling (src/network/swarm/handlers/swarm_events/behaviour/identify.rs:73)
 
-#### Address Management
+#### Default Address Management
 - [ ] **External Address Handling**: Address discovery and management
   - [ ] `handle_new_external_addr_candidate` - Process new external address candidates (src/network/swarm/handlers/swarm_events/new_external_addr_candidate.rs:4)
   - [ ] `handle_external_addr_confirmed` - Handle confirmed external addresses (src/network/swarm/handlers/swarm_events/external_addr_confirmed.rs:4)
   - [ ] `handle_external_addr_expired` - Clean up expired external addresses (src/network/swarm/handlers/swarm_events/external_addr_expired.rs:4)
   - [ ] `handle_new_external_addr_of_peer` - Track peer external addresses (src/network/swarm/handlers/swarm_events/new_external_addr_of_peer.rs:4)
 
-#### Listener Management
+#### Default Listener Management
 - [ ] **Network Listener Handling**: Listener lifecycle management
   - [ ] `handle_new_listen_addr` - Process new listen addresses (src/network/swarm/handlers/swarm_events/new_listen_addr.rs:4)
   - [ ] `handle_expired_listen_addr` - Handle expired listen addresses (src/network/swarm/handlers/swarm_events/expired_listen_addr.rs:4)

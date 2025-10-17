@@ -113,5 +113,5 @@ futures = { workspace = true }
 getrandom = { workspace = true }
 
 [[example]]
-name = "chat_app"
-path = "examples/chat_app.rs"
+name = "simple_mdns_chat"
+path = "examples/simple_mdns_chat.rs"
