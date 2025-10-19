@@ -19,8 +19,8 @@
 //!
 //! ```rust
 //! use netabase::Netabase;
-//! use netabase_store::{NetabaseModel, netabase_definition_module};
-//! use netabase_store::traits::model::NetabaseModel;
+//! use netabase_store::{NetabaseModelTrait, netabase_definition_module};
+//! use netabase_store::traits::model::NetabaseModelTrait;
 //! use netabase_store::{bincode, serde}; // Re-exported for convenience
 //!
 //! // Define your data models
@@ -93,15 +93,15 @@
 //!
 //! ```rust
 //! use netabase_store::database::sled::{NetabaseSledDatabase, NetabaseSledTree};
-//! use netabase_store::traits::{NetabaseModel, NetabaseSecondaryKeyQuery};
+//! use netabase_store::traits::{NetabaseModelTrait, NetabaseSecondaryKeyQuery};
 //! use netabase_store::netabase_definition_module;
 //!
 // Define your data models
 //! #[netabase_definition_module(BlogDefinition, BlogKeys)]
 //! mod blog {
 //!     use super::*;
-//!     use netabase_store::NetabaseModel;
-//!     use netabase_store::traits::NetabaseModel;
+//!     use netabase_store::NetabaseModelTrait;
+//!     use netabase_store::traits::NetabaseModelTrait;
 //!     use netabase_store::{bincode, serde}; // Re-exported for convenience
 //!
 //!
@@ -141,8 +141,8 @@
 //!
 //! ```rust, ignore
 //! use netabase::Netabase;
-//! use netabase_macros::{NetabaseModel, netabase_definition_module};
-//! use netabase_store::traits::NetabaseModel;
+//! use netabase_store::{NetabaseModelTrait, netabase_definition_module};
+//! use netabase_store::traits::NetabaseModelTrait;
 //! use netabase::{bincode, serde}; // Re-exported for convenience
 //! use tokio::main;
 //!
@@ -150,7 +150,7 @@
 //! #[netabase_definition_module(TestDefinition, TestDefinitionKeys)]
 //! mod test_definition {
 //!     use super::*;
-//!     use netabase_macros::{NetabaseModel, key_name};
+//!     use netabase_store::{NetabaseModelTrait, key_name};
 //!
 //!     /// Test user model
 //!     #[derive(NetabaseModel, Clone, Debug, PartialEq, bincode::Encode, bincode::Decode, serde::Serialize, serde::Deserialize)]
@@ -252,15 +252,12 @@
 // ```rust
 // use netabase::{bincode, serde, strum, derive_more, sled};
 // ```
-pub use netabase_store::*;
-
+pub use netabase_store;
 /// Re-export macro dependencies for user convenience.
 /// Users can access these through `netabase::serde`, `netabase::bincode`, etc.
 /// but the macros will work even without manual imports thanks to hygiene.
 // Re-export macro dependencies conditionally when macros are used
 // #[doc(hidden)]
-// #[cfg(all(feature = "native", feature = "libp2p"))]
-// pub use netabase_store::__macro_deps::*;
 pub mod errors;
 
 #[cfg(feature = "native")]
@@ -269,8 +266,8 @@ pub mod network;
 #[cfg(feature = "native")]
 use libp2p::kad::QueryResult;
 use netabase_store::traits::{
-    definition::NetabaseDefinition,
-    model::{NetabaseModel, NetabaseModelKey},
+    definition::NetabaseDefinitionTrait,
+    model::{NetabaseModelTrait, NetabaseModelTraitKey},
 };
 #[cfg(feature = "native")]
 use tokio::sync::{broadcast, mpsc, oneshot};
@@ -307,7 +304,7 @@ use tokio::sync::{broadcast, mpsc, oneshot};
 ///
 /// ```rust,ignore
 /// use netabase::Netabase;
-/// use netabase_macros::{NetabaseModel, netabase_definition_module};
+/// use netabase_store::{NetabaseModelTrait, netabase_definition_module};
 ///
 /// #[netabase_definition_module(MyDefinition, MyKeys)]
 /// mod definition {
@@ -337,7 +334,7 @@ use tokio::sync::{broadcast, mpsc, oneshot};
 ///
 /// netabase.stop_swarm().await.unwrap();
 /// ```
-pub struct Netabase<D: NetabaseDefinition + Send + Sync> {
+pub struct Netabase<D: NetabaseDefinitionTrait + Send + Sync> {
     /// Handle to the background swarm task
     swarm_thread: Option<tokio::task::JoinHandle<anyhow::Result<()>>>,
     /// Channel for sending commands to the swarm
@@ -353,7 +350,7 @@ pub struct Netabase<D: NetabaseDefinition + Send + Sync> {
 // /// This version provides only local database functionality without networking,
 // /// suitable for WebAssembly environments where networking capabilities are limited.
 // #[cfg(all(feature = "wasm", not(feature = "native")))]
-// pub struct Netabase<D: NetabaseDefinition + Send + Sync> {
+// pub struct Netabase<D: NetabaseDefinitionTrait + Send + Sync> {
 //     /// Local database instance
 //     database: database::NetabaseDatabase<D>,
 //     /// Optional custom database name for WASM storage
@@ -361,7 +358,7 @@ pub struct Netabase<D: NetabaseDefinition + Send + Sync> {
 // }
 
 #[cfg(feature = "native")]
-impl<D: NetabaseDefinition + Send + Sync + 'static> Netabase<D>
+impl<D: NetabaseDefinitionTrait + Send + Sync + 'static> Netabase<D>
 where
     D: netabase_store::traits::convert::ToIVec,
     D::Keys: netabase_store::traits::convert::ToIVec,
@@ -385,7 +382,7 @@ where
     ///
     /// ```rust,ignore
     /// use netabase::Netabase;
-    /// use netabase_macros::netabase_definition_module;
+    /// use netabase_store::netabase_definition_module;
     ///
     /// #[netabase_definition_module(MyDefinition, MyKeys)]
     /// mod my_definition {}
@@ -426,7 +423,7 @@ where
     /// ```rust,ignore
     /// use netabase::Netabase;
     /// use std::path::Path;
-    /// use netabase_macros::netabase_definition_module;
+    /// use netabase_store::netabase_definition_module;
     ///
     /// #[netabase_definition_module(MyDefinition, MyKeys)]
     /// mod my_definition {}
@@ -478,7 +475,7 @@ where
     ///
     /// ```rust,ignore
     /// use netabase::Netabase;
-    /// use netabase_macros::netabase_definition_module;
+    /// use netabase_store::netabase_definition_module;
     ///
     /// #[netabase_definition_module(MyDefinition, MyKeys)]
     /// mod my_definition {}
@@ -543,7 +540,7 @@ where
     ///
     /// ```rust,ignore
     /// use netabase::Netabase;
-    /// use netabase_macros::netabase_definition_module;
+    /// use netabase_store::netabase_definition_module;
     ///
     /// #[netabase_definition_module(MyDefinition, MyKeys)]
     /// mod my_definition {}
@@ -601,7 +598,7 @@ where
     ///
     /// ```rust,ignore
     /// use netabase::Netabase;
-    /// use netabase_macros::netabase_definition_module;
+    /// use netabase_store::netabase_definition_module;
     ///
     /// #[netabase_definition_module(MyDefinition, MyKeys)]
     /// mod my_definition {}
@@ -633,7 +630,7 @@ where
 
     /// Store a record in the distributed hash table (DHT).
     ///
-    /// This method takes any model that implements `NetabaseModel` and stores it
+    /// This method takes any model that implements `NetabaseModelTrait` and stores it
     /// in the distributed network. The model is automatically wrapped in the
     /// schema enum and serialized for network transmission.
     ///
@@ -686,7 +683,7 @@ where
     ///
     /// DHT operations are asynchronous and may take time to complete,
     /// especially during network partitions or with limited peers.
-    pub async fn put_record<M: NetabaseModel>(&self, model: M) -> anyhow::Result<QueryResult>
+    pub async fn put_record<M: NetabaseModelTrait>(&self, model: M) -> anyhow::Result<QueryResult>
     where
         D: From<M>,
     {
@@ -761,7 +758,7 @@ where
     ///
     /// Retrieved records may be cached locally for faster future access.
     /// The cache TTL depends on network configuration.
-    pub async fn get_record<K: NetabaseModelKey>(&self, key: K) -> anyhow::Result<QueryResult>
+    pub async fn get_record<K: NetabaseModelTraitKey>(&self, key: K) -> anyhow::Result<QueryResult>
     where
         D::Keys: From<K>,
     {
@@ -818,7 +815,10 @@ where
     ///     Err(e) => eprintln!("Provider query failed: {}", e),
     /// }
     /// ```
-    pub async fn get_providers<K: NetabaseModelKey>(&self, key: K) -> anyhow::Result<QueryResult>
+    pub async fn get_providers<K: NetabaseModelTraitKey>(
+        &self,
+        key: K,
+    ) -> anyhow::Result<QueryResult>
     where
         D::Keys: From<K>,
     {
@@ -882,7 +882,10 @@ where
     ///     Err(e) => eprintln!("Failed to start providing: {}", e),
     /// }
     /// ```
-    pub async fn start_providing<K: NetabaseModelKey>(&self, key: K) -> anyhow::Result<QueryResult>
+    pub async fn start_providing<K: NetabaseModelTraitKey>(
+        &self,
+        key: K,
+    ) -> anyhow::Result<QueryResult>
     where
         D::Keys: From<K>,
     {
@@ -932,7 +935,7 @@ where
     /// netabase.stop_providing(user_key).await.unwrap();
     /// println!("No longer providing this key");
     /// ```
-    pub async fn stop_providing<K: NetabaseModelKey>(&self, key: K) -> anyhow::Result<()>
+    pub async fn stop_providing<K: NetabaseModelTraitKey>(&self, key: K) -> anyhow::Result<()>
     where
         D::Keys: From<K>,
     {
@@ -1060,8 +1063,8 @@ where
     ///
     /// use bincode::{Decode, Encode};
     /// use netabase::Netabase;
-    /// use netabase_macros::{NetabaseModel, netabase_definition_module};
-    /// use netabase_store::traits::NetabaseModel;
+    /// use netabase_store::{NetabaseModelTrait, netabase_definition_module};
+    /// use netabase_store::traits::NetabaseModelTrait;
     /// use serde::{Deserialize, Serialize};
     /// // Define your data models
     /// #[netabase_definition_module(BlogDefinition, BlogKeys)]
@@ -1420,7 +1423,7 @@ where
     /// Removing a record locally doesn't remove it from the network. To fully
     /// remove data from a distributed system, you would need to coordinate
     /// with other nodes or implement a distributed deletion protocol.
-    pub async fn remove_record<K: NetabaseModelKey>(&self, key: K) -> anyhow::Result<()>
+    pub async fn remove_record<K: NetabaseModelTraitKey>(&self, key: K) -> anyhow::Result<()>
     where
         D::Keys: From<K>,
     {
@@ -1510,7 +1513,7 @@ where
     // /// ```rust,ignore
     // /// use netabase::Netabase;
     // /// use netabase_store::traits::NetabaseSchemaQuery;
-    // /// use netabase_macros::netabase_definition_module;
+    // /// use netabase_store::netabase_definition_module;
     // ///
     // /// #[netabase_definition_module(MyDefinition, MyKeys)]
     // /// mod my_definition {
@@ -1550,7 +1553,7 @@ where
     // /// ```rust,ignore
     // /// use netabase::Netabase;
     // /// use netabase_store::traits::NetabaseSchemaQuery;
-    // /// use netabase_macros::netabase_definition_module;
+    // /// use netabase_store::netabase_definition_module;
     // ///
     // /// #[netabase_definition_module(MyDefinition, MyKeys)]
     // /// mod my_definition {
@@ -1578,7 +1581,7 @@ where
 
 // /// WASM-specific implementation with local database operations only
 // #[cfg(all(feature = "wasm", not(feature = "native")))]
-// impl<D: NetabaseDefinition + Send + Sync + 'static> Netabase<D> {
+// impl<D: NetabaseDefinitionTrait + Send + Sync + 'static> Netabase<D> {
 //     /// Create a new WASM Netabase instance for local operations.
 //     ///
 //     /// This creates a local-only database instance suitable for WASM environments.
@@ -1615,7 +1618,7 @@ where
 // }
 
 #[cfg(feature = "native")]
-impl<D: NetabaseDefinition + Send + Sync> Drop for Netabase<D> {
+impl<D: NetabaseDefinitionTrait + Send + Sync> Drop for Netabase<D> {
     fn drop(&mut self) {
         if let Some(handle) = self.swarm_thread.take() {
             handle.abort();
@@ -1628,7 +1631,7 @@ mod tests {
     use super::*;
     use crate::tests::test_definition::*;
     use bincode::{Decode, Encode};
-    use netabase_macros::{NetabaseModel, netabase_definition_module};
+    use netabase_store::*;
     use serde::{Deserialize, Serialize};
 
     #[netabase_definition_module(TestDefinition, TestDefinitionKeys)]

@@ -1,18 +1,19 @@
 use crate::error::NetabaseError;
 use crate::traits::convert::ToIVec;
-use crate::traits::definition::NetabaseDefinition;
-use crate::traits::model::NetabaseModel;
+use crate::traits::definition::NetabaseDefinitionTrait;
+use crate::traits::model::NetabaseModelTrait;
 use std::marker::PhantomData;
 use std::path::Path;
 use strum::IntoEnumIterator;
 
-/// Type-safe wrapper around sled::Db that works with NetabaseDefinition types.
+/// Type-safe wrapper around sled::Db that works with NetabaseDefinitionTrait
+/// types.
 ///
 /// The SledStore provides a type-safe interface to the underlying sled database,
 /// using discriminants as tree names and ensuring all operations are type-checked.
 pub struct SledStore<D>
 where
-    D: NetabaseDefinition,
+    D: NetabaseDefinitionTrait,
 {
     db: sled::Db,
     _phantom: PhantomData<D>,
@@ -20,7 +21,7 @@ where
 
 impl<D> SledStore<D>
 where
-    D: NetabaseDefinition,
+    D: NetabaseDefinitionTrait,
 {
     /// Get direct access to the underlying sled database
     pub fn db(&self) -> &sled::Db {
@@ -30,7 +31,7 @@ where
 
 impl<D> SledStore<D>
 where
-    D: NetabaseDefinition + ToIVec,
+    D: NetabaseDefinitionTrait + ToIVec,
 {
     /// Open a new SledStore at the given path
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, NetabaseError> {
@@ -54,7 +55,7 @@ where
     /// Open a tree for a specific model type
     pub fn open_tree<M>(&self) -> SledStoreTree<D, M>
     where
-        M: NetabaseModel + TryFrom<D> + Into<D>,
+        M: NetabaseModelTrait + TryFrom<D> + Into<D>,
         D: TryFrom<M> + ToIVec,
     {
         let tree_name = M::discriminant_name();
@@ -63,9 +64,7 @@ where
 
     /// Get all tree names (discriminants) in the database
     pub fn tree_names(&self) -> Vec<String> {
-        D::Discriminants::iter()
-            .map(|d| d.into())
-            .collect()
+        D::Discriminants::iter().map(|d| d.into()).collect()
     }
 
     // Commenting out iter_all for now as it requires Keys to implement ToIVec
@@ -98,8 +97,8 @@ where
 /// encoding/decoding and secondary key management.
 pub struct SledStoreTree<D, M>
 where
-    D: NetabaseDefinition,
-    M: NetabaseModel,
+    D: NetabaseDefinitionTrait,
+    M: NetabaseModelTrait,
 {
     tree: sled::Tree,
     db: sled::Db,
@@ -109,14 +108,12 @@ where
 
 impl<D, M> SledStoreTree<D, M>
 where
-    D: NetabaseDefinition + TryFrom<M> + ToIVec,
-    M: NetabaseModel + TryFrom<D> + Into<D>,
+    D: NetabaseDefinitionTrait + TryFrom<M> + ToIVec,
+    M: NetabaseModelTrait + TryFrom<D> + Into<D>,
 {
     /// Create a new SledStoreTree
     fn new(db: &sled::Db, tree_name: &str) -> Self {
-        let tree = db
-            .open_tree(tree_name)
-            .expect("Failed to open tree");
+        let tree = db.open_tree(tree_name).expect("Failed to open tree");
         Self {
             tree,
             db: db.clone(),
@@ -239,11 +236,16 @@ where
     }
 
     /// Remove a secondary key mapping
-    fn remove_secondary_key(&self, secondary_key: &M::SecondaryKeys, primary_key: &M::PrimaryKey) -> Result<(), NetabaseError> {
+    fn remove_secondary_key(
+        &self,
+        secondary_key: &M::SecondaryKeys,
+        primary_key: &M::PrimaryKey,
+    ) -> Result<(), NetabaseError> {
         let sec_tree_name = format!("{}_secondary", M::discriminant_name());
         if let Ok(sec_tree) = self.db.open_tree(sec_tree_name) {
-            let mut composite_key = bincode::encode_to_vec(secondary_key, bincode::config::standard())
-                .map_err(|e| crate::error::EncodingDecodingError::from(e))?;
+            let mut composite_key =
+                bincode::encode_to_vec(secondary_key, bincode::config::standard())
+                    .map_err(|e| crate::error::EncodingDecodingError::from(e))?;
             let prim_key_bytes = bincode::encode_to_vec(primary_key, bincode::config::standard())
                 .map_err(|e| crate::error::EncodingDecodingError::from(e))?;
             composite_key.extend_from_slice(&prim_key_bytes);
@@ -292,8 +294,8 @@ where
 /// Iterator over models in a SledStoreTree
 pub struct SledIter<D, M>
 where
-    D: NetabaseDefinition,
-    M: NetabaseModel,
+    D: NetabaseDefinitionTrait,
+    M: NetabaseModelTrait,
 {
     inner: sled::Iter,
     _phantom_d: PhantomData<D>,
@@ -302,30 +304,28 @@ where
 
 impl<D, M> Iterator for SledIter<D, M>
 where
-    D: NetabaseDefinition + TryFrom<M> + ToIVec,
-    M: NetabaseModel + TryFrom<D>,
+    D: NetabaseDefinitionTrait + TryFrom<M> + ToIVec,
+    M: NetabaseModelTrait + TryFrom<D>,
     M::PrimaryKey: bincode::Decode<()>,
 {
     type Item = Result<(M::PrimaryKey, M), NetabaseError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|result| {
-            result
-                .map_err(|e| e.into())
-                .and_then(|(k, v)| {
-                    let (key, _) = bincode::decode_from_slice::<M::PrimaryKey, _>(&k, bincode::config::standard())
+            result.map_err(|e| e.into()).and_then(|(k, v)| {
+                let (key, _) =
+                    bincode::decode_from_slice::<M::PrimaryKey, _>(&k, bincode::config::standard())
                         .map_err(|e| crate::error::EncodingDecodingError::from(e))?;
-                    let definition = D::from_ivec(&v)?;
-                    let model = M::try_from(definition)
-                        .map_err(|_| {
-                            crate::error::NetabaseError::Conversion(
-                                crate::error::EncodingDecodingError::Decoding(
-                                    bincode::error::DecodeError::Other("Type conversion failed")
-                                ),
-                            )
-                        })?;
-                    Ok((key, model))
-                })
+                let definition = D::from_ivec(&v)?;
+                let model = M::try_from(definition).map_err(|_| {
+                    crate::error::NetabaseError::Conversion(
+                        crate::error::EncodingDecodingError::Decoding(
+                            bincode::error::DecodeError::Other("Type conversion failed"),
+                        ),
+                    )
+                })?;
+                Ok((key, model))
+            })
         })
     }
 }

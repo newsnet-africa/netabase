@@ -1,12 +1,15 @@
 use libp2p::{PeerId, connection_limits, identity::Keypair, swarm::NetworkBehaviour};
-use netabase_store::{databases::sled_store::SledStore, traits::{definition::NetabaseDefinition, convert::ToIVec}};
+use netabase_store::{
+    databases::sled_store::SledStore,
+    traits::{convert::ToIVec, definition::NetabaseDefinitionTrait},
+};
 pub mod clone_impl;
 
 #[cfg(feature = "native")]
 use libp2p::mdns;
 
 #[derive(NetworkBehaviour)]
-pub struct NetabaseBehaviour<D: NetabaseDefinition + Send + Sync + 'static> {
+pub struct NetabaseBehaviour<D: NetabaseDefinitionTrait + Send + Sync + 'static> {
     pub kad: libp2p::kad::Behaviour<SledStore<D>>,
     pub identify: libp2p::identify::Behaviour,
     #[cfg(feature = "native")]
@@ -14,7 +17,7 @@ pub struct NetabaseBehaviour<D: NetabaseDefinition + Send + Sync + 'static> {
     pub connection_limit: libp2p::connection_limits::Behaviour,
 }
 
-impl<D: NetabaseDefinition + Send + Sync + 'static> NetabaseBehaviour<D>
+impl<D: NetabaseDefinitionTrait + Send + Sync + 'static> NetabaseBehaviour<D>
 where
     D: ToIVec,
     D::Keys: ToIVec,

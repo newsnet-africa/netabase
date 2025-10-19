@@ -3,7 +3,7 @@ use bincode::{config::standard, decode_from_slice, encode_to_vec};
 
 /// Trait for types that can be converted to/from byte vectors.
 ///
-/// Only NetabaseDefinition and NetabaseDefinitionKey should implement this trait.
+/// Only NetabaseDefinitionTrait and NetabaseDefinitionTraitKey should implement this trait.
 /// This ensures type safety by preventing direct byte manipulation at lower levels.
 pub trait ToIVec: bincode::Encode + bincode::Decode<()> + Sized {
     #[cfg(all(feature = "native", not(feature = "wasm")))]

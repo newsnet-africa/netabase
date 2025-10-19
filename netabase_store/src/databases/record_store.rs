@@ -1,13 +1,13 @@
 #[cfg(feature = "libp2p")]
 use crate::databases::sled_store::SledStore;
 #[cfg(feature = "libp2p")]
-use crate::traits::definition::NetabaseDefinition;
+use crate::traits::definition::NetabaseDefinitionTrait;
+#[cfg(feature = "libp2p")]
+use libp2p::PeerId;
 #[cfg(feature = "libp2p")]
 use libp2p::kad::store::{Error, RecordStore, Result};
 #[cfg(feature = "libp2p")]
 use libp2p::kad::{ProviderRecord, Record, RecordKey as Key};
-#[cfg(feature = "libp2p")]
-use libp2p::PeerId;
 #[cfg(feature = "libp2p")]
 use std::borrow::Cow;
 
@@ -68,7 +68,7 @@ impl Default for RecordStoreConfig {
 #[cfg(feature = "libp2p")]
 impl<D> SledStore<D>
 where
-    D: NetabaseDefinition,
+    D: NetabaseDefinitionTrait,
 {
     /// Get the configuration for the record store
     pub fn record_store_config(&self) -> RecordStoreConfig {
@@ -77,9 +77,9 @@ where
 
     /// Get the tree for a given Record by decoding the value's discriminant
     fn tree_for_record(&self, record: &Record) -> Result<sled::Tree> {
-        use crate::traits::definition::NetabaseDefinition;
+        use crate::traits::definition::NetabaseDefinitionTrait;
 
-        // Decode the Record value to get the NetabaseDefinition
+        // Decode the Record value to get the NetabaseDefinitionTrait
         let (definition, _): (D, _) =
             bincode::decode_from_slice(&record.value, bincode::config::standard())
                 .map_err(|_| Error::MaxRecords)?;
@@ -111,8 +111,7 @@ where
         }
 
         // If not found in any tree, return the first tree (for new inserts)
-        let first_disc = D::Discriminants::iter().next()
-            .ok_or(Error::MaxRecords)?;
+        let first_disc = D::Discriminants::iter().next().ok_or(Error::MaxRecords)?;
         let tree_name: String = first_disc.into();
         self.db()
             .open_tree(tree_name)
@@ -185,10 +184,10 @@ where
             bincode::decode_from_slice(bytes, bincode::config::standard())
                 .map_err(|_| Error::MaxRecords)?;
 
-        let provider = PeerId::from_bytes(&serializable.provider)
-            .map_err(|_| Error::MaxRecords)?;
+        let provider = PeerId::from_bytes(&serializable.provider).map_err(|_| Error::MaxRecords)?;
 
-        let addresses = serializable.addresses
+        let addresses = serializable
+            .addresses
             .iter()
             .filter_map(|bytes| libp2p::Multiaddr::try_from(bytes.clone()).ok())
             .collect();
@@ -239,10 +238,16 @@ where
 #[cfg(feature = "libp2p")]
 impl<D> RecordStore for SledStore<D>
 where
-    D: NetabaseDefinition,
+    D: NetabaseDefinitionTrait,
 {
-    type RecordsIter<'a> = RecordsIter<'a> where Self: 'a;
-    type ProvidedIter<'a> = ProvidedIter<'a> where Self: 'a;
+    type RecordsIter<'a>
+        = RecordsIter<'a>
+    where
+        Self: 'a;
+    type ProvidedIter<'a>
+        = ProvidedIter<'a>
+    where
+        Self: 'a;
 
     fn get(&self, k: &Key) -> Option<Cow<'_, Record>> {
         let tree = self.tree_for_key(k).ok()?;
@@ -267,7 +272,11 @@ where
         let record_bytes = Self::encode_record(&r)?;
 
         // Check if we're at capacity and this is a new record
-        if tree.get(&key_bytes).map_err(|_| Error::MaxRecords)?.is_none() {
+        if tree
+            .get(&key_bytes)
+            .map_err(|_| Error::MaxRecords)?
+            .is_none()
+        {
             if self.record_count() >= config.max_records {
                 return Err(Error::MaxRecords);
             }
@@ -452,7 +461,7 @@ impl<'a> Iterator for ProvidedIter<'a> {
 struct DummyDefinition;
 
 #[cfg(feature = "libp2p")]
-impl crate::traits::definition::NetabaseDefinition for DummyDefinition {
+impl crate::traits::definition::NetabaseDefinitionTrait for DummyDefinition {
     type Discriminants = DummyDiscriminants;
     type Keys = DummyKeys;
 
@@ -492,7 +501,7 @@ impl strum::IntoEnumIterator for DummyDiscriminants {
 enum DummyKeys {}
 
 #[cfg(feature = "libp2p")]
-impl crate::traits::definition::NetabaseDefinitionKey for DummyKeys {
+impl crate::traits::definition::NetabaseDefinitionTraitKey for DummyKeys {
     type Discriminants = DummyKeysDiscriminants;
     type Definition = DummyDefinition;
 

@@ -1,9 +1,9 @@
 use libp2p::PeerId;
 use libp2p::core::ConnectedPoint;
 use libp2p::swarm::{ConnectionError, ConnectionId};
-use netabase_store::traits::definition::NetabaseDefinition;
+use netabase_store::traits::definition::NetabaseDefinitionTrait;
 
-pub fn handle_connection_closed<D: NetabaseDefinition + Send + Sync + 'static>(
+pub fn handle_connection_closed<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     _peer_id: PeerId,
     _connection_id: ConnectionId,
     _endpoint: ConnectedPoint,

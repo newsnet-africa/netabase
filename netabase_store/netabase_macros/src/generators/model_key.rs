@@ -22,9 +22,9 @@ impl<'a> ModelVisitor<'a> {
             secondary_newtypes,
             secondary_keys,
             parse_quote!(
-                #[derive(Debug, Clone, ::netabase_deps::strum::EnumDiscriminants,
-                    ::netabase_deps::derive_more::From, ::netabase_deps::derive_more::TryInto,
-                    ::netabase_deps::bincode::Encode, ::netabase_deps::bincode::Decode
+                #[derive(Debug, Clone, ::netabase_store::strum::EnumDiscriminants,
+                    ::netabase_store::derive_more::From, ::netabase_store::derive_more::TryInto,
+                    ::netabase_store::bincode::Encode, ::netabase_store::bincode::Decode
                 )]
                 pub enum #name {
                     Primary(#primary_key_id),
@@ -54,11 +54,16 @@ impl<'a> ModelVisitor<'a> {
 
         // Get secondary key field identifiers
         let secondary_fields: Vec<_> = match &self.key {
-            Some(k) => k.secondary_keys.iter()
+            Some(k) => k
+                .secondary_keys
+                .iter()
                 .map(|f| {
                     let field_name = f.ident.as_ref().unwrap();
                     let field_name_upper = heck::AsUpperCamelCase(field_name.to_string());
-                    let variant = Ident::new(&field_name_upper.to_string(), proc_macro2::Span::call_site());
+                    let variant = Ident::new(
+                        &field_name_upper.to_string(),
+                        proc_macro2::Span::call_site(),
+                    );
                     quote::quote! {
                         #secondary_keys_ty::#variant(self.#field_name.clone().into())
                     }
@@ -70,7 +75,7 @@ impl<'a> ModelVisitor<'a> {
         let discriminant_name = model_name.to_string();
 
         quote::quote! {
-            impl ::netabase_store::traits::model::NetabaseModel for #model_name {
+            impl ::netabase_store::traits::model::NetabaseModelTrait for #model_name {
                 type PrimaryKey = #primary_key_ty;
                 type SecondaryKeys = #secondary_keys_ty;
                 type Keys = #keys_ty;
@@ -88,9 +93,9 @@ impl<'a> ModelVisitor<'a> {
                 }
             }
 
-            impl ::netabase_store::traits::model::NetabaseModelKey for #primary_key_ty {}
-            impl ::netabase_store::traits::model::NetabaseModelKey for #secondary_keys_ty {}
-            impl ::netabase_store::traits::model::NetabaseModelKey for #keys_ty {}
+            impl ::netabase_store::traits::model::NetabaseModelTraitKey for #primary_key_ty {}
+            impl ::netabase_store::traits::model::NetabaseModelTraitKey for #secondary_keys_ty {}
+            impl ::netabase_store::traits::model::NetabaseModelTraitKey for #keys_ty {}
         }
     }
 }
@@ -106,8 +111,8 @@ mod key_gen {
         fn generate_newtype<'ast>(field: &'ast Field, name: &Ident) -> ItemStruct {
             let ty = &field.ty;
             parse_quote!(
-                #[derive(Debug, Clone, PartialEq, Eq, ::netabase_deps::derive_more::From, ::netabase_deps::derive_more::Into,
-                    ::netabase_deps::bincode::Encode, ::netabase_deps::bincode::Decode
+                #[derive(Debug, Clone, PartialEq, Eq, ::netabase_store::derive_more::From, ::netabase_store::derive_more::Into,
+                    ::netabase_store::bincode::Encode, ::netabase_store::bincode::Decode
                 )]
                 pub struct #name(pub #ty);
             )
@@ -166,9 +171,9 @@ mod key_gen {
                 None => panic!("Visitor not initialised"),
             };
             parse_quote!(
-                #[derive(Debug, Clone, ::netabase_deps::strum::EnumDiscriminants,
-                    ::netabase_deps::derive_more::From, ::netabase_deps::derive_more::TryInto,
-                    ::netabase_deps::bincode::Encode, ::netabase_deps::bincode::Decode
+                #[derive(Debug, Clone, ::netabase_store::strum::EnumDiscriminants,
+                    ::netabase_store::derive_more::From, ::netabase_store::derive_more::TryInto,
+                    ::netabase_store::bincode::Encode, ::netabase_store::bincode::Decode
                 )]
                 pub enum #name {
                     #(#list),*

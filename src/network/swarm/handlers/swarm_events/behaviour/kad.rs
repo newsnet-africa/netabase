@@ -5,7 +5,7 @@ use libp2p::{
         QueryStats,
     },
 };
-use netabase_store::traits::definition::NetabaseDefinition;
+use netabase_store::traits::definition::NetabaseDefinitionTrait;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -26,7 +26,7 @@ pub fn store_query_response_channel<T: 'static + Send>(query_id: QueryId, sender
 }
 
 /// Handle Kademlia behaviour events
-pub fn handle_kad_event<D: NetabaseDefinition + Send + Sync + 'static>(kad_event: KadEvent) {
+pub fn handle_kad_event<D: NetabaseDefinitionTrait + Send + Sync + 'static>(kad_event: KadEvent) {
     match kad_event {
         KadEvent::InboundRequest { request } => {
             handle_inbound_request::<D>(request);
@@ -64,7 +64,9 @@ pub fn handle_kad_event<D: NetabaseDefinition + Send + Sync + 'static>(kad_event
 }
 
 /// Handle inbound Kademlia requests
-fn handle_inbound_request<D: NetabaseDefinition + Send + Sync + 'static>(request: InboundRequest) {
+fn handle_inbound_request<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+    request: InboundRequest,
+) {
     // Only log PutRecord requests in a clean format
     if let InboundRequest::PutRecord { source, record, .. } = &request {
         let peer_short = format!("{}", source).chars().take(8).collect::<String>();
@@ -76,7 +78,7 @@ fn handle_inbound_request<D: NetabaseDefinition + Send + Sync + 'static>(request
 }
 
 /// Handle outbound query progress - wait for ProgressStep.last and return result
-fn handle_outbound_query_progressed<D: NetabaseDefinition + Send + Sync + 'static>(
+fn handle_outbound_query_progressed<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     id: QueryId,
     result: QueryResult,
     _stats: QueryStats,
@@ -162,7 +164,7 @@ fn handle_outbound_query_progressed<D: NetabaseDefinition + Send + Sync + 'stati
 }
 
 /// Handle routing table updates
-fn handle_routing_updated<D: NetabaseDefinition + Send + Sync + 'static>(
+fn handle_routing_updated<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     _peer: PeerId,
     _is_new_peer: bool,
     _addresses: Addresses,
@@ -173,12 +175,12 @@ fn handle_routing_updated<D: NetabaseDefinition + Send + Sync + 'static>(
 }
 
 /// Handle unroutable peer events
-fn handle_unroutable_peer<D: NetabaseDefinition + Send + Sync + 'static>(_peer: PeerId) {
+fn handle_unroutable_peer<D: NetabaseDefinitionTrait + Send + Sync + 'static>(_peer: PeerId) {
     // Silent - unroutable peers are normal in P2P networks
 }
 
 /// Handle routable peer events
-fn handle_routable_peer<D: NetabaseDefinition + Send + Sync + 'static>(
+fn handle_routable_peer<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     _peer: PeerId,
     _address: Multiaddr,
 ) {
@@ -186,7 +188,7 @@ fn handle_routable_peer<D: NetabaseDefinition + Send + Sync + 'static>(
 }
 
 /// Handle pending routable peer events
-fn handle_pending_routable_peer<D: NetabaseDefinition + Send + Sync + 'static>(
+fn handle_pending_routable_peer<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     _peer: PeerId,
     _address: Multiaddr,
 ) {
@@ -194,6 +196,6 @@ fn handle_pending_routable_peer<D: NetabaseDefinition + Send + Sync + 'static>(
 }
 
 /// Handle mode change events
-fn handle_mode_changed<D: NetabaseDefinition + Send + Sync + 'static>(_new_mode: Mode) {
+fn handle_mode_changed<D: NetabaseDefinitionTrait + Send + Sync + 'static>(_new_mode: Mode) {
     // Silent - mode changes are internal DHT operations
 }

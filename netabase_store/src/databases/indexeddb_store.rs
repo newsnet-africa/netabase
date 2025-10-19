@@ -3,9 +3,9 @@ use crate::error::NetabaseError;
 #[cfg(feature = "wasm")]
 use crate::traits::convert::ToIVec;
 #[cfg(feature = "wasm")]
-use crate::traits::definition::NetabaseDefinition;
+use crate::traits::definition::NetabaseDefinitionTrait;
 #[cfg(feature = "wasm")]
-use crate::traits::model::NetabaseModel;
+use crate::traits::model::NetabaseModelTrait;
 #[cfg(feature = "wasm")]
 use indexed_db_futures::prelude::*;
 #[cfg(feature = "wasm")]
@@ -15,16 +15,16 @@ use strum::IntoEnumIterator;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::JsValue;
 #[cfg(feature = "wasm")]
-use web_sys::{IdbTransactionMode, IdbCursorDirection};
+use web_sys::{IdbCursorDirection, IdbTransactionMode};
 
-/// Type-safe wrapper around IndexedDB that works with NetabaseDefinition types.
+/// Type-safe wrapper around IndexedDB that works with NetabaseDefinitionTrait types.
 ///
 /// The IndexedDBStore provides a type-safe interface to the browser's IndexedDB,
 /// using discriminants as object store names and ensuring all operations are type-checked.
 #[cfg(feature = "wasm")]
 pub struct IndexedDBStore<D>
 where
-    D: NetabaseDefinition,
+    D: NetabaseDefinitionTrait,
 {
     db: IdbDatabase,
     db_name: String,
@@ -34,7 +34,7 @@ where
 #[cfg(feature = "wasm")]
 impl<D> IndexedDBStore<D>
 where
-    D: NetabaseDefinition,
+    D: NetabaseDefinitionTrait,
 {
     /// Get direct access to the underlying IndexedDB database
     pub fn db(&self) -> &IdbDatabase {
@@ -50,7 +50,7 @@ where
 #[cfg(feature = "wasm")]
 impl<D> IndexedDBStore<D>
 where
-    D: NetabaseDefinition + ToIVec,
+    D: NetabaseDefinitionTrait + ToIVec,
 {
     /// Open a new IndexedDBStore with the given database name
     pub async fn new(db_name: &str) -> Result<Self, NetabaseError> {
@@ -91,7 +91,8 @@ where
             Ok(())
         }));
 
-        let db = db_req.await
+        let db = db_req
+            .await
             .map_err(|e| NetabaseError::Storage(format!("Failed to open IndexedDB: {:?}", e)))?;
 
         Ok(Self {
@@ -104,7 +105,7 @@ where
     /// Open a tree for a specific model type
     pub fn open_tree<M>(&self) -> IndexedDBStoreTree<'_, D, M>
     where
-        M: NetabaseModel + TryFrom<D> + Into<D>,
+        M: NetabaseModelTrait + TryFrom<D> + Into<D>,
         D: TryFrom<M> + ToIVec,
     {
         let store_name = M::discriminant_name();
@@ -113,9 +114,7 @@ where
 
     /// Get all store names (discriminants) in the database
     pub fn store_names(&self) -> Vec<String> {
-        D::Discriminants::iter()
-            .map(|d| d.into())
-            .collect()
+        D::Discriminants::iter().map(|d| d.into()).collect()
     }
 
     /// Close the database connection
@@ -131,8 +130,8 @@ where
 #[cfg(feature = "wasm")]
 pub struct IndexedDBStoreTree<'a, D, M>
 where
-    D: NetabaseDefinition,
-    M: NetabaseModel,
+    D: NetabaseDefinitionTrait,
+    M: NetabaseModelTrait,
 {
     db: &'a IdbDatabase,
     store_name: String,
@@ -143,8 +142,8 @@ where
 #[cfg(feature = "wasm")]
 impl<'a, D, M> IndexedDBStoreTree<'a, D, M>
 where
-    D: NetabaseDefinition + TryFrom<M> + ToIVec,
-    M: NetabaseModel + TryFrom<D> + Into<D>,
+    D: NetabaseDefinitionTrait + TryFrom<M> + ToIVec,
+    M: NetabaseModelTrait + TryFrom<D> + Into<D>,
 {
     /// Create a new IndexedDBStoreTree
     fn new(db: &'a IdbDatabase, store_name: &str) -> Self {
@@ -173,9 +172,12 @@ where
         let value_js = js_sys::Uint8Array::from(&value_bytes[..]);
 
         // Create transaction
-        let tx = self.db
+        let tx = self
+            .db
             .transaction_on_one_with_mode(&self.store_name, IdbTransactionMode::Readwrite)
-            .map_err(|e| NetabaseError::Storage(format!("Failed to create transaction: {:?}", e)))?;
+            .map_err(|e| {
+                NetabaseError::Storage(format!("Failed to create transaction: {:?}", e))
+            })?;
 
         let store = tx
             .object_store(&self.store_name)
@@ -186,7 +188,9 @@ where
             .map_err(|e| NetabaseError::Storage(format!("Failed to put value: {:?}", e)))?;
 
         // Wait for transaction to complete
-        let _ = tx.await.into_result()
+        let _ = tx
+            .await
+            .into_result()
             .map_err(|e| NetabaseError::Storage(format!("Transaction failed: {:?}", e)))?;
 
         // Handle secondary keys
@@ -205,9 +209,9 @@ where
 
         let key_js = js_sys::Uint8Array::from(&key_bytes[..]);
 
-        let tx = self.db
-            .transaction_on_one(&self.store_name)
-            .map_err(|e| NetabaseError::Storage(format!("Failed to create transaction: {:?}", e)))?;
+        let tx = self.db.transaction_on_one(&self.store_name).map_err(|e| {
+            NetabaseError::Storage(format!("Failed to create transaction: {:?}", e))
+        })?;
 
         let store = tx
             .object_store(&self.store_name)
@@ -249,9 +253,12 @@ where
             .map_err(|e| crate::error::EncodingDecodingError::from(e))?;
         let key_js = js_sys::Uint8Array::from(&key_bytes[..]);
 
-        let tx = self.db
+        let tx = self
+            .db
             .transaction_on_one_with_mode(&self.store_name, IdbTransactionMode::Readwrite)
-            .map_err(|e| NetabaseError::Storage(format!("Failed to create transaction: {:?}", e)))?;
+            .map_err(|e| {
+                NetabaseError::Storage(format!("Failed to create transaction: {:?}", e))
+            })?;
 
         let store = tx
             .object_store(&self.store_name)
@@ -263,7 +270,9 @@ where
             .await
             .map_err(|e| NetabaseError::Storage(format!("Delete request failed: {:?}", e)))?;
 
-        let _ = tx.await.into_result()
+        let _ = tx
+            .await
+            .into_result()
             .map_err(|e| NetabaseError::Storage(format!("Transaction failed: {:?}", e)))?;
 
         // Clean up secondary keys
@@ -279,9 +288,9 @@ where
 
     /// Get the number of models in the store
     pub async fn len(&self) -> Result<usize, NetabaseError> {
-        let tx = self.db
-            .transaction_on_one(&self.store_name)
-            .map_err(|e| NetabaseError::Storage(format!("Failed to create transaction: {:?}", e)))?;
+        let tx = self.db.transaction_on_one(&self.store_name).map_err(|e| {
+            NetabaseError::Storage(format!("Failed to create transaction: {:?}", e))
+        })?;
 
         let store = tx
             .object_store(&self.store_name)
@@ -303,9 +312,12 @@ where
 
     /// Clear all models from the store
     pub async fn clear(&self) -> Result<(), NetabaseError> {
-        let tx = self.db
+        let tx = self
+            .db
             .transaction_on_one_with_mode(&self.store_name, IdbTransactionMode::Readwrite)
-            .map_err(|e| NetabaseError::Storage(format!("Failed to create transaction: {:?}", e)))?;
+            .map_err(|e| {
+                NetabaseError::Storage(format!("Failed to create transaction: {:?}", e))
+            })?;
 
         let store = tx
             .object_store(&self.store_name)
@@ -317,14 +329,19 @@ where
             .await
             .map_err(|e| NetabaseError::Storage(format!("Clear request failed: {:?}", e)))?;
 
-        let _ = tx.await.into_result()
+        let _ = tx
+            .await
+            .into_result()
             .map_err(|e| NetabaseError::Storage(format!("Transaction failed: {:?}", e)))?;
 
         // Also clear secondary keys
         let sec_store_name = format!("{}_secondary", self.store_name);
-        let tx2 = self.db
+        let tx2 = self
+            .db
             .transaction_on_one_with_mode(&sec_store_name, IdbTransactionMode::Readwrite)
-            .map_err(|e| NetabaseError::Storage(format!("Failed to create transaction: {:?}", e)))?;
+            .map_err(|e| {
+                NetabaseError::Storage(format!("Failed to create transaction: {:?}", e))
+            })?;
 
         let sec_store = tx2
             .object_store(&sec_store_name)
@@ -336,7 +353,9 @@ where
             .await
             .map_err(|e| NetabaseError::Storage(format!("Clear request failed: {:?}", e)))?;
 
-        let _ = tx2.await.into_result()
+        let _ = tx2
+            .await
+            .into_result()
             .map_err(|e| NetabaseError::Storage(format!("Transaction failed: {:?}", e)))?;
 
         Ok(())
@@ -347,9 +366,9 @@ where
     where
         M::PrimaryKey: bincode::Decode<()>,
     {
-        let tx = self.db
-            .transaction_on_one(&self.store_name)
-            .map_err(|e| NetabaseError::Storage(format!("Failed to create transaction: {:?}", e)))?;
+        let tx = self.db.transaction_on_one(&self.store_name).map_err(|e| {
+            NetabaseError::Storage(format!("Failed to create transaction: {:?}", e))
+        })?;
 
         let store = tx
             .object_store(&self.store_name)
@@ -389,24 +408,24 @@ where
                 value_array.copy_to(&mut value_bytes);
 
                 let definition = D::from_ivec(&value_bytes)?;
-                let model = M::try_from(definition)
-                    .map_err(|_| {
-                        crate::error::NetabaseError::Conversion(
-                            crate::error::EncodingDecodingError::Decoding(
-                                bincode::error::DecodeError::Other("Type conversion failed")
-                            ),
-                        )
-                    })?;
+                let model = M::try_from(definition).map_err(|_| {
+                    crate::error::NetabaseError::Conversion(
+                        crate::error::EncodingDecodingError::Decoding(
+                            bincode::error::DecodeError::Other("Type conversion failed"),
+                        ),
+                    )
+                })?;
 
                 results.push((key, model));
 
                 // Move to next
-                let continue_request = cursor.continue_cursor()
-                    .map_err(|e| NetabaseError::Storage(format!("Failed to continue cursor: {:?}", e)))?;
+                let continue_request = cursor.continue_cursor().map_err(|e| {
+                    NetabaseError::Storage(format!("Failed to continue cursor: {:?}", e))
+                })?;
 
-                let has_next = continue_request
-                    .await
-                    .map_err(|e| NetabaseError::Storage(format!("Cursor continue failed: {:?}", e)))?;
+                let has_next = continue_request.await.map_err(|e| {
+                    NetabaseError::Storage(format!("Cursor continue failed: {:?}", e))
+                })?;
 
                 if !has_next {
                     break;
@@ -435,9 +454,12 @@ where
         let key_js = js_sys::Uint8Array::from(&composite_key[..]);
         let empty_value = js_sys::Uint8Array::new_with_length(0);
 
-        let tx = self.db
+        let tx = self
+            .db
             .transaction_on_one_with_mode(&sec_store_name, IdbTransactionMode::Readwrite)
-            .map_err(|e| NetabaseError::Storage(format!("Failed to create transaction: {:?}", e)))?;
+            .map_err(|e| {
+                NetabaseError::Storage(format!("Failed to create transaction: {:?}", e))
+            })?;
 
         let store = tx
             .object_store(&sec_store_name)
@@ -447,7 +469,9 @@ where
             .put_key_val(&key_js, &empty_value)
             .map_err(|e| NetabaseError::Storage(format!("Failed to put secondary key: {:?}", e)))?;
 
-        let _ = tx.await.into_result()
+        let _ = tx
+            .await
+            .into_result()
             .map_err(|e| NetabaseError::Storage(format!("Transaction failed: {:?}", e)))?;
 
         Ok(())
@@ -469,19 +493,24 @@ where
 
         let key_js = js_sys::Uint8Array::from(&composite_key[..]);
 
-        let tx = self.db
+        let tx = self
+            .db
             .transaction_on_one_with_mode(&sec_store_name, IdbTransactionMode::Readwrite)
-            .map_err(|e| NetabaseError::Storage(format!("Failed to create transaction: {:?}", e)))?;
+            .map_err(|e| {
+                NetabaseError::Storage(format!("Failed to create transaction: {:?}", e))
+            })?;
 
         let store = tx
             .object_store(&sec_store_name)
             .map_err(|e| NetabaseError::Storage(format!("Failed to get object store: {:?}", e)))?;
 
-        store
-            .delete(&key_js)
-            .map_err(|e| NetabaseError::Storage(format!("Failed to delete secondary key: {:?}", e)))?;
+        store.delete(&key_js).map_err(|e| {
+            NetabaseError::Storage(format!("Failed to delete secondary key: {:?}", e))
+        })?;
 
-        let _ = tx.await.into_result()
+        let _ = tx
+            .await
+            .into_result()
             .map_err(|e| NetabaseError::Storage(format!("Transaction failed: {:?}", e)))?;
 
         Ok(())
@@ -500,9 +529,9 @@ where
         let sec_key_bytes = bincode::encode_to_vec(&secondary_key, bincode::config::standard())
             .map_err(|e| crate::error::EncodingDecodingError::from(e))?;
 
-        let tx = self.db
-            .transaction_on_one(&sec_store_name)
-            .map_err(|e| NetabaseError::Storage(format!("Failed to create transaction: {:?}", e)))?;
+        let tx = self.db.transaction_on_one(&sec_store_name).map_err(|e| {
+            NetabaseError::Storage(format!("Failed to create transaction: {:?}", e))
+        })?;
 
         let store = tx
             .object_store(&sec_store_name)
@@ -545,12 +574,13 @@ where
                     }
                 }
 
-                let continue_request = cursor.continue_cursor()
-                    .map_err(|e| NetabaseError::Storage(format!("Failed to continue cursor: {:?}", e)))?;
+                let continue_request = cursor.continue_cursor().map_err(|e| {
+                    NetabaseError::Storage(format!("Failed to continue cursor: {:?}", e))
+                })?;
 
-                let has_next = continue_request
-                    .await
-                    .map_err(|e| NetabaseError::Storage(format!("Cursor continue failed: {:?}", e)))?;
+                let has_next = continue_request.await.map_err(|e| {
+                    NetabaseError::Storage(format!("Cursor continue failed: {:?}", e))
+                })?;
 
                 if !has_next {
                     break;

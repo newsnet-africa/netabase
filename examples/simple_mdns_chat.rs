@@ -1,15 +1,14 @@
 use anyhow::Result;
 use chrono::Utc;
 use netabase::Netabase;
-use netabase_macros::netabase_definition_module;
+use netabase_store::*;
 use std::io::{self, Write};
 use tokio::time::{Duration, sleep};
 
 // Define the chat schema with Message model
 #[netabase_definition_module(ChatDefinition, ChatKeys)]
 mod chat {
-    use netabase_deps::{bincode, serde};
-    use netabase_macros::NetabaseModel;
+    use netabase_store::*;
 
     #[derive(
         NetabaseModel,

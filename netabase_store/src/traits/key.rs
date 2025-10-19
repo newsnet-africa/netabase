@@ -1,2 +1,2 @@
 /// Re-export of NetabaseModelKey trait
-pub use super::model::NetabaseModelKey;
+pub use super::model::NetabaseModelTraitKey;

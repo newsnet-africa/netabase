@@ -1,5 +1,5 @@
 use crate::network::behaviour::NetabaseBehaviourEvent;
-use netabase_store::traits::definition::NetabaseDefinition;
+use netabase_store::traits::definition::NetabaseDefinitionTrait;
 
 pub mod connection_limit;
 pub mod identify;
@@ -14,7 +14,7 @@ use kad::handle_kad_event;
 use mdns::handle_mdns_event;
 
 /// Handle all NetabaseBehaviour events by delegating to specific handlers
-pub(crate) fn handle_behaviour_event<D: NetabaseDefinition + Send + Sync + 'static>(
+pub(crate) fn handle_behaviour_event<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     behaviour_event: NetabaseBehaviourEvent<D>,
 ) {
     match behaviour_event {

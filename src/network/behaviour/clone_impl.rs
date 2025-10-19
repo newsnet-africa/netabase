@@ -6,13 +6,14 @@ use libp2p::swarm::ConnectionDenied;
 use libp2p::swarm::ConnectionError;
 use libp2p::swarm::SwarmEvent;
 
-use netabase_store::traits::definition::NetabaseDefinition;
+use netabase_store::traits::definition::NetabaseDefinitionTrait;
 
 use crate::network::behaviour::NetabaseBehaviourEvent;
 
-impl<D: NetabaseDefinition + Send + Sync + 'static> Clone for NetabaseBehaviourEvent<D>
+impl<D: NetabaseDefinitionTrait + Send + Sync + 'static> Clone for NetabaseBehaviourEvent<D>
 where
-    <D as netabase_store::traits::definition::NetabaseDefinition>::Discriminants: std::marker::Send,
+    <D as netabase_store::traits::definition::NetabaseDefinitionTrait>::Discriminants:
+        std::marker::Send,
 {
     fn clone(&self) -> Self {
         match self {
@@ -68,7 +69,9 @@ where
 
 #[repr(transparent)]
 #[derive(Debug)]
-pub struct NetabaseSwarmEvent<D: NetabaseDefinition + Send + Sync + 'static>(pub SwarmEvent<NetabaseBehaviourEvent<D>>);
+pub struct NetabaseSwarmEvent<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+    pub SwarmEvent<NetabaseBehaviourEvent<D>>,
+);
 
 fn multiaddr_cloner(multi: &Multiaddr) -> Multiaddr {
     Multiaddr::try_from(multi.to_vec()).expect("MultiAddr clone error")
@@ -103,7 +106,7 @@ fn multi_trans_error_cloner(
         .collect()
 }
 
-impl<D: NetabaseDefinition + Send + Sync + 'static> Clone for NetabaseSwarmEvent<D> {
+impl<D: NetabaseDefinitionTrait + Send + Sync + 'static> Clone for NetabaseSwarmEvent<D> {
     fn clone(&self) -> Self {
         match &self.0 {
             SwarmEvent::Behaviour(nbe) => NetabaseSwarmEvent(SwarmEvent::Behaviour(nbe.clone())),

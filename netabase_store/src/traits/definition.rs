@@ -3,7 +3,7 @@
 /// This trait is automatically implemented by the `#[netabase_definition_module]` macro.
 /// The definition enum is used as the primary type for encoding, decoding, and moving
 /// model data around.
-pub trait NetabaseDefinition:
+pub trait NetabaseDefinitionTrait:
     bincode::Encode
     + bincode::Decode<()>
     + Clone
@@ -29,7 +29,7 @@ pub trait NetabaseDefinition:
         + 'static;
 
     /// The keys enum that wraps all model keys
-    type Keys: NetabaseDefinitionKey;
+    type Keys: NetabaseDefinitionTraitKey;
 
     /// Convert this definition to its discriminant
     fn discriminant(&self) -> Self::Discriminants;
@@ -58,7 +58,7 @@ pub trait NetabaseDefinition:
 /// Trait for the module-level keys enum that wraps all model keys.
 ///
 /// This trait is automatically implemented by the `#[netabase_definition_module]` macro.
-pub trait NetabaseDefinitionKey:
+pub trait NetabaseDefinitionTraitKey:
     bincode::Encode
     + bincode::Decode<()>
     + Clone
@@ -82,7 +82,7 @@ pub trait NetabaseDefinitionKey:
         + 'static;
 
     /// The associated definition type
-    type Definition: NetabaseDefinition;
+    type Definition: NetabaseDefinitionTrait;
 
     /// Convert this key to its discriminant
     fn discriminant(&self) -> Self::Discriminants;

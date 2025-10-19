@@ -1,8 +1,10 @@
-use netabase_store::traits::definition::NetabaseDefinition;
+use netabase_store::traits::definition::NetabaseDefinitionTrait;
 
 use crate::network::behaviour::clone_impl::NetabaseSwarmEvent;
 
-pub fn handle_fallback_event<D: NetabaseDefinition + Send + Sync + 'static>(event: NetabaseSwarmEvent<D>) {
+pub fn handle_fallback_event<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+    event: NetabaseSwarmEvent<D>,
+) {
     // TODO: Implement fallback event handling
     println!("Unhandled swarm event (fallback): {:?}", event);
 

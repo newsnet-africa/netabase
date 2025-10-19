@@ -1,8 +1,11 @@
 use libp2p::PeerId;
 use libp2p::swarm::ConnectionId;
-use netabase_store::traits::definition::NetabaseDefinition;
+use netabase_store::traits::definition::NetabaseDefinitionTrait;
 
-pub fn handle_dialing<D: NetabaseDefinition + Send + Sync + 'static>(peer_id: Option<PeerId>, connection_id: ConnectionId) {
+pub fn handle_dialing<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+    peer_id: Option<PeerId>,
+    connection_id: ConnectionId,
+) {
     // TODO: Implement dialing handling
     if let Some(peer) = peer_id {
         println!(

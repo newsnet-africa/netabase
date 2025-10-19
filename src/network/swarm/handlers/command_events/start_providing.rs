@@ -1,10 +1,10 @@
 use libp2p::{Swarm, kad};
-use netabase_store::traits::definition::{NetabaseDefinition, NetabaseDefinitionKey};
+use netabase_store::traits::definition::{NetabaseDefinitionTrait, NetabaseDefinitionTraitKey};
 use tokio::sync::oneshot::Sender;
 
 use crate::network::behaviour::NetabaseBehaviour;
 
-pub(crate) fn handle_start_providing<D: NetabaseDefinition>(
+pub(crate) fn handle_start_providing<D: NetabaseDefinitionTrait>(
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     key: D::Keys,
     response_channel: Sender<Result<kad::QueryResult, kad::store::Error>>,

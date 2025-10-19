@@ -1,8 +1,8 @@
 use libp2p::PeerId;
 use libp2p::swarm::{ConnectionId, DialError};
-use netabase_store::traits::definition::NetabaseDefinition;
+use netabase_store::traits::definition::NetabaseDefinitionTrait;
 
-pub fn handle_outgoing_connection_error<D: NetabaseDefinition + Send + Sync + 'static>(
+pub fn handle_outgoing_connection_error<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     connection_id: ConnectionId,
     peer_id: Option<PeerId>,
     error: DialError,

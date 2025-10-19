@@ -3,15 +3,14 @@ use libp2p::{
     identify::{Event as IdentifyEvent, Info, UpgradeError},
     swarm::{ConnectionId, StreamUpgradeError},
 };
-use netabase_store::traits::definition::NetabaseDefinition;
+use netabase_store::traits::definition::NetabaseDefinitionTrait;
 
 /// Handle Identify behaviour events
-pub fn handle_identify_event<D: NetabaseDefinition + Send + Sync + 'static>(identify_event: IdentifyEvent) {
+pub fn handle_identify_event<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+    identify_event: IdentifyEvent,
+) {
     match identify_event {
-        IdentifyEvent::Received {
-            peer_id,
-            ..
-        } => {
+        IdentifyEvent::Received { peer_id, .. } => {
             handle_received::<D>(peer_id);
         }
         IdentifyEvent::Sent { .. } => {
@@ -20,24 +19,20 @@ pub fn handle_identify_event<D: NetabaseDefinition + Send + Sync + 'static>(iden
         IdentifyEvent::Pushed { .. } => {
             // Silent
         }
-        IdentifyEvent::Error {
-            peer_id,
-            error,
-            ..
-        } => {
+        IdentifyEvent::Error { peer_id, error, .. } => {
             handle_error::<D>(peer_id, error);
         }
     }
 }
 
 /// Handle received identification information
-fn handle_received<D: NetabaseDefinition + Send + Sync + 'static>(peer_id: PeerId) {
+fn handle_received<D: NetabaseDefinitionTrait + Send + Sync + 'static>(peer_id: PeerId) {
     let peer_short = format!("{}", peer_id).chars().take(8).collect::<String>();
     println!("🤝 Connected to peer {}\n", peer_short);
 }
 
 /// Handle identification errors
-fn handle_error<D: NetabaseDefinition + Send + Sync + 'static>(
+fn handle_error<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     peer_id: PeerId,
     error: StreamUpgradeError<UpgradeError>,
 ) {

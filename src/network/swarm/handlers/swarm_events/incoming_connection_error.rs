@@ -1,9 +1,9 @@
 use libp2p::Multiaddr;
 use libp2p::PeerId;
 use libp2p::swarm::{ConnectionId, ListenError};
-use netabase_store::traits::definition::NetabaseDefinition;
+use netabase_store::traits::definition::NetabaseDefinitionTrait;
 
-pub fn handle_incoming_connection_error<D: NetabaseDefinition + Send + Sync + 'static>(
+pub fn handle_incoming_connection_error<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     connection_id: ConnectionId,
     local_addr: Multiaddr,
     send_back_addr: Multiaddr,

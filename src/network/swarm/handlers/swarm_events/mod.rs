@@ -1,5 +1,5 @@
 #[cfg(feature = "native")]
-use netabase_store::traits::definition::NetabaseDefinition;
+use netabase_store::traits::definition::NetabaseDefinitionTrait;
 
 #[cfg(feature = "native")]
 use crate::network::behaviour::clone_impl::NetabaseSwarmEvent;
@@ -39,7 +39,9 @@ pub mod new_listen_addr;
 pub mod outgoing_connection_error;
 
 #[cfg(feature = "native")]
-pub fn handle_swarm_events<D: NetabaseDefinition + Send + Sync + 'static>(event: NetabaseSwarmEvent<D>) {
+pub fn handle_swarm_events<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+    event: NetabaseSwarmEvent<D>,
+) {
     match event.0 {
         libp2p::swarm::SwarmEvent::Behaviour(behaviour_event) => {
             behaviour::handle_behaviour_event::<D>(behaviour_event);

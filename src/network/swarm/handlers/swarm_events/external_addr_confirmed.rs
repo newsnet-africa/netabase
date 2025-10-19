@@ -1,7 +1,9 @@
 use libp2p::Multiaddr;
-use netabase_store::traits::definition::NetabaseDefinition;
+use netabase_store::traits::definition::NetabaseDefinitionTrait;
 
-pub fn handle_external_addr_confirmed<D: NetabaseDefinition + Send + Sync + 'static>(address: Multiaddr) {
+pub fn handle_external_addr_confirmed<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+    address: Multiaddr,
+) {
     // TODO: Implement external address confirmed handling
     println!("External address confirmed: {:?}", address);
 

@@ -1,10 +1,13 @@
 #[cfg(feature = "native")]
 use libp2p::{
     Multiaddr, PeerId, StreamProtocol, Swarm,
-    kad::{self, EntryView, KBucketKey, Mode, NoKnownPeers, QueryResult, Quorum, RoutingUpdate, store::RecordStore},
+    kad::{
+        self, EntryView, KBucketKey, Mode, NoKnownPeers, QueryResult, Quorum, RoutingUpdate,
+        store::RecordStore,
+    },
 };
 #[cfg(feature = "native")]
-use netabase_store::traits::{definition::NetabaseDefinition, convert::ToIVec};
+use netabase_store::traits::{convert::ToIVec, definition::NetabaseDefinitionTrait};
 #[cfg(feature = "native")]
 use tokio::sync::oneshot::Sender;
 
@@ -45,14 +48,14 @@ pub mod stop_providing;
 
 #[cfg(feature = "native")]
 #[derive(Debug)]
-pub(crate) enum Command<D: NetabaseDefinition + Send + Sync + 'static> {
+pub(crate) enum Command<D: NetabaseDefinitionTrait + Send + Sync + 'static> {
     Kademlia(KademliaCommand<D>),
 }
 
 #[cfg(feature = "native")]
 #[derive(Debug)]
 #[allow(dead_code)]
-pub(crate) enum KademliaCommand<D: NetabaseDefinition + Send + Sync + 'static> {
+pub(crate) enum KademliaCommand<D: NetabaseDefinitionTrait + Send + Sync + 'static> {
     AddAddress {
         peer: PeerId,
         address: Multiaddr,
@@ -114,7 +117,7 @@ pub(crate) enum KademliaCommand<D: NetabaseDefinition + Send + Sync + 'static> {
 #[cfg(feature = "native")]
 #[derive(Debug)]
 #[allow(dead_code)]
-pub(crate) enum LocalStoreCommand<D: NetabaseDefinition + Send + Sync + 'static> {
+pub(crate) enum LocalStoreCommand<D: NetabaseDefinitionTrait + Send + Sync + 'static> {
     QueryRecords {
         limit: Option<usize>,
         response_channel: Sender<Result<Vec<D>, String>>,
@@ -122,11 +125,10 @@ pub(crate) enum LocalStoreCommand<D: NetabaseDefinition + Send + Sync + 'static>
 }
 
 #[cfg(feature = "native")]
-pub(crate) fn handle_command_events<D: NetabaseDefinition + Send + Sync + 'static>(
+pub(crate) fn handle_command_events<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     command: Command<D>,
-)
-where
+) where
     D: ToIVec,
 {
     match command {
@@ -137,11 +139,10 @@ where
 }
 
 #[cfg(feature = "native")]
-pub(crate) fn handle_kademlia_command<D: NetabaseDefinition + Send + Sync + 'static>(
+pub(crate) fn handle_kademlia_command<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     command: KademliaCommand<D>,
-)
-where
+) where
     D: ToIVec,
 {
     match command {
@@ -222,11 +223,10 @@ where
 }
 
 #[cfg(feature = "native")]
-pub(crate) fn handle_local_store_command<D: NetabaseDefinition + Send + Sync + 'static>(
+pub(crate) fn handle_local_store_command<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     command: LocalStoreCommand<D>,
-)
-where
+) where
     D: ToIVec,
 {
     match command {

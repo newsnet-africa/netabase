@@ -2425,8 +2425,6 @@ dependencies = [
  "js-sys",
  "libp2p",
  "log",
- "netabase_deps",
- "netabase_macros",
  "netabase_store",
  "once_cell",
  "serde",

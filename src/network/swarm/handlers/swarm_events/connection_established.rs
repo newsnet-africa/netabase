@@ -1,10 +1,10 @@
 use libp2p::core::ConnectedPoint;
 use libp2p::swarm::ConnectionId;
 use libp2p::{Multiaddr, PeerId};
-use netabase_store::traits::definition::NetabaseDefinition;
+use netabase_store::traits::definition::NetabaseDefinitionTrait;
 use std::time::Duration;
 
-pub fn handle_connection_established<D: NetabaseDefinition + Send + Sync + 'static>(
+pub fn handle_connection_established<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     _peer_id: PeerId,
     _connection_id: ConnectionId,
     _endpoint: ConnectedPoint,

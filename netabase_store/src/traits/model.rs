@@ -4,15 +4,15 @@
 /// Models must have:
 /// - A primary key field marked with `#[primary_key]`
 /// - Optional secondary key fields marked with `#[secondary_key]`
-pub trait NetabaseModel: bincode::Encode + Sized + Clone + Send + Sync + 'static {
+pub trait NetabaseModelTrait: bincode::Encode + Sized + Clone + Send + Sync + 'static {
     /// The primary key type for this model
-    type PrimaryKey: NetabaseModelKey;
+    type PrimaryKey: NetabaseModelTraitKey;
 
     /// The secondary keys enum for this model
-    type SecondaryKeys: NetabaseModelKey;
+    type SecondaryKeys: NetabaseModelTraitKey;
 
     /// The keys enum that wraps both primary and secondary keys
-    type Keys: NetabaseModelKey;
+    type Keys: NetabaseModelTraitKey;
 
     /// Extract the primary key from the model instance
     fn primary_key(&self) -> Self::PrimaryKey;
@@ -27,4 +27,7 @@ pub trait NetabaseModel: bincode::Encode + Sized + Clone + Send + Sync + 'static
 /// Marker trait for key types (both primary and secondary).
 ///
 /// This trait is automatically implemented by the macro-generated key types.
-pub trait NetabaseModelKey: bincode::Encode + std::fmt::Debug + Clone + Send + Sync + 'static {}
+pub trait NetabaseModelTraitKey:
+    bincode::Encode + std::fmt::Debug + Clone + Send + Sync + 'static
+{
+}

@@ -1,4 +1,4 @@
-use netabase_store::traits::definition::NetabaseDefinition;
+use netabase_store::traits::definition::NetabaseDefinitionTrait;
 
 #[cfg(feature = "native")]
 use libp2p::{Swarm, futures::StreamExt};
@@ -16,12 +16,11 @@ pub mod swarm_events;
 
 // Native implementation with full swarm event loop
 #[cfg(feature = "native")]
-pub(crate) async fn start_swarm_loop<D: NetabaseDefinition + Send + Sync + 'static>(
+pub(crate) async fn start_swarm_loop<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     mut swarm: Swarm<NetabaseBehaviour<D>>,
     swarm_event_sender: tokio::sync::broadcast::Sender<NetabaseSwarmEvent<D>>,
     mut command_event_listener: tokio::sync::mpsc::Receiver<command_events::Command<D>>,
-)
-where
+) where
     D: netabase_store::traits::convert::ToIVec,
 {
     loop {
@@ -64,7 +63,7 @@ where
 
 // WASM placeholder - networking not yet implemented
 #[cfg(all(feature = "wasm", not(feature = "native")))]
-pub(crate) async fn start_swarm_loop<D: NetabaseDefinition + Send + Sync + 'static>(
+pub(crate) async fn start_swarm_loop<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     _swarm: (),
     _swarm_event_sender: (),
     _command_event_listener: (),

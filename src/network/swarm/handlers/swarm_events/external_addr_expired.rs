@@ -1,7 +1,9 @@
 use libp2p::Multiaddr;
-use netabase_store::traits::definition::NetabaseDefinition;
+use netabase_store::traits::definition::NetabaseDefinitionTrait;
 
-pub fn handle_external_addr_expired<D: NetabaseDefinition + Send + Sync + 'static>(address: Multiaddr) {
+pub fn handle_external_addr_expired<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+    address: Multiaddr,
+) {
     // TODO: Implement external address expired handling
     println!("External address expired: {:?}", address);
 

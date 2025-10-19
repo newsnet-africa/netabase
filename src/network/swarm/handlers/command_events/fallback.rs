@@ -1,9 +1,11 @@
-use netabase_store::traits::definition::NetabaseDefinition;
+use netabase_store::traits::definition::NetabaseDefinitionTrait;
 
 use super::Command;
 
 #[allow(dead_code)]
-pub(crate) fn handle_fallback_command<D: NetabaseDefinition + Send + Sync + 'static>(command: Command<D>) {
+pub(crate) fn handle_fallback_command<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+    command: Command<D>,
+) {
     // TODO: Handle any unmatched command events or implement proper error handling
     println!("Fallback command handler: unhandled command={:?}", command);
 

@@ -2,12 +2,12 @@ use libp2p::{
     Multiaddr, PeerId, Swarm,
     kad::{Addresses, EntryView, KBucketKey},
 };
-use netabase_store::traits::definition::NetabaseDefinition;
+use netabase_store::traits::definition::NetabaseDefinitionTrait;
 use tokio::sync::oneshot::Sender;
 
 use crate::network::behaviour::NetabaseBehaviour;
 
-pub(crate) fn handle_remove_address<D: NetabaseDefinition + Send + Sync + 'static>(
+pub(crate) fn handle_remove_address<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     peer: PeerId,
     address: Multiaddr,

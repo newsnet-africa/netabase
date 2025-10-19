@@ -2,12 +2,12 @@ use libp2p::{
     PeerId, Swarm,
     kad::{QueryResult, Quorum},
 };
-use netabase_store::traits::definition::NetabaseDefinition;
+use netabase_store::traits::definition::NetabaseDefinitionTrait;
 use tokio::sync::oneshot::Sender;
 
 use crate::network::behaviour::NetabaseBehaviour;
 
-pub(crate) fn handle_put_record_to<D: NetabaseDefinition>(
+pub(crate) fn handle_put_record_to<D: NetabaseDefinitionTrait>(
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     record: D,
     peers: Vec<PeerId>,

@@ -1,9 +1,9 @@
 use libp2p::Swarm;
-use netabase_store::traits::definition::{NetabaseDefinition, NetabaseDefinitionKey};
+use netabase_store::traits::definition::{NetabaseDefinitionTrait, NetabaseDefinitionTraitKey};
 
 use crate::network::behaviour::NetabaseBehaviour;
 
-pub(crate) fn handle_remove_record<D: NetabaseDefinition>(
+pub(crate) fn handle_remove_record<D: NetabaseDefinitionTrait>(
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     key: D::Keys,
 ) {
