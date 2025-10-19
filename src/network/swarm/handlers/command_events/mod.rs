@@ -1,4 +1,7 @@
 #[cfg(feature = "native")]
+use std::marker::PhantomData;
+
+#[cfg(feature = "native")]
 use libp2p::{
     Multiaddr, PeerId, StreamProtocol, Swarm,
     kad::{
@@ -7,7 +10,12 @@ use libp2p::{
     },
 };
 #[cfg(feature = "native")]
-use netabase_store::traits::{convert::ToIVec, definition::NetabaseDefinitionTrait};
+use netabase_store::{
+    model::NetabaseModelTrait,
+    traits::{convert::ToIVec, definition::NetabaseDefinitionTrait},
+};
+#[cfg(feature = "native")]
+use strum::IntoDiscriminant;
 #[cfg(feature = "native")]
 use tokio::sync::oneshot::Sender;
 
@@ -48,14 +56,64 @@ pub mod stop_providing;
 
 #[cfg(feature = "native")]
 #[derive(Debug)]
-pub(crate) enum Command<D: NetabaseDefinitionTrait + Send + Sync + 'static> {
+pub(crate) enum Command<D: NetabaseDefinitionTrait + Send + Sync + 'static>
+where
+    D: netabase_store::convert::ToIVec,
+    <D as IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + std::str::FromStr,
+    <D as IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as IntoDiscriminant>::Discriminant: std::str::FromStr,
+    <D as IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as IntoDiscriminant>::Discriminant: std::marker::Send,
+    <D as IntoDiscriminant>::Discriminant: strum::IntoEnumIterator,
+{
     Kademlia(KademliaCommand<D>),
 }
 
 #[cfg(feature = "native")]
 #[derive(Debug)]
 #[allow(dead_code)]
-pub(crate) enum KademliaCommand<D: NetabaseDefinitionTrait + Send + Sync + 'static> {
+pub(crate) enum KademliaCommand<D: NetabaseDefinitionTrait + Send + Sync + 'static>
+where
+    D: netabase_store::convert::ToIVec,
+    <D as IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + std::str::FromStr,
+    <D as IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as IntoDiscriminant>::Discriminant: std::str::FromStr,
+    <D as IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as IntoDiscriminant>::Discriminant: std::marker::Send,
+    <D as IntoDiscriminant>::Discriminant: strum::IntoEnumIterator,
+{
     AddAddress {
         peer: PeerId,
         address: Multiaddr,
@@ -117,7 +175,31 @@ pub(crate) enum KademliaCommand<D: NetabaseDefinitionTrait + Send + Sync + 'stat
 #[cfg(feature = "native")]
 #[derive(Debug)]
 #[allow(dead_code)]
-pub(crate) enum LocalStoreCommand<D: NetabaseDefinitionTrait + Send + Sync + 'static> {
+pub(crate) enum LocalStoreCommand<D: NetabaseDefinitionTrait + Send + Sync + 'static>
+where
+    D: netabase_store::convert::ToIVec,
+    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
+{
     QueryRecords {
         limit: Option<usize>,
         response_channel: Sender<Result<Vec<D>, String>>,
@@ -129,7 +211,28 @@ pub(crate) fn handle_command_events<D: NetabaseDefinitionTrait + Send + Sync + '
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     command: Command<D>,
 ) where
-    D: ToIVec,
+    D: netabase_store::convert::ToIVec,
+    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
 {
     match command {
         Command::Kademlia(kad_command) => {
@@ -143,7 +246,28 @@ pub(crate) fn handle_kademlia_command<D: NetabaseDefinitionTrait + Send + Sync +
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     command: KademliaCommand<D>,
 ) where
-    D: ToIVec,
+    D: netabase_store::convert::ToIVec,
+    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
 {
     match command {
         KademliaCommand::AddAddress {
@@ -223,11 +347,34 @@ pub(crate) fn handle_kademlia_command<D: NetabaseDefinitionTrait + Send + Sync +
 }
 
 #[cfg(feature = "native")]
-pub(crate) fn handle_local_store_command<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+pub(crate) fn handle_local_store_command<
+    D: NetabaseDefinitionTrait + Send + Sync + 'static + ToIVec,
+>(
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     command: LocalStoreCommand<D>,
 ) where
-    D: ToIVec,
+    D: netabase_store::convert::ToIVec,
+    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
 {
     match command {
         LocalStoreCommand::QueryRecords {
@@ -242,10 +389,10 @@ pub(crate) fn handle_local_store_command<D: NetabaseDefinitionTrait + Send + Syn
             let mut count = 0;
 
             for record in store.records() {
-                if let Some(max_count) = limit {
-                    if count >= max_count {
-                        break;
-                    }
+                if let Some(max_count) = limit
+                    && count >= max_count
+                {
+                    break;
                 }
 
                 // Try to decode the record value

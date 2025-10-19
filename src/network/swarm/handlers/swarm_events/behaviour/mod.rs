@@ -1,4 +1,5 @@
-use crate::network::behaviour::NetabaseBehaviourEvent;
+use crate::network::behaviour::{NetabaseBehaviour, NetabaseBehaviourEvent};
+use libp2p::Swarm;
 use netabase_store::traits::definition::NetabaseDefinitionTrait;
 
 pub mod connection_limit;
@@ -15,8 +16,32 @@ use mdns::handle_mdns_event;
 
 /// Handle all NetabaseBehaviour events by delegating to specific handlers
 pub(crate) fn handle_behaviour_event<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+    swarm: &mut Swarm<NetabaseBehaviour<D>>,
     behaviour_event: NetabaseBehaviourEvent<D>,
-) {
+) where
+    D: netabase_store::convert::ToIVec,
+    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
+{
     match behaviour_event {
         NetabaseBehaviourEvent::Kad(kad_event) => {
             handle_kad_event::<D>(kad_event);
@@ -26,7 +51,7 @@ pub(crate) fn handle_behaviour_event<D: NetabaseDefinitionTrait + Send + Sync + 
         }
         #[cfg(feature = "native")]
         NetabaseBehaviourEvent::Mdns(mdns_event) => {
-            handle_mdns_event::<D>(mdns_event);
+            handle_mdns_event::<D>(swarm, mdns_event);
         }
         NetabaseBehaviourEvent::ConnectionLimit(connection_limit_event) => {
             handle_connection_limit_event::<D>(connection_limit_event);

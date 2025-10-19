@@ -9,7 +9,30 @@ pub fn handle_incoming_connection_error<D: NetabaseDefinitionTrait + Send + Sync
     send_back_addr: Multiaddr,
     error: ListenError,
     peer_id: Option<PeerId>,
-) {
+) where
+    D: netabase_store::convert::ToIVec,
+    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
+{
     // TODO: Implement incoming connection error handling
     println!(
         "Incoming connection error: connection_id: {:?}, local_addr: {:?}, send_back_addr: {:?}, error: {:?}",

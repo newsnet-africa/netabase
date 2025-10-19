@@ -4,7 +4,29 @@ use crate::network::behaviour::clone_impl::NetabaseSwarmEvent;
 
 pub fn handle_fallback_event<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     event: NetabaseSwarmEvent<D>,
-) {
+) where
+    D: netabase_store::convert::ToIVec,
+    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,{
     // TODO: Implement fallback event handling
     println!("Unhandled swarm event (fallback): {:?}", event);
 

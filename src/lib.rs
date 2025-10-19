@@ -334,7 +334,31 @@ use tokio::sync::{broadcast, mpsc, oneshot};
 ///
 /// netabase.stop_swarm().await.unwrap();
 /// ```
-pub struct Netabase<D: NetabaseDefinitionTrait + Send + Sync> {
+pub struct Netabase<D: NetabaseDefinitionTrait + Send + Sync>
+where
+    D: netabase_store::convert::ToIVec,
+    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
+{
     /// Handle to the background swarm task
     swarm_thread: Option<tokio::task::JoinHandle<anyhow::Result<()>>>,
     /// Channel for sending commands to the swarm
@@ -362,6 +386,27 @@ impl<D: NetabaseDefinitionTrait + Send + Sync + 'static> Netabase<D>
 where
     D: netabase_store::traits::convert::ToIVec,
     D::Keys: netabase_store::traits::convert::ToIVec,
+    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
 {
     /// Create a new Netabase instance with default settings.
     ///
@@ -683,9 +728,34 @@ where
     ///
     /// DHT operations are asynchronous and may take time to complete,
     /// especially during network partitions or with limited peers.
-    pub async fn put_record<M: NetabaseModelTrait>(&self, model: M) -> anyhow::Result<QueryResult>
+    pub async fn put_record<M: NetabaseModelTrait<D>>(
+        &self,
+        model: M,
+    ) -> anyhow::Result<QueryResult>
     where
         D: From<M>,
+        D: netabase_store::convert::ToIVec,
+        <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
+            + Clone
+            + Copy
+            + std::fmt::Debug
+            + std::fmt::Display
+            + PartialEq
+            + Eq
+            + std::hash::Hash
+            + strum::IntoEnumIterator
+            + Send
+            + Sync
+            + 'static
+            + std::str::FromStr,
+        <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
+        <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
+        <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
+        <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
+        <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
+        <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
+        <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
+        <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
     {
         let definition = D::from(model);
 
@@ -1618,7 +1688,31 @@ where
 // }
 
 #[cfg(feature = "native")]
-impl<D: NetabaseDefinitionTrait + Send + Sync> Drop for Netabase<D> {
+impl<D: NetabaseDefinitionTrait + Send + Sync> Drop for Netabase<D>
+where
+    D: netabase_store::convert::ToIVec,
+    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
+{
     fn drop(&mut self) {
         if let Some(handle) = self.swarm_thread.take() {
             handle.abort();

@@ -20,6 +20,7 @@ mod chat {
         serde::Serialize,
         serde::Deserialize,
     )]
+    #[netabase(ChatDefinition)]
     pub struct Message {
         #[primary_key]
         pub id: String, // UUID as string

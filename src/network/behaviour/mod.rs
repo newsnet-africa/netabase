@@ -9,7 +9,31 @@ pub mod clone_impl;
 use libp2p::mdns;
 
 #[derive(NetworkBehaviour)]
-pub struct NetabaseBehaviour<D: NetabaseDefinitionTrait + Send + Sync + 'static> {
+pub struct NetabaseBehaviour<D: NetabaseDefinitionTrait + Send + Sync + 'static>
+where
+    D: netabase_store::convert::ToIVec,
+    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
+{
     pub kad: libp2p::kad::Behaviour<SledStore<D>>,
     pub identify: libp2p::identify::Behaviour,
     #[cfg(feature = "native")]
@@ -19,8 +43,29 @@ pub struct NetabaseBehaviour<D: NetabaseDefinitionTrait + Send + Sync + 'static>
 
 impl<D: NetabaseDefinitionTrait + Send + Sync + 'static> NetabaseBehaviour<D>
 where
-    D: ToIVec,
-    D::Keys: ToIVec,
+    D: netabase_store::convert::ToIVec,
+    D::Keys: netabase_store::convert::ToIVec,
+    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
 {
     pub fn new(keypair: &Keypair) -> Result<Self, crate::errors::Error> {
         Self::new_with_name(keypair, None)

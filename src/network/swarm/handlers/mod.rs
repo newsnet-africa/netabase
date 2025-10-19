@@ -21,7 +21,30 @@ pub(crate) async fn start_swarm_loop<D: NetabaseDefinitionTrait + Send + Sync + 
     swarm_event_sender: tokio::sync::broadcast::Sender<NetabaseSwarmEvent<D>>,
     mut command_event_listener: tokio::sync::mpsc::Receiver<command_events::Command<D>>,
 ) where
-    D: netabase_store::traits::convert::ToIVec,
+    D: netabase_store::convert::ToIVec,
+    D::Keys: netabase_store::convert::ToIVec,
+    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
+    <D as strum::IntoDiscriminant>::Discriminant: strum::IntoEnumIterator,
 {
     loop {
         tokio::select! {
@@ -29,33 +52,9 @@ pub(crate) async fn start_swarm_loop<D: NetabaseDefinitionTrait + Send + Sync + 
                 handle_command_events(&mut swarm, command);
             },
             Some(event) = swarm.next() => {
-                // Handle mDNS peer discovery by adding peers to Kademlia
-                #[cfg(feature = "native")]
-                if let libp2p::swarm::SwarmEvent::Behaviour(
-                    crate::network::behaviour::NetabaseBehaviourEvent::Mdns(
-                        libp2p::mdns::Event::Discovered(peers)
-                    )
-                ) = &event {
-                    for (peer_id, multiaddr) in peers {
-                        // Add the peer to Kademlia routing table
-                        swarm.behaviour_mut().kad.add_address(peer_id, multiaddr.clone());
-                        // Dial the peer to establish connection
-                        if let Err(e) = swarm.dial(peer_id.clone()) {
-                            eprintln!("Failed to dial mDNS peer {}: {:?}", peer_id, e);
-                        }
-                    }
-
-                    // Bootstrap after discovering peers to join the DHT network
-                    if !peers.is_empty() {
-                        if let Err(e) = swarm.behaviour_mut().kad.bootstrap() {
-                            eprintln!("Failed to bootstrap Kademlia: {:?}", e);
-                        }
-                    }
-                }
-
                 let event = NetabaseSwarmEvent(event);
                 let _ = swarm_event_sender.send(event.clone());
-                swarm_events::handle_swarm_events(event);
+                swarm_events::handle_swarm_events(&mut swarm, event);
             }
         }
     }

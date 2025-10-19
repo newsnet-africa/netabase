@@ -1,5 +1,7 @@
 use libp2p::{Swarm, kad::QueryResult};
-use netabase_store::traits::definition::{NetabaseDefinitionTrait, NetabaseDefinitionTraitKey};
+use netabase_store::{
+    definition::NetabaseDefinitionTraitKey, traits::definition::NetabaseDefinitionTrait,
+};
 use tokio::sync::oneshot::Sender;
 
 use crate::network::behaviour::NetabaseBehaviour;
@@ -8,7 +10,30 @@ pub(crate) fn handle_get_record<D: NetabaseDefinitionTrait>(
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     key: D::Keys,
     response_channel: Sender<QueryResult>,
-) {
+) where
+    D: netabase_store::convert::ToIVec,
+    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
+{
     println!("GetRecord command: key={:?}", key);
 
     // Convert NetabaseSchemaKeys to libp2p::kad::RecordKey

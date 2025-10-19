@@ -1,19 +1,42 @@
 use libp2p::Multiaddr;
 use libp2p::TransportError;
+use std::str::FromStr;
 
 use libp2p::swarm;
 use libp2p::swarm::ConnectionDenied;
 use libp2p::swarm::ConnectionError;
 use libp2p::swarm::SwarmEvent;
 
+use netabase_store::strum::IntoDiscriminant;
 use netabase_store::traits::definition::NetabaseDefinitionTrait;
 
 use crate::network::behaviour::NetabaseBehaviourEvent;
 
 impl<D: NetabaseDefinitionTrait + Send + Sync + 'static> Clone for NetabaseBehaviourEvent<D>
 where
-    <D as netabase_store::traits::definition::NetabaseDefinitionTrait>::Discriminants:
-        std::marker::Send,
+    D: netabase_store::convert::ToIVec,
+    <D as IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + FromStr,
+    <D as IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as IntoDiscriminant>::Discriminant: FromStr,
+    <D as IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as IntoDiscriminant>::Discriminant: std::marker::Send,
+    <D as IntoDiscriminant>::Discriminant: strum::IntoEnumIterator,
 {
     fn clone(&self) -> Self {
         match self {
@@ -71,7 +94,31 @@ where
 #[derive(Debug)]
 pub struct NetabaseSwarmEvent<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     pub SwarmEvent<NetabaseBehaviourEvent<D>>,
-);
+)
+where
+    D: netabase_store::convert::ToIVec,
+    <D as IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + FromStr,
+    <D as IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as IntoDiscriminant>::Discriminant: FromStr,
+    <D as IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as IntoDiscriminant>::Discriminant: std::marker::Send,
+    <D as IntoDiscriminant>::Discriminant: strum::IntoEnumIterator;
 
 fn multiaddr_cloner(multi: &Multiaddr) -> Multiaddr {
     Multiaddr::try_from(multi.to_vec()).expect("MultiAddr clone error")
@@ -106,7 +153,32 @@ fn multi_trans_error_cloner(
         .collect()
 }
 
-impl<D: NetabaseDefinitionTrait + Send + Sync + 'static> Clone for NetabaseSwarmEvent<D> {
+impl<D: NetabaseDefinitionTrait + Send + Sync + 'static> Clone for NetabaseSwarmEvent<D>
+where
+    D: netabase_store::convert::ToIVec,
+    <D as IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + FromStr,
+    <D as IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as IntoDiscriminant>::Discriminant: FromStr,
+    <D as IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as IntoDiscriminant>::Discriminant: std::marker::Send,
+    <D as IntoDiscriminant>::Discriminant: strum::IntoEnumIterator,
+{
     fn clone(&self) -> Self {
         match &self.0 {
             SwarmEvent::Behaviour(nbe) => NetabaseSwarmEvent(SwarmEvent::Behaviour(nbe.clone())),

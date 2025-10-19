@@ -12,8 +12,30 @@ pub mod handlers;
 pub fn generate_swarm<D: NetabaseDefinitionTrait + Send + Sync + 'static>()
 -> anyhow::Result<Swarm<NetabaseBehaviour<D>>>
 where
-    D: ToIVec,
-    D::Keys: ToIVec,
+    D: netabase_store::convert::ToIVec,
+    D::Keys: netabase_store::convert::ToIVec,
+    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
+    <D as strum::IntoDiscriminant>::Discriminant: strum::IntoEnumIterator,
 {
     generate_swarm_with_name::<D>(None)
 }
@@ -23,8 +45,30 @@ pub fn generate_swarm_with_name<D: NetabaseDefinitionTrait + Send + Sync + 'stat
     name: Option<String>,
 ) -> anyhow::Result<Swarm<NetabaseBehaviour<D>>>
 where
-    D: ToIVec,
-    D::Keys: ToIVec,
+    D: netabase_store::convert::ToIVec,
+    D::Keys: netabase_store::convert::ToIVec,
+    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
+    <D as strum::IntoDiscriminant>::Discriminant: strum::IntoEnumIterator,
 {
     use libp2p::{SwarmBuilder, tcp};
 
@@ -81,8 +125,30 @@ pub async fn setup_swarm<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     mut swarm: Swarm<NetabaseBehaviour<D>>,
 ) -> anyhow::Result<Swarm<NetabaseBehaviour<D>>>
 where
-    D: ToIVec,
-    D::Keys: ToIVec,
+    D: netabase_store::convert::ToIVec,
+    D::Keys: netabase_store::convert::ToIVec,
+    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
+    <D as strum::IntoDiscriminant>::Discriminant: strum::IntoEnumIterator,
 {
     swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
 
