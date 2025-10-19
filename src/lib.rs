@@ -828,7 +828,10 @@ where
     ///
     /// Retrieved records may be cached locally for faster future access.
     /// The cache TTL depends on network configuration.
-    pub async fn get_record<K: NetabaseModelTraitKey>(&self, key: K) -> anyhow::Result<QueryResult>
+    pub async fn get_record<K: NetabaseModelTraitKey<D>>(
+        &self,
+        key: K,
+    ) -> anyhow::Result<QueryResult>
     where
         D::Keys: From<K>,
     {
@@ -885,7 +888,7 @@ where
     ///     Err(e) => eprintln!("Provider query failed: {}", e),
     /// }
     /// ```
-    pub async fn get_providers<K: NetabaseModelTraitKey>(
+    pub async fn get_providers<K: NetabaseModelTraitKey<D>>(
         &self,
         key: K,
     ) -> anyhow::Result<QueryResult>
@@ -952,7 +955,7 @@ where
     ///     Err(e) => eprintln!("Failed to start providing: {}", e),
     /// }
     /// ```
-    pub async fn start_providing<K: NetabaseModelTraitKey>(
+    pub async fn start_providing<K: NetabaseModelTraitKey<D>>(
         &self,
         key: K,
     ) -> anyhow::Result<QueryResult>
@@ -1005,7 +1008,7 @@ where
     /// netabase.stop_providing(user_key).await.unwrap();
     /// println!("No longer providing this key");
     /// ```
-    pub async fn stop_providing<K: NetabaseModelTraitKey>(&self, key: K) -> anyhow::Result<()>
+    pub async fn stop_providing<K: NetabaseModelTraitKey<D>>(&self, key: K) -> anyhow::Result<()>
     where
         D::Keys: From<K>,
     {
@@ -1493,7 +1496,7 @@ where
     /// Removing a record locally doesn't remove it from the network. To fully
     /// remove data from a distributed system, you would need to coordinate
     /// with other nodes or implement a distributed deletion protocol.
-    pub async fn remove_record<K: NetabaseModelTraitKey>(&self, key: K) -> anyhow::Result<()>
+    pub async fn remove_record<K: NetabaseModelTraitKey<D>>(&self, key: K) -> anyhow::Result<()>
     where
         D::Keys: From<K>,
     {
