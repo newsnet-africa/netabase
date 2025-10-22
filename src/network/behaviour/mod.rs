@@ -1,8 +1,7 @@
 use libp2p::{PeerId, connection_limits, identity::Keypair, swarm::NetworkBehaviour};
-use netabase_store::{
-    databases::sled_store::SledStore,
-    traits::{convert::ToIVec, definition::NetabaseDefinitionTrait},
-};
+use netabase_store::traits::{convert::ToIVec, definition::NetabaseDefinitionTrait};
+use crate::network::{config::StorageBackend, store::NetabaseStore};
+
 pub mod clone_impl;
 
 #[cfg(feature = "native")]
@@ -34,7 +33,7 @@ where
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
 {
-    pub kad: libp2p::kad::Behaviour<SledStore<D>>,
+    pub kad: libp2p::kad::Behaviour<NetabaseStore<D>>,
     pub identify: libp2p::identify::Behaviour,
     #[cfg(feature = "native")]
     pub mdns: libp2p::mdns::tokio::Behaviour,
@@ -68,27 +67,38 @@ where
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
 {
     pub fn new(keypair: &Keypair) -> Result<Self, crate::errors::Error> {
-        Self::new_with_name(keypair, None)
+        Self::new_with_config(keypair, None, StorageBackend::default())
     }
 
     pub fn new_with_name(
         keypair: &Keypair,
         name: Option<String>,
     ) -> Result<Self, crate::errors::Error> {
+        Self::new_with_config(keypair, name, StorageBackend::default())
+    }
+
+    pub fn new_with_config(
+        keypair: &Keypair,
+        name: Option<String>,
+        backend: StorageBackend,
+    ) -> Result<Self, crate::errors::Error> {
         let pub_key = keypair.public();
         let peer_id = PeerId::from_public_key(&pub_key);
 
         #[cfg(feature = "native")]
         let store = if let Some(name) = name {
-            SledStore::<D>::new(&name)?
+            NetabaseStore::<D>::new(backend, &name)
+                .map_err(|e| crate::errors::Error::Database(e.to_string()))?
         } else {
             // Use a default path based on peer_id
             let default_path = format!("./netabase_data/{}", peer_id);
-            SledStore::<D>::new(&default_path)?
+            NetabaseStore::<D>::new(backend, &default_path)
+                .map_err(|e| crate::errors::Error::Database(e.to_string()))?
         };
 
         #[cfg(all(feature = "wasm", not(feature = "native")))]
-        let store = SledStore::<D>::temp()?;
+        let store = NetabaseStore::<D>::temp(backend)
+            .map_err(|e| crate::errors::Error::Database(e.to_string()))?;
 
         let kad = libp2p::kad::Behaviour::new(peer_id.clone(), store);
         let identify_config = libp2p::identify::Config::new("/newsnet/0.0.1".to_string(), pub_key);

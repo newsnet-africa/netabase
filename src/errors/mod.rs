@@ -12,4 +12,6 @@ pub enum Error {
     #[cfg(feature = "native")]
     #[error("Websocket error")]
     WebsocketError(#[from] error::Error<std::io::Error>),
+    #[error("Database error: {0}")]
+    Database(String),
 }

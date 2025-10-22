@@ -9,8 +9,9 @@ pub mod handlers;
 
 // Native implementation with full networking support
 #[cfg(feature = "native")]
-pub fn generate_swarm<D: NetabaseDefinitionTrait + Send + Sync + 'static>()
--> anyhow::Result<Swarm<NetabaseBehaviour<D>>>
+pub fn generate_swarm<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+    backend: crate::network::config::StorageBackend,
+) -> anyhow::Result<Swarm<NetabaseBehaviour<D>>>
 where
     D: netabase_store::convert::ToIVec,
     D::Keys: netabase_store::convert::ToIVec,
@@ -37,12 +38,13 @@ where
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
     <D as strum::IntoDiscriminant>::Discriminant: strum::IntoEnumIterator,
 {
-    generate_swarm_with_name::<D>(None)
+    generate_swarm_with_name::<D>(None, backend)
 }
 
 #[cfg(feature = "native")]
 pub fn generate_swarm_with_name<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     name: Option<String>,
+    backend: crate::network::config::StorageBackend,
 ) -> anyhow::Result<Swarm<NetabaseBehaviour<D>>>
 where
     D: netabase_store::convert::ToIVec,
@@ -81,7 +83,8 @@ where
         )?
         .with_quic()
         .with_behaviour(|kp| {
-            NetabaseBehaviour::new_with_name(kp, name.clone()).expect("Failed to build behaviour")
+            NetabaseBehaviour::new_with_config(kp, name.clone(), backend)
+                .expect("Failed to build behaviour")
         })?
         .with_swarm_config(|cfg| cfg.with_idle_connection_timeout(Duration::from_secs(120)))
         .build())

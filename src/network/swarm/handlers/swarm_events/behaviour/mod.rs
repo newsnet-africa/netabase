@@ -1,4 +1,7 @@
-use crate::network::behaviour::{NetabaseBehaviour, NetabaseBehaviourEvent};
+use crate::network::{
+    behaviour::{NetabaseBehaviour, NetabaseBehaviourEvent},
+    config::NetabaseConfig,
+};
 use libp2p::Swarm;
 use netabase_store::traits::definition::NetabaseDefinitionTrait;
 
@@ -16,6 +19,7 @@ use mdns::handle_mdns_event;
 
 /// Handle all NetabaseBehaviour events by delegating to specific handlers
 pub(crate) fn handle_behaviour_event<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+    config: NetabaseConfig,
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     behaviour_event: NetabaseBehaviourEvent<D>,
 ) where
@@ -51,7 +55,7 @@ pub(crate) fn handle_behaviour_event<D: NetabaseDefinitionTrait + Send + Sync + 
         }
         #[cfg(feature = "native")]
         NetabaseBehaviourEvent::Mdns(mdns_event) => {
-            handle_mdns_event::<D>(swarm, mdns_event);
+            handle_mdns_event::<D>(swarm, config, mdns_event);
         }
         NetabaseBehaviourEvent::ConnectionLimit(connection_limit_event) => {
             handle_connection_limit_event::<D>(connection_limit_event);

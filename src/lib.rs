@@ -272,6 +272,9 @@ use netabase_store::traits::{
 #[cfg(feature = "native")]
 use tokio::sync::{broadcast, mpsc, oneshot};
 
+#[cfg(feature = "native")]
+use crate::network::config::NetabaseConfig;
+
 /// Main Netabase instance that manages the distributed database.
 ///
 /// This is the primary interface for interacting with a Netabase distributed database.
@@ -359,6 +362,7 @@ where
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
 {
+    config: NetabaseConfig,
     /// Handle to the background swarm task
     swarm_thread: Option<tokio::task::JoinHandle<anyhow::Result<()>>>,
     /// Channel for sending commands to the swarm
@@ -439,7 +443,47 @@ where
         let (_broadcast_sender, broadcast_receiver) = broadcast::channel(1000);
 
         Ok(Self {
+            config: NetabaseConfig::default(),
             swarm_thread: None,
+            command_sender,
+            broadcast_receiver,
+            database_path: None,
+        })
+    }
+
+    /// Create a new Netabase instance with a custom configuration.
+    ///
+    /// This allows you to specify the storage backend and other configuration options.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The configuration for the Netabase instance
+    ///
+    /// # Returns
+    ///
+    /// A new `Netabase` instance configured with the specified settings.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use netabase::Netabase;
+    /// use netabase::network::config::{NetabaseConfig, StorageBackend};
+    /// use netabase_store::netabase_definition_module;
+    ///
+    /// #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// mod my_definition {}
+    ///
+    /// // Use redb backend instead of default sled
+    /// let config = NetabaseConfig::with_backend(StorageBackend::Redb);
+    /// let netabase = Netabase::<MyDefinition>::new_with_config(config).unwrap();
+    /// ```
+    pub fn new_with_config(config: NetabaseConfig) -> anyhow::Result<Self> {
+        let (command_sender, _command_receiver) = mpsc::channel(100);
+        let (_broadcast_sender, broadcast_receiver) = broadcast::channel(1000);
+
+        Ok(Self {
+            swarm_thread: None,
+            config,
             command_sender,
             broadcast_receiver,
             database_path: None,
@@ -448,12 +492,14 @@ where
 
     /// Create a new Netabase instance with a custom database path.
     ///
-    /// This allows you to specify where the local sled database will be stored,
+    /// This allows you to specify where the local database will be stored,
     /// which is useful for:
     /// - Custom data directories
     /// - Testing with isolated databases
     /// - Multiple database instances
     /// - Docker volume mounting
+    ///
+    /// Uses the default storage backend (sled on native, IndexedDB on WASM).
     ///
     /// # Arguments
     ///
@@ -486,6 +532,55 @@ where
 
         Ok(Self {
             swarm_thread: None,
+            config: NetabaseConfig::default(),
+            command_sender,
+            broadcast_receiver,
+            database_path: Some(path.as_ref().to_string_lossy().to_string()),
+        })
+    }
+
+    /// Create a new Netabase instance with both a custom path and backend.
+    ///
+    /// This combines the functionality of `new_with_path` and `new_with_config`,
+    /// allowing you to specify both the storage location and the backend type.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The filesystem path where the database should be stored
+    /// * `backend` - The storage backend to use (sled, redb, or indexeddb)
+    ///
+    /// # Returns
+    ///
+    /// A new `Netabase` instance configured with the specified path and backend.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use netabase::Netabase;
+    /// use netabase::network::config::StorageBackend;
+    /// use netabase_store::netabase_definition_module;
+    ///
+    /// #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// mod my_definition {}
+    ///
+    /// // Use redb backend with custom path
+    /// let netabase = Netabase::<MyDefinition>::new_with_path_and_backend(
+    ///     "./my_app_data",
+    ///     StorageBackend::Redb
+    /// ).unwrap();
+    /// ```
+    pub fn new_with_path_and_backend<P: AsRef<std::path::Path>>(
+        path: P,
+        backend: network::config::StorageBackend,
+    ) -> anyhow::Result<Self> {
+        let (command_sender, _command_receiver) = mpsc::channel(100);
+        let (_broadcast_sender, broadcast_receiver) = broadcast::channel(1000);
+
+        let config = NetabaseConfig::with_backend(backend);
+
+        Ok(Self {
+            swarm_thread: None,
+            config,
             command_sender,
             broadcast_receiver,
             database_path: Some(path.as_ref().to_string_lossy().to_string()),
@@ -547,14 +642,18 @@ where
         self.command_sender = command_sender;
         self.broadcast_receiver = broadcast_receiver;
 
-        // Generate and start swarm
-        let swarm = network::swarm::generate_swarm_with_name::<D>(self.database_path.clone())?;
+        // Generate and start swarm with configured backend
+        let swarm = network::swarm::generate_swarm_with_name::<D>(
+            self.database_path.clone(),
+            self.config.storage_backend,
+        )?;
 
         // Setup swarm with listening addresses (required for mDNS discovery)
         let swarm = network::swarm::setup_swarm(swarm).await?;
 
+        let config = self.config.clone();
         let handle = tokio::spawn(async move {
-            network::swarm::handlers::start_swarm_loop(swarm, broadcast_sender, command_receiver)
+            network::swarm::handlers::start_swarm_loop(config, swarm, broadcast_sender, command_receiver)
                 .await;
             Ok(())
         });
