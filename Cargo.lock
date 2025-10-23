@@ -2235,7 +2235,6 @@ dependencies = [
 [[package]]
 name = "netabase_deps"
 version = "0.1.0"
-source = "git+https://github.com/newsnet-africa/netabase_store.git#98e8388ff9e5e430cbb0d8fffb51eea2683715ed"
 dependencies = [
  "bincode",
  "derive_more",
@@ -2247,7 +2246,6 @@ dependencies = [
 [[package]]
 name = "netabase_macros"
 version = "0.1.0"
-source = "git+https://github.com/newsnet-africa/netabase_store.git#98e8388ff9e5e430cbb0d8fffb51eea2683715ed"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2266,7 +2264,6 @@ dependencies = [
 [[package]]
 name = "netabase_store"
 version = "0.1.0"
-source = "git+https://github.com/newsnet-africa/netabase_store.git#98e8388ff9e5e430cbb0d8fffb51eea2683715ed"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2277,6 +2274,7 @@ dependencies = [
  "libp2p",
  "netabase_deps",
  "netabase_macros",
+ "redb",
  "serde",
  "sled",
  "strum",
@@ -2826,6 +2824,15 @@ dependencies = [
  "rustls-pki-types",
  "time",
  "yasna",
+]
+
+[[package]]
+name = "redb"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae323eb086579a3769daa2c753bb96deb95993c534711e0dbe881b5192906a06"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
