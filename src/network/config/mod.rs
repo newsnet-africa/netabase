@@ -44,7 +44,15 @@ pub struct DHTDiscoveryConfig {
     pub mdns_discovery: MDNSDiscoveryConfig,
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct MDNSDiscoveryConfig {
     pub auto_connect: Option<Duration>,
+}
+
+impl Default for MDNSDiscoveryConfig {
+    fn default() -> Self {
+        Self {
+            auto_connect: Some(Duration::from_secs(120)),
+        }
+    }
 }

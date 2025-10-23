@@ -7,9 +7,8 @@ use netabase_store::{
     traits::definition::NetabaseDefinitionTrait,
 };
 
-// TODO: Enable redb when it's available in the published netabase_store
-// #[cfg(feature = "native")]
-// use netabase_store::databases::redb_store::RedbStore;
+#[cfg(feature = "native")]
+use netabase_store::databases::redb_store::RedbStore;
 
 #[cfg(feature = "libp2p")]
 use libp2p::kad::{
@@ -40,9 +39,8 @@ where
         + std::str::FromStr,
 {
     Sled(SledStore<D>),
-    // TODO: Enable redb variant when redb_store is available
-    // #[cfg(feature = "native")]
-    // Redb(RedbStore<D>),
+    #[cfg(feature = "native")]
+    Redb(RedbStore<D>),
 }
 
 impl<D> NetabaseStore<D>
@@ -67,10 +65,7 @@ where
         match backend {
             StorageBackend::Sled => Ok(NetabaseStore::Sled(SledStore::new(path)?)),
             #[cfg(feature = "native")]
-            StorageBackend::Redb => {
-                // TODO: Enable redb when redb_store is available in netabase_store
-                Err(anyhow::anyhow!("Redb backend not yet available - work in progress"))
-            }
+            StorageBackend::Redb => Ok(NetabaseStore::Redb(RedbStore::new(path)?)),
             #[cfg(feature = "wasm")]
             StorageBackend::IndexedDB => {
                 // IndexedDB doesn't use file paths
@@ -88,8 +83,10 @@ where
             StorageBackend::Sled => Ok(NetabaseStore::Sled(SledStore::temp()?)),
             #[cfg(feature = "native")]
             StorageBackend::Redb => {
-                // TODO: Enable redb when redb_store is available in netabase_store
-                Err(anyhow::anyhow!("Redb backend not yet available - work in progress"))
+                use tempfile::NamedTempFile;
+                let temp_file = NamedTempFile::new()?;
+                let temp_path = temp_file.path();
+                Ok(NetabaseStore::Redb(RedbStore::new(temp_path)?))
             }
             #[cfg(feature = "wasm")]
             StorageBackend::IndexedDB => {
@@ -139,48 +136,64 @@ where
     fn get(&self, k: &RecordKey) -> Option<Cow<'_, Record>> {
         match self {
             NetabaseStore::Sled(store) => store.get(k),
+            #[cfg(feature = "native")]
+            NetabaseStore::Redb(store) => store.get(k),
         }
     }
 
     fn put(&mut self, r: Record) -> libp2p::kad::store::Result<()> {
         match self {
             NetabaseStore::Sled(store) => store.put(r),
+            #[cfg(feature = "native")]
+            NetabaseStore::Redb(store) => store.put(r),
         }
     }
 
     fn remove(&mut self, k: &RecordKey) {
         match self {
             NetabaseStore::Sled(store) => store.remove(k),
+            #[cfg(feature = "native")]
+            NetabaseStore::Redb(store) => store.remove(k),
         }
     }
 
     fn records(&self) -> Self::RecordsIter<'_> {
         match self {
             NetabaseStore::Sled(store) => Box::new(store.records()),
+            #[cfg(feature = "native")]
+            NetabaseStore::Redb(store) => Box::new(store.records()),
         }
     }
 
     fn add_provider(&mut self, record: ProviderRecord) -> libp2p::kad::store::Result<()> {
         match self {
             NetabaseStore::Sled(store) => store.add_provider(record),
+            #[cfg(feature = "native")]
+            NetabaseStore::Redb(store) => store.add_provider(record),
         }
     }
 
     fn providers(&self, key: &RecordKey) -> Vec<ProviderRecord> {
         match self {
             NetabaseStore::Sled(store) => store.providers(key),
+            #[cfg(feature = "native")]
+            NetabaseStore::Redb(store) => store.providers(key),
         }
     }
 
     fn provided(&self) -> Self::ProvidedIter<'_> {
         match self {
             NetabaseStore::Sled(store) => Box::new(store.provided()),
+            #[cfg(feature = "native")]
+            NetabaseStore::Redb(store) => Box::new(store.provided()),
         }
     }
 
     fn remove_provider(&mut self, key: &RecordKey, provider: &PeerId) {
         match self {
             NetabaseStore::Sled(store) => store.remove_provider(key, provider),
+            #[cfg(feature = "native")]
+            NetabaseStore::Redb(store) => store.remove_provider(key, provider),
         }
     }
 }
