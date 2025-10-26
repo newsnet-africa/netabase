@@ -28,7 +28,7 @@ licence-file = "LICENCE"
 readme = "README.md"
 repository = "https://github.com/newsnet-africa/netabase.git"
 keywords = ["key-value", "storage", "wrapper", "libp2p", "wasm"]
-categories = ["databases"]
+categories = ["database"]
 
 [features]
 default = ["native"]
