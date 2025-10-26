@@ -8,7 +8,7 @@ use tokio::time::{Duration, sleep};
 // Define the chat schema with Message model
 #[netabase_definition_module(ChatDefinition, ChatKeys)]
 mod chat {
-    use netabase_store::*;
+    use netabase_store::{NetabaseModel, netabase};
 
     #[derive(
         NetabaseModel,

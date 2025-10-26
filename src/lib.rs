@@ -26,12 +26,12 @@
 //! // Define your data models
 //! #[netabase_definition_module(BlogDefinition, BlogKeys)]
 //! mod blog {
-//!     use super::*;
+//!     use netabase_store::{NetabaseModel, netabase};
 //!
 //!     #[derive(NetabaseModel, Clone, Debug, bincode::Encode, bincode::Decode, serde::Serialize, serde::Deserialize)]
-//!     #[key_name(UserKey)]
+//!     #[netabase(BlogDefinition)]
 //!     pub struct User {
-//!         #[key]
+//!         #[primary_key]
 //!         pub id: u64,
 //!         pub name: String,
 //!         #[secondary_key]
@@ -92,23 +92,20 @@
 //! For local-only database operations without networking:
 //!
 //! ```rust
-//! use netabase_store::database::sled::{NetabaseSledDatabase, NetabaseSledTree};
-//! use netabase_store::traits::{model::NetabaseModelTrait, NetabaseSecondaryKeyQuery};
+//! use netabase_store::databases::sled_store::SledStore;
+//! use netabase_store::traits::model::NetabaseModelTrait;
+//! use netabase_store::traits::tree::NetabaseTreeSync;
 //! use netabase_store::netabase_definition_module;
 //!
-// Define your data models
+//! // Define your data models
 //! #[netabase_definition_module(BlogDefinition, BlogKeys)]
 //! mod blog {
-//!     use super::*;
-//!     use netabase_store::NetabaseModelTrait;
-//!     use netabase_store::traits::NetabaseModelTrait;
-//!     use netabase_store::{bincode, serde}; // Re-exported for convenience
-//!
+//!     use netabase_store::{NetabaseModel, netabase};
 //!
 //!     #[derive(NetabaseModel, Clone, Debug, bincode::Encode, bincode::Decode, serde::Serialize, serde::Deserialize)]
-//!     #[key_name(UserKey)]
+//!     #[netabase(BlogDefinition)]
 //!     pub struct User {
-//!         #[key]
+//!         #[primary_key]
 //!         pub id: u64,
 //!         pub name: String,
 //!         #[secondary_key]
@@ -116,23 +113,24 @@
 //!     }
 //! }
 //!
-//! // Example schema and types would be defined with macros
-//! // See examples/ directory for complete working examples
+//! use blog::*;
 //!
 //! // Create local database
-//! let db = NetabaseSledDatabase::<blog::BlogDefinition>::new_with_path("./my_local_db").unwrap();
-//! let user_tree: NetabaseSledTree<blog::User, blog::UserKey> = db.get_main_tree().unwrap();
+//! let db = SledStore::<BlogDefinition>::temp().unwrap();
+//! let user_tree = db.open_tree::<User>();
 //!
-//! let user = blog::User { id: 1, name: "Some Name".to_string(), email: "some@email.com".to_string() };
+//! let user = User { id: 1, name: "Some Name".to_string(), email: "some@email.com".to_string() };
 //!
 //! // Standard CRUD operations
-//! user_tree.insert(user.key(), user.clone()).unwrap();
-//! let retrieved = user_tree.get(user.key()).unwrap().unwrap();
+//! user_tree.put(user.clone()).unwrap();
+//! let retrieved = user_tree.get(user.primary_key()).unwrap().unwrap();
+//! assert_eq!(retrieved.name, "Some Name");
 //!
 //! // Secondary key queries
-//! let users_by_email = user_tree.query_by_secondary_key(
-//!     blog::UserSecondaryKeys::EmailKey("alice@example.com".to_string())
+//! let users_by_email = user_tree.get_by_secondary_key(
+//!     UserSecondaryKeys::Email(EmailSecondaryKey("some@email.com".to_string()))
 //! ).unwrap();
+//! assert_eq!(users_by_email.len(), 1);
 //! ```
 //!
 //! ## Distributed Network Usage
@@ -154,9 +152,8 @@
 //!
 //!     /// Test user model
 //!     #[derive(NetabaseModel, Clone, Debug, PartialEq, bincode::Encode, bincode::Decode, serde::Serialize, serde::Deserialize)]
-//!     #[key_name(TestUserKey)]
 //!     pub struct TestUser {
-//!         #[key]
+//!         #[primary_key]
 //!         pub id: u64,
 //!         pub name: String,
 //!     }
@@ -318,9 +315,8 @@ use crate::network::config::NetabaseConfig;
 ///     use super::*;
 ///
 ///     #[derive(NetabaseModel)]
-///     #[key_name(UserKey)]
 ///     pub struct User {
-///         #[key] pub id: u64,
+///         #[primary_key] pub id: u64,
 ///         pub name: String,
 ///     }
 /// }
@@ -657,8 +653,13 @@ where
 
         let config = self.config.clone();
         let handle = tokio::spawn(async move {
-            network::swarm::handlers::start_swarm_loop(config, swarm, broadcast_sender, command_receiver)
-                .await;
+            network::swarm::handlers::start_swarm_loop(
+                config,
+                swarm,
+                broadcast_sender,
+                command_receiver,
+            )
+            .await;
             Ok(())
         });
 
@@ -1234,29 +1235,31 @@ where
     /// # Example
     ///
     /// ```rust
-    /// use libp2p::{PeerId, Multiaddr};
-    /// use tokio::main;
     ///
-    /// use bincode::{Decode, Encode};
     /// use netabase::Netabase;
+    /// use netabase_store::{ netabase_definition_module};
     /// use netabase_store::traits::model::NetabaseModelTrait;
-    /// use serde::{Deserialize, Serialize};
-    /// use netabase_store::netabase_definition_module;
-    /// use netabase_deps::*;
+    /// use netabase_store::traits::definition::NetabaseDefinitionTrait;
+    /// use netabase_store::{bincode, serde}; // Re-exported for convenience
+    /// use libp2p::{PeerId, Multiaddr};
+    ///
     /// // Define your data models
     /// #[netabase_definition_module(BlogDefinition, BlogKeys)]
-    /// mod blog {
-    ///     use super::*;
-    ///     #[derive(NetabaseModel, Clone, Encode, Decode, Debug, Serialize, Deserialize)]
-    ///     #[key_name(UserKey)]
+    /// pub mod blog {
+    ///     use netabase_store::{NetabaseModel, netabase};
+    ///
+    ///     #[derive(NetabaseModel, Clone, Debug, bincode::Encode, bincode::Decode, serde::Serialize, serde::Deserialize)]
+    ///     #[netabase(BlogDefinition)]
     ///     pub struct User {
-    ///         #[key]
+    ///         #[primary_key]
     ///         pub id: u64,
     ///         pub name: String,
     ///         #[secondary_key]
     ///         pub email: String,
     ///     }
     /// }
+    ///
+    /// use blog::*;
     ///
     /// #[tokio::main]
     /// pub async fn main() {

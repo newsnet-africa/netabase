@@ -315,6 +315,33 @@ Application
 - **Channel-based**: Non-blocking communication between layers
 - **Secondary key indexing**: O(m) queries where m is matching records
 
+### Abstraction Overhead
+
+Netabase builds on `netabase_store` for its storage layer, which provides excellent type safety and multi-backend support. However, this abstraction does come with some performance overhead (typically 5-10%). For applications where maximum performance is critical and you don't need the networking features, consider using `netabase_store` directly.
+
+The main overhead sources are:
+- Type conversions for DHT record storage
+- libp2p's RecordStore trait implementation
+- Channel-based async communication between layers
+
+We're actively working to reduce this overhead while maintaining type safety and the clean API.
+
+### Future Plans
+
+**UniFFI Integration**: We're planning to add UniFFI support to enable using netabase from other languages (Python, Kotlin/Swift, etc.):
+- Export generated model code to UniFFI
+- Create FFI-safe API wrappers for all major operations
+- Enable cross-language distributed applications
+- Support for callbacks and async operations across language boundaries
+
+This will make it possible to build distributed applications in Python, Swift, or Kotlin that can seamlessly communicate with Rust-based netabase nodes.
+
+**P2P Network Profiles**: Planned features for easier distributed application development:
+- Configurable connection profiles (local-only, DHT-backed, full mesh, etc.)
+- Protocol abstraction for easier integration with different transport layers
+- Automatic conflict resolution strategies (CRDT-based, last-write-wins, custom)
+- Built-in data synchronization patterns
+
 ## Platform Support
 
 | Feature | Native | WASM |
