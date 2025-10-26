@@ -2,6 +2,8 @@
 
 A peer-to-peer networking layer built on libp2p with integrated type-safe storage, enabling distributed applications with automatic data synchronization across native and WASM environments.
 
+# This crate is still in early development and will change frequently as it stabalises. It is not advised to use this in a production environment until it stabalises.
+
 ## Features
 
 ### Current Features
