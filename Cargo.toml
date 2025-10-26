@@ -27,7 +27,7 @@ description = "A peer-to-peer networking layer built on libp2p with integrated t
 licence-file = "LICENCE"
 readme = "README.md"
 repository = "https://github.com/newsnet-africa/netabase.git"
-keywords = ["kv", "key-value", "storage", "wrapper", "redb", "libp2p", "wasm"]
+keywords = ["key-value", "storage", "wrapper", "libp2p", "wasm"]
 categories = ["databases"]
 
 [features]
