@@ -1,7 +1,4 @@
 #[cfg(feature = "native")]
-use std::marker::PhantomData;
-
-#[cfg(feature = "native")]
 use libp2p::{
     Multiaddr, PeerId, StreamProtocol, Swarm,
     kad::{
@@ -10,10 +7,7 @@ use libp2p::{
     },
 };
 #[cfg(feature = "native")]
-use netabase_store::{
-    model::NetabaseModelTrait,
-    traits::{convert::ToIVec, definition::NetabaseDefinitionTrait},
-};
+use netabase_store::traits::{convert::ToIVec, definition::NetabaseDefinitionTrait};
 #[cfg(feature = "native")]
 use strum::IntoDiscriminant;
 #[cfg(feature = "native")]
@@ -207,10 +201,8 @@ where
 }
 
 #[cfg(feature = "native")]
-pub(crate) fn handle_command_events<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
-    swarm: &mut Swarm<NetabaseBehaviour<D>>,
-    command: Command<D>,
-) where
+pub(crate) fn handle_command_events<D>(swarm: &mut Swarm<NetabaseBehaviour<D>>, command: Command<D>)
+where
     D: netabase_store::convert::ToIVec,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
@@ -233,6 +225,7 @@ pub(crate) fn handle_command_events<D: NetabaseDefinitionTrait + Send + Sync + '
     <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
+    D: NetabaseDefinitionTrait + Send + Sync + 'static,
 {
     match command {
         Command::Kademlia(kad_command) => {

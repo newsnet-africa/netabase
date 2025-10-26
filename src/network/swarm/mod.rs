@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use libp2p::Swarm;
-use netabase_store::traits::{convert::ToIVec, definition::NetabaseDefinitionTrait};
+use netabase_store::traits::definition::NetabaseDefinitionTrait;
 
 use crate::network::behaviour::NetabaseBehaviour;
 
@@ -9,7 +9,7 @@ pub(crate) mod handlers;
 
 // Native implementation with full networking support
 #[cfg(feature = "native")]
-pub(crate) fn generate_swarm<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+pub(crate) fn _generate_swarm<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     backend: crate::network::config::StorageBackend,
 ) -> anyhow::Result<Swarm<NetabaseBehaviour<D>>>
 where

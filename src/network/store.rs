@@ -9,12 +9,9 @@ use netabase_store::{
 use netabase_store::databases::redb_store::RedbStore;
 
 #[cfg(feature = "libp2p")]
-use libp2p::kad::{
-    store::{Error, RecordStore},
-    ProviderRecord, Record, RecordKey,
-};
-#[cfg(feature = "libp2p")]
 use libp2p::PeerId;
+#[cfg(feature = "libp2p")]
+use libp2p::kad::{ProviderRecord, Record, RecordKey, store::RecordStore};
 #[cfg(feature = "libp2p")]
 use std::borrow::Cow;
 

@@ -137,48 +137,74 @@
 //!
 //! For distributed operations across multiple nodes:
 //!
-//! ```rust, ignore
+//! ```rust
 //! use netabase::Netabase;
-//! use netabase_store::{NetabaseModelTrait, netabase_definition_module};
-//! use netabase_store::traits::NetabaseModelTrait;
-//! use netabase::{bincode, serde}; // Re-exported for convenience
-//! use tokio::main;
+//! use netabase_store::*;
+//! use netabase_store::traits::model::NetabaseModelTrait;
 //!
 //! /// Example definition module for testing netabase functionality
 //! #[netabase_definition_module(TestDefinition, TestDefinitionKeys)]
-//! mod test_definition {
+//! pub mod test_definition {
 //!     use super::*;
-//!     use netabase_store::{NetabaseModelTrait, key_name};
+//!     use netabase_store::{NetabaseModel, netabase};
 //!
 //!     /// Test user model
-//!     #[derive(NetabaseModel, Clone, Debug, PartialEq, bincode::Encode, bincode::Decode, serde::Serialize, serde::Deserialize)]
+//!     #[derive(
+//!         NetabaseModel,
+//!         Clone,
+//!         Debug,
+//!         PartialEq,
+//!         bincode::Encode,
+//!         bincode::Decode,
+//!         serde::Serialize,
+//!         serde::Deserialize,
+//!     )]
+//!     #[netabase(TestDefinition)]
 //!     pub struct TestUser {
 //!         #[primary_key]
 //!         pub id: u64,
 //!         pub name: String,
 //!     }
 //! }
+//! pub use test_definition::*;
 //! #[tokio::main]
 //! pub async fn main() {
 //!     // Create distributed instance
 //!     let mut netabase = Netabase::<test_definition::TestDefinition>::new().expect("Failed to initialise database for some reason");
 //!     let user = test_definition::TestUser { id:1, name:"Some Name".to_string() };
-//!     let key = user.key();
+//!     let key = user.primary_key();
 //!     let start_swarm_result = netabase.start_swarm().await;
 //!
 //!     // Network operations
 //!     let bootstrap_result = netabase.bootstrap().await; // Join the network
 //!     let put_record_result = netabase.put_record(user).await; // Store data
-//!     let get_record_result = netabase.get_record(key.clone()).await; // Retrieve data
+//!     let get_record_result = netabase.get_record::<TestUserKey>(key.clone().into()).await; // Retrieve data
 //!
 //!     // Provider operations
-//!     let provider_result = netabase.start_providing(key.clone()).await;
-//!     let providers_result = netabase.get_providers(key).await;
+//!     let provider_result = netabase.start_providing::<TestUserKey>(key.clone().into()).await;
+//!     let providers_result = netabase.get_providers::<TestUserKey>(key.into()).await;
 //!
 //!     // Subscribe to network events
 //!     let mut receiver = netabase.subscribe_to_broadcasts();
-//!     while let Ok(event) = receiver.recv().await {
-//!         println!("Network event: {:?}", event);
+//!     use tokio::time::{timeout, Duration};
+//!     
+//!     let duration = Duration::from_secs(5);
+//!     
+//!     loop {
+//!         match timeout(duration, receiver.recv()).await {
+//!             Ok(Ok(event)) => {
+//!                 println!("Network event: {:?}", event);
+//!             }
+//!             Ok(Err(_closed)) => {
+//!                 // channel closed
+//!                 break;
+//!             }
+//!             Err(_) => {
+//!                 // timeout elapsed
+//!                 println!("No event received for {}s — timing out", duration.as_secs());
+//!                 break; // or continue, or handle timeout
+//!             }
+//!         }
 //!     }
 //! }
 //! ```
@@ -197,9 +223,9 @@
 //!
 //! ### TODO
 //! #### Relations
-//! [] Use foreign key fields to reference other models
-//! [] Enable efficient joins and referential integrity
-//! [] Consider using `NetabaseRelationalQuery` for complex relationships
+//! [ ] Use foreign key fields to reference other models
+//! [ ] Enable efficient joins and referential integrity
+//! [ ] Consider using `NetabaseRelationalQuery` for complex relationships
 ///
 /// ## Performance Considerations
 ///

@@ -4,9 +4,7 @@ use libp2p::Swarm;
 use netabase_store::traits::definition::NetabaseDefinitionTrait;
 
 #[cfg(feature = "native")]
-use crate::network::{
-    behaviour::{NetabaseBehaviour, clone_impl::NetabaseSwarmEvent},
-};
+use crate::network::behaviour::{NetabaseBehaviour, clone_impl::NetabaseSwarmEvent};
 
 // Handler modules - only available for native builds
 #[cfg(feature = "native")]
@@ -43,7 +41,7 @@ pub mod new_listen_addr;
 pub mod outgoing_connection_error;
 
 #[cfg(feature = "native")]
-pub fn handle_swarm_events<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+pub fn handle_swarm_events<D>(
     config: crate::network::config::NetabaseConfig,
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     event: NetabaseSwarmEvent<D>,
@@ -70,6 +68,7 @@ pub fn handle_swarm_events<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
+    D: NetabaseDefinitionTrait + Send + Sync + 'static,
 {
     match event.0 {
         libp2p::swarm::SwarmEvent::Behaviour(behaviour_event) => {

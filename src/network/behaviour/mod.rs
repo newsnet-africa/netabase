@@ -1,6 +1,6 @@
 use crate::network::{config::StorageBackend, store::NetabaseStore};
-use libp2p::{connection_limits, identity::Keypair, swarm::NetworkBehaviour, PeerId};
-use netabase_store::traits::{convert::ToIVec, definition::NetabaseDefinitionTrait};
+use libp2p::{PeerId, connection_limits, identity::Keypair, swarm::NetworkBehaviour};
+use netabase_store::traits::definition::NetabaseDefinitionTrait;
 
 pub mod clone_impl;
 
@@ -66,11 +66,11 @@ where
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
 {
-    pub fn new(keypair: &Keypair) -> Result<Self, crate::errors::Error> {
+    pub fn _new(keypair: &Keypair) -> Result<Self, crate::errors::Error> {
         Self::new_with_config(keypair, None, StorageBackend::default())
     }
 
-    pub fn new_with_name(
+    pub fn _new_with_name(
         keypair: &Keypair,
         name: Option<String>,
     ) -> Result<Self, crate::errors::Error> {
