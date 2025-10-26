@@ -8,7 +8,7 @@ pub mod clone_impl;
 use libp2p::mdns;
 
 #[derive(NetworkBehaviour)]
-pub struct NetabaseBehaviour<D: NetabaseDefinitionTrait + Send + Sync + 'static>
+pub(crate) struct NetabaseBehaviour<D: NetabaseDefinitionTrait + Send + Sync + 'static>
 where
     D: netabase_store::convert::ToIVec,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>

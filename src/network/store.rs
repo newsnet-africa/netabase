@@ -21,7 +21,7 @@ use std::borrow::Cow;
 use libp2p::PeerId;
 
 /// Unified store that can use any supported backend
-pub enum NetabaseStore<D>
+pub(crate) enum NetabaseStore<D>
 where
     D: NetabaseDefinitionTrait,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>

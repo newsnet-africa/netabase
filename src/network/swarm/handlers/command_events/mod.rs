@@ -24,35 +24,35 @@ use crate::network::behaviour::NetabaseBehaviour;
 
 // Handler modules - only available for native builds
 #[cfg(feature = "native")]
-pub mod add_address;
+pub(crate) mod add_address;
 #[cfg(feature = "native")]
-pub mod bootstrap;
+pub(crate) mod bootstrap;
 #[cfg(feature = "native")]
-pub mod fallback;
+pub(crate) mod fallback;
 #[cfg(feature = "native")]
-pub mod get_providers;
+pub(crate) mod get_providers;
 #[cfg(feature = "native")]
-pub mod get_record;
+pub(crate) mod get_record;
 #[cfg(feature = "native")]
-pub mod mode;
+pub(crate) mod mode;
 #[cfg(feature = "native")]
-pub mod protocol_names;
+pub(crate) mod protocol_names;
 #[cfg(feature = "native")]
-pub mod put_record;
+pub(crate) mod put_record;
 #[cfg(feature = "native")]
-pub mod put_record_to;
+pub(crate) mod put_record_to;
 #[cfg(feature = "native")]
-pub mod remove_address;
+pub(crate) mod remove_address;
 #[cfg(feature = "native")]
-pub mod remove_peer;
+pub(crate) mod remove_peer;
 #[cfg(feature = "native")]
-pub mod remove_record;
+pub(crate) mod remove_record;
 #[cfg(feature = "native")]
-pub mod set_mode;
+pub(crate) mod set_mode;
 #[cfg(feature = "native")]
-pub mod start_providing;
+pub(crate) mod start_providing;
 #[cfg(feature = "native")]
-pub mod stop_providing;
+pub(crate) mod stop_providing;
 
 #[cfg(feature = "native")]
 #[derive(Debug)]

@@ -2235,6 +2235,7 @@ dependencies = [
 [[package]]
 name = "netabase_deps"
 version = "0.1.0"
+source = "git+https://github.com/newsnet-africa/netabase_store.git#6282519afce1404f7d9ebb4135871fe59fd43134"
 dependencies = [
  "bincode",
  "derive_more",
@@ -2246,6 +2247,7 @@ dependencies = [
 [[package]]
 name = "netabase_macros"
 version = "0.1.0"
+source = "git+https://github.com/newsnet-africa/netabase_store.git#6282519afce1404f7d9ebb4135871fe59fd43134"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2264,11 +2266,13 @@ dependencies = [
 [[package]]
 name = "netabase_store"
 version = "0.1.0"
+source = "git+https://github.com/newsnet-africa/netabase_store.git#6282519afce1404f7d9ebb4135871fe59fd43134"
 dependencies = [
  "anyhow",
  "bincode",
  "chrono",
  "derive_more",
+ "getrandom 0.2.16",
  "indexed_db_futures",
  "js-sys",
  "libp2p",

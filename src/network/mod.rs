@@ -1,4 +1,4 @@
-pub mod behaviour;
+pub(crate) mod behaviour;
 pub mod config;
-pub mod store;
-pub mod swarm;
+pub(crate) mod store;
+pub(crate) mod swarm;

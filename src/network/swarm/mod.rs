@@ -5,11 +5,11 @@ use netabase_store::traits::{convert::ToIVec, definition::NetabaseDefinitionTrai
 
 use crate::network::behaviour::NetabaseBehaviour;
 
-pub mod handlers;
+pub(crate) mod handlers;
 
 // Native implementation with full networking support
 #[cfg(feature = "native")]
-pub fn generate_swarm<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+pub(crate) fn generate_swarm<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     backend: crate::network::config::StorageBackend,
 ) -> anyhow::Result<Swarm<NetabaseBehaviour<D>>>
 where
@@ -42,7 +42,7 @@ where
 }
 
 #[cfg(feature = "native")]
-pub fn generate_swarm_with_name<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+pub(crate) fn generate_swarm_with_name<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     name: Option<String>,
     backend: crate::network::config::StorageBackend,
 ) -> anyhow::Result<Swarm<NetabaseBehaviour<D>>>
@@ -124,7 +124,7 @@ where
 
 // Native swarm setup with listening capabilities
 #[cfg(feature = "native")]
-pub async fn setup_swarm<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+pub(crate) async fn setup_swarm<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     mut swarm: Swarm<NetabaseBehaviour<D>>,
 ) -> anyhow::Result<Swarm<NetabaseBehaviour<D>>>
 where

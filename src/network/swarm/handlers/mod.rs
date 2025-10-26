@@ -10,9 +10,9 @@ use crate::network::{
 };
 
 #[cfg(feature = "native")]
-pub mod command_events;
+pub(crate) mod command_events;
 #[cfg(feature = "native")]
-pub mod swarm_events;
+pub(crate) mod swarm_events;
 
 // Native implementation with full swarm event loop
 #[cfg(feature = "native")]

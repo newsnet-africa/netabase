@@ -75,7 +75,7 @@ async fn main() -> Result<()> {
 
                     // Check for mDNS discovered peers
                     if let libp2p::swarm::SwarmEvent::Behaviour(behaviour_event) = inner_event {
-                        use netabase::network::behaviour::NetabaseBehaviourEvent;
+                        use netabase::NetabaseBehaviourEvent;
 
                         match behaviour_event {
                             NetabaseBehaviourEvent::Mdns(mdns_event) => {

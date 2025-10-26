@@ -10,7 +10,7 @@ use libp2p::swarm::SwarmEvent;
 use netabase_store::strum::IntoDiscriminant;
 use netabase_store::traits::definition::NetabaseDefinitionTrait;
 
-use crate::network::behaviour::NetabaseBehaviourEvent;
+pub use crate::network::behaviour::NetabaseBehaviourEvent;
 
 impl<D: NetabaseDefinitionTrait + Send + Sync + 'static> Clone for NetabaseBehaviourEvent<D>
 where

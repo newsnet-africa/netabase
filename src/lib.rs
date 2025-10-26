@@ -257,11 +257,15 @@ pub use netabase_store;
 /// Users can access these through `netabase::serde`, `netabase::bincode`, etc.
 /// but the macros will work even without manual imports thanks to hygiene.
 // Re-export macro dependencies conditionally when macros are used
-// #[doc(hidden)]
 pub mod errors;
 
 #[cfg(feature = "native")]
 pub mod network;
+
+#[cfg(feature = "native")]
+pub use network::behaviour::NetabaseBehaviourEvent;
+#[cfg(feature = "native")]
+pub use network::behaviour::clone_impl::NetabaseSwarmEvent;
 
 #[cfg(feature = "native")]
 use libp2p::kad::QueryResult;
