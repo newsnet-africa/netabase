@@ -2236,7 +2236,7 @@ dependencies = [
 [[package]]
 name = "netabase_deps"
 version = "0.0.1"
-source = "git+https://github.com/newsnet-africa/netabase_store.git#2898f30676289db182e2b16dcf6d1c1f900bfee7"
+source = "git+https://github.com/newsnet-africa/netabase_store.git#141aa6c2115a02a308f026624949759bab0979d9"
 dependencies = [
  "bincode",
  "derive_more",
@@ -2248,7 +2248,7 @@ dependencies = [
 [[package]]
 name = "netabase_macros"
 version = "0.0.1"
-source = "git+https://github.com/newsnet-africa/netabase_store.git#2898f30676289db182e2b16dcf6d1c1f900bfee7"
+source = "git+https://github.com/newsnet-africa/netabase_store.git#141aa6c2115a02a308f026624949759bab0979d9"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2267,7 +2267,7 @@ dependencies = [
 [[package]]
 name = "netabase_store"
 version = "0.0.1"
-source = "git+https://github.com/newsnet-africa/netabase_store.git#2898f30676289db182e2b16dcf6d1c1f900bfee7"
+source = "git+https://github.com/newsnet-africa/netabase_store.git#141aa6c2115a02a308f026624949759bab0979d9"
 dependencies = [
  "anyhow",
  "bincode",
