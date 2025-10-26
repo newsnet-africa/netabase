@@ -1,10 +1,8 @@
 /// Unified store enum that wraps different backend types
 /// This allows backend selection while maintaining a single type for libp2p RecordStore
-
 use crate::network::config::StorageBackend;
 use netabase_store::{
-    databases::sled_store::SledStore,
-    traits::definition::NetabaseDefinitionTrait,
+    databases::sled_store::SledStore, traits::definition::NetabaseDefinitionTrait,
 };
 
 #[cfg(feature = "native")]
@@ -16,12 +14,12 @@ use libp2p::kad::{
     ProviderRecord, Record, RecordKey,
 };
 #[cfg(feature = "libp2p")]
-use std::borrow::Cow;
-#[cfg(feature = "libp2p")]
 use libp2p::PeerId;
+#[cfg(feature = "libp2p")]
+use std::borrow::Cow;
 
 /// Unified store that can use any supported backend
-pub(crate) enum NetabaseStore<D>
+pub enum NetabaseStore<D>
 where
     D: NetabaseDefinitionTrait,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
@@ -89,9 +87,7 @@ where
                 Ok(NetabaseStore::Redb(RedbStore::new(temp_path)?))
             }
             #[cfg(feature = "wasm")]
-            StorageBackend::IndexedDB => {
-                Err(anyhow::anyhow!("IndexedDB temp not supported"))
-            }
+            StorageBackend::IndexedDB => Err(anyhow::anyhow!("IndexedDB temp not supported")),
         }
     }
 }

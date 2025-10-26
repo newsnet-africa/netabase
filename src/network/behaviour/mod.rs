@@ -1,6 +1,6 @@
-use libp2p::{PeerId, connection_limits, identity::Keypair, swarm::NetworkBehaviour};
-use netabase_store::traits::{convert::ToIVec, definition::NetabaseDefinitionTrait};
 use crate::network::{config::StorageBackend, store::NetabaseStore};
+use libp2p::{connection_limits, identity::Keypair, swarm::NetworkBehaviour, PeerId};
+use netabase_store::traits::{convert::ToIVec, definition::NetabaseDefinitionTrait};
 
 pub mod clone_impl;
 
@@ -8,7 +8,7 @@ pub mod clone_impl;
 use libp2p::mdns;
 
 #[derive(NetworkBehaviour)]
-pub(crate) struct NetabaseBehaviour<D: NetabaseDefinitionTrait + Send + Sync + 'static>
+pub struct NetabaseBehaviour<D: NetabaseDefinitionTrait + Send + Sync + 'static>
 where
     D: netabase_store::convert::ToIVec,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>

@@ -19,6 +19,7 @@
 //!
 //! ```rust
 //! use netabase::Netabase;
+//! use netabase_deps;
 //! use netabase_store::{ netabase_definition_module};
 //! use netabase_store::traits::model::NetabaseModelTrait;
 //! use netabase_store::{bincode, serde}; // Re-exported for convenience
