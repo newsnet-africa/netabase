@@ -2206,7 +2206,7 @@ dependencies = [
 
 [[package]]
 name = "netabase"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2235,8 +2235,9 @@ dependencies = [
 
 [[package]]
 name = "netabase_deps"
-version = "0.0.1"
-source = "git+https://github.com/newsnet-africa/netabase_store.git#141aa6c2115a02a308f026624949759bab0979d9"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92483ee7cfc7d39826955edc175b83600c8db6ff225822993b6d7b9f814b67aa"
 dependencies = [
  "bincode",
  "derive_more",
@@ -2247,8 +2248,9 @@ dependencies = [
 
 [[package]]
 name = "netabase_macros"
-version = "0.0.1"
-source = "git+https://github.com/newsnet-africa/netabase_store.git#141aa6c2115a02a308f026624949759bab0979d9"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e5a586bea09efaab99b98e63300583655cac0c05859066d29490474d7e6b6a1"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2266,8 +2268,9 @@ dependencies = [
 
 [[package]]
 name = "netabase_store"
-version = "0.0.1"
-source = "git+https://github.com/newsnet-africa/netabase_store.git#141aa6c2115a02a308f026624949759bab0979d9"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2f56151d9c8e94dfbb1a1b35be91bce4c13dacc70e32185b247dc32b250a366"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2978,9 +2981,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-pki-types"
-version = "1.12.0"
+version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "229a4a4c221013e7e1f1a043678c5cc39fe5171437c88fb47151a21e6f5b5c79"
+checksum = "94182ad936a0c91c324cd46c6511b9510ed16af436d7b5bab34beab0afd55f7a"
 dependencies = [
  "web-time",
  "zeroize",

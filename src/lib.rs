@@ -332,15 +332,20 @@ use crate::network::config::NetabaseConfig;
 ///
 /// ## Example
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// use netabase::Netabase;
-/// use netabase_store::{NetabaseModelTrait, netabase_definition_module};
+/// use netabase_store::netabase_definition_module;
+/// use netabase_store::{NetabaseModel, netabase};
+/// use netabase_store::traits::model::NetabaseModelTrait;
 ///
 /// #[netabase_definition_module(MyDefinition, MyKeys)]
 /// mod definition {
-///     use super::*;
+///     use netabase_store::{NetabaseModel, netabase};
 ///
-///     #[derive(NetabaseModel)]
+///     #[derive(NetabaseModel, Clone, Debug)]
+///     #[derive(bincode::Encode, bincode::Decode)]
+///     #[derive(serde::Serialize, serde::Deserialize)]
+///     #[netabase(MyDefinition)]
 ///     pub struct User {
 ///         #[primary_key] pub id: u64,
 ///         pub name: String,
@@ -349,6 +354,8 @@ use crate::network::config::NetabaseConfig;
 ///
 /// use definition::*;
 ///
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // Create and start the distributed database
 /// let mut netabase = Netabase::<MyDefinition>::new().unwrap();
 /// netabase.start_swarm().await.unwrap();
@@ -362,6 +369,8 @@ use crate::network::config::NetabaseConfig;
 /// let result = netabase.get_record(key).await.unwrap();
 ///
 /// netabase.stop_swarm().await.unwrap();
+/// # Ok(())
+/// # }
 /// ```
 pub struct Netabase<D: NetabaseDefinitionTrait + Send + Sync>
 where
@@ -455,12 +464,25 @@ where
     ///
     /// # Example
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
     /// use netabase::Netabase;
     /// use netabase_store::netabase_definition_module;
     ///
     /// #[netabase_definition_module(MyDefinition, MyKeys)]
-    /// mod my_definition {}
+    /// mod my_definition {
+    ///     use netabase_store::{NetabaseModel, netabase};
+    ///
+    ///     #[derive(NetabaseModel, Clone, Debug)]
+    ///     #[derive(bincode::Encode, bincode::Decode)]
+    ///     #[derive(serde::Serialize, serde::Deserialize)]
+    ///     #[netabase(MyDefinition)]
+    ///     pub struct User {
+    ///         #[primary_key] pub id: u64,
+    ///         pub name: String,
+    ///     }
+    /// }
+    ///
+    /// use my_definition::*;
     ///
     /// let netabase = Netabase::<MyDefinition>::new().unwrap();
     /// ```
@@ -491,13 +513,26 @@ where
     ///
     /// # Example
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
     /// use netabase::Netabase;
     /// use netabase::network::config::{NetabaseConfig, StorageBackend};
     /// use netabase_store::netabase_definition_module;
     ///
     /// #[netabase_definition_module(MyDefinition, MyKeys)]
-    /// mod my_definition {}
+    /// mod my_definition {
+    ///     use netabase_store::{NetabaseModel, netabase};
+    ///
+    ///     #[derive(NetabaseModel, Clone, Debug)]
+    ///     #[derive(bincode::Encode, bincode::Decode)]
+    ///     #[derive(serde::Serialize, serde::Deserialize)]
+    ///     #[netabase(MyDefinition)]
+    ///     pub struct User {
+    ///         #[primary_key] pub id: u64,
+    ///         pub name: String,
+    ///     }
+    /// }
+    ///
+    /// use my_definition::*;
     ///
     /// // Use redb backend instead of default sled
     /// let config = NetabaseConfig::with_backend(StorageBackend::Redb);
@@ -537,13 +572,26 @@ where
     ///
     /// # Example
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
     /// use netabase::Netabase;
     /// use std::path::Path;
     /// use netabase_store::netabase_definition_module;
     ///
     /// #[netabase_definition_module(MyDefinition, MyKeys)]
-    /// mod my_definition {}
+    /// mod my_definition {
+    ///     use netabase_store::{NetabaseModel, netabase};
+    ///
+    ///     #[derive(NetabaseModel, Clone, Debug)]
+    ///     #[derive(bincode::Encode, bincode::Decode)]
+    ///     #[derive(serde::Serialize, serde::Deserialize)]
+    ///     #[netabase(MyDefinition)]
+    ///     pub struct User {
+    ///         #[primary_key] pub id: u64,
+    ///         pub name: String,
+    ///     }
+    /// }
+    ///
+    /// use my_definition::*;
     ///
     /// // Use a custom database path
     /// let netabase = Netabase::<MyDefinition>::new_with_path("./my_app_data").unwrap();
@@ -581,13 +629,26 @@ where
     ///
     /// # Example
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
     /// use netabase::Netabase;
     /// use netabase::network::config::StorageBackend;
     /// use netabase_store::netabase_definition_module;
     ///
     /// #[netabase_definition_module(MyDefinition, MyKeys)]
-    /// mod my_definition {}
+    /// mod my_definition {
+    ///     use netabase_store::{NetabaseModel, netabase};
+    ///
+    ///     #[derive(NetabaseModel, Clone, Debug)]
+    ///     #[derive(bincode::Encode, bincode::Decode)]
+    ///     #[derive(serde::Serialize, serde::Deserialize)]
+    ///     #[netabase(MyDefinition)]
+    ///     pub struct User {
+    ///         #[primary_key] pub id: u64,
+    ///         pub name: String,
+    ///     }
+    /// }
+    ///
+    /// use my_definition::*;
     ///
     /// // Use redb backend with custom path
     /// let netabase = Netabase::<MyDefinition>::new_with_path_and_backend(
@@ -639,17 +700,34 @@ where
     ///
     /// # Example
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
     /// use netabase::Netabase;
     /// use netabase_store::netabase_definition_module;
     ///
     /// #[netabase_definition_module(MyDefinition, MyKeys)]
-    /// mod my_definition {}
+    /// mod my_definition {
+    ///     use netabase_store::{NetabaseModel, netabase};
     ///
+    ///     #[derive(NetabaseModel, Clone, Debug)]
+    ///     #[derive(bincode::Encode, bincode::Decode)]
+    ///     #[derive(serde::Serialize, serde::Deserialize)]
+    ///     #[netabase(MyDefinition)]
+    ///     pub struct User {
+    ///         #[primary_key] pub id: u64,
+    ///         pub name: String,
+    ///     }
+    /// }
+    ///
+    /// use my_definition::*;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let mut netabase = Netabase::<MyDefinition>::new().unwrap();
     ///
     /// // Start network operations
     /// netabase.start_swarm().await.unwrap();
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// # Thread Safety
@@ -713,13 +791,28 @@ where
     ///
     /// # Example
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
     /// use netabase::Netabase;
     /// use netabase_store::netabase_definition_module;
     ///
     /// #[netabase_definition_module(MyDefinition, MyKeys)]
-    /// mod my_definition {}
+    /// mod my_definition {
+    ///     use netabase_store::{NetabaseModel, netabase};
     ///
+    ///     #[derive(NetabaseModel, Clone, Debug)]
+    ///     #[derive(bincode::Encode, bincode::Decode)]
+    ///     #[derive(serde::Serialize, serde::Deserialize)]
+    ///     #[netabase(MyDefinition)]
+    ///     pub struct User {
+    ///         #[primary_key] pub id: u64,
+    ///         pub name: String,
+    ///     }
+    /// }
+    ///
+    /// use my_definition::*;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let mut netabase = Netabase::<MyDefinition>::new().unwrap();
     /// netabase.start_swarm().await.unwrap();
     ///
@@ -727,6 +820,8 @@ where
     ///
     /// // Shutdown gracefully
     /// netabase.stop_swarm().await.unwrap();
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// # Automatic Cleanup
@@ -771,13 +866,28 @@ where
     ///
     /// # Example
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
     /// use netabase::Netabase;
     /// use netabase_store::netabase_definition_module;
     ///
     /// #[netabase_definition_module(MyDefinition, MyKeys)]
-    /// mod my_definition {}
+    /// mod my_definition {
+    ///     use netabase_store::{NetabaseModel, netabase};
     ///
+    ///     #[derive(NetabaseModel, Clone, Debug)]
+    ///     #[derive(bincode::Encode, bincode::Decode)]
+    ///     #[derive(serde::Serialize, serde::Deserialize)]
+    ///     #[netabase(MyDefinition)]
+    ///     pub struct User {
+    ///         #[primary_key] pub id: u64,
+    ///         pub name: String,
+    ///     }
+    /// }
+    ///
+    /// use my_definition::*;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let mut netabase = Netabase::<MyDefinition>::new().unwrap();
     /// let mut receiver = netabase.subscribe_to_broadcasts();
     ///
@@ -790,6 +900,8 @@ where
     ///         println!("Network event: {:?}", event);
     ///     }
     /// });
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// # Performance Note
@@ -839,9 +951,33 @@ where
     ///
     /// # Example
     ///
-    /// ```rust,ignore
-    /// use libp2p::kad::QueryResult;
-    ///
+    /// ```rust,no_run
+    /// # use netabase::Netabase;
+    /// # use netabase_store::netabase_definition_module;
+    /// # use netabase_store::traits::model::NetabaseModelTrait;
+    /// # use libp2p::kad::QueryResult;
+    /// #
+    /// # #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// # mod my_definition {
+    /// #     use netabase_store::{NetabaseModel, netabase};
+    /// #
+    /// #     #[derive(NetabaseModel, Clone, Debug)]
+    /// #     #[derive(bincode::Encode, bincode::Decode)]
+    /// #     #[derive(serde::Serialize, serde::Deserialize)]
+    /// #     #[netabase(MyDefinition)]
+    /// #     pub struct User {
+    /// #         #[primary_key] pub id: u64,
+    /// #         pub name: String,
+    /// #         #[secondary_key] pub email: String,
+    /// #     }
+    /// # }
+    /// #
+    /// # use my_definition::*;
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let mut netabase = Netabase::<MyDefinition>::new().unwrap();
+    /// # netabase.start_swarm().await.unwrap();
     /// let user = User {
     ///     id: 1,
     ///     name: "Alice".to_string(),
@@ -852,6 +988,8 @@ where
     ///     Ok(result) => println!("Stored successfully: {:?}", result),
     ///     Err(e) => eprintln!("Storage failed: {}", e),
     /// }
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// # Performance Note
@@ -942,16 +1080,39 @@ where
     ///
     /// # Example
     ///
-    /// ```rust,ignore
-    /// use libp2p::kad::QueryResult;
-    ///
+    /// ```rust,no_run
+    /// # use netabase::Netabase;
+    /// # use netabase_store::netabase_definition_module;
+    /// # use netabase_store::traits::model::NetabaseModelTrait;
+    /// # use libp2p::kad::QueryResult;
+    /// #
+    /// # #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// # mod my_definition {
+    /// #     use netabase_store::{NetabaseModel, netabase};
+    /// #
+    /// #     #[derive(NetabaseModel, Clone, Debug)]
+    /// #     #[derive(bincode::Encode, bincode::Decode)]
+    /// #     #[derive(serde::Serialize, serde::Deserialize)]
+    /// #     #[netabase(MyDefinition)]
+    /// #     pub struct User {
+    /// #         #[primary_key] pub id: u64,
+    /// #         pub name: String,
+    /// #     }
+    /// # }
+    /// #
+    /// # use my_definition::*;
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let mut netabase = Netabase::<MyDefinition>::new().unwrap();
+    /// # netabase.start_swarm().await.unwrap();
+    /// # let user_key = UserKey::Primary(UserPrimaryKey(1));
     /// match netabase.get_record(user_key).await {
-    ///     Ok(QueryResult::GetRecord(Ok(result))) => {
-    ///         println!("Found record: {:?}", result.record);
-    ///     }
-    ///     Ok(_) => println!("Query completed but no record found"),
+    ///     Ok(result) => println!("Query completed: {:?}", result),
     ///     Err(e) => eprintln!("Query failed: {}", e),
     /// }
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// # Caching Behavior
@@ -1004,19 +1165,39 @@ where
     ///
     /// # Example
     ///
-    /// ```rust,ignore
-    /// use libp2p::kad::QueryResult;
-    ///
+    /// ```rust,no_run
+    /// # use netabase::Netabase;
+    /// # use netabase_store::netabase_definition_module;
+    /// # use netabase_store::traits::model::NetabaseModelTrait;
+    /// # use libp2p::kad::QueryResult;
+    /// #
+    /// # #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// # mod my_definition {
+    /// #     use netabase_store::{NetabaseModel, netabase};
+    /// #
+    /// #     #[derive(NetabaseModel, Clone, Debug)]
+    /// #     #[derive(bincode::Encode, bincode::Decode)]
+    /// #     #[derive(serde::Serialize, serde::Deserialize)]
+    /// #     #[netabase(MyDefinition)]
+    /// #     pub struct User {
+    /// #         #[primary_key] pub id: u64,
+    /// #         pub name: String,
+    /// #     }
+    /// # }
+    /// #
+    /// # use my_definition::*;
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let mut netabase = Netabase::<MyDefinition>::new().unwrap();
+    /// # netabase.start_swarm().await.unwrap();
+    /// # let user_key = UserKey::Primary(UserPrimaryKey(1));
     /// match netabase.get_providers(user_key).await {
-    ///     Ok(QueryResult::GetProviders(Ok(result))) => {
-    ///         println!("Found {} providers", result.providers.len());
-    ///         for peer_id in result.providers {
-    ///             println!("Provider: {}", peer_id);
-    ///         }
-    ///     }
-    ///     Ok(_) => println!("No providers found"),
+    ///     Ok(result) => println!("Query completed: {:?}", result),
     ///     Err(e) => eprintln!("Provider query failed: {}", e),
     /// }
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn get_providers<K: NetabaseModelTraitKey<D>>(
         &self,
@@ -1070,13 +1251,38 @@ where
     ///
     /// # Example
     ///
-    /// ```rust,ignore
-    /// use libp2p::kad::QueryResult;
-    ///
+    /// ```rust,no_run
+    /// # use netabase::Netabase;
+    /// # use netabase_store::netabase_definition_module;
+    /// # use netabase_store::traits::model::NetabaseModelTrait;
+    /// # use libp2p::kad::QueryResult;
+    /// #
+    /// # #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// # mod my_definition {
+    /// #     use netabase_store::{NetabaseModel, netabase};
+    /// #
+    /// #     #[derive(NetabaseModel, Clone, Debug)]
+    /// #     #[derive(bincode::Encode, bincode::Decode)]
+    /// #     #[derive(serde::Serialize, serde::Deserialize)]
+    /// #     #[netabase(MyDefinition)]
+    /// #     pub struct User {
+    /// #         #[primary_key] pub id: u64,
+    /// #         pub name: String,
+    /// #     }
+    /// # }
+    /// #
+    /// # use my_definition::*;
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let mut netabase = Netabase::<MyDefinition>::new().unwrap();
+    /// # netabase.start_swarm().await.unwrap();
+    /// # let user = User { id: 1, name: "Alice".to_string() };
     /// // Store the record first
     /// netabase.put_record(user).await.unwrap();
     ///
     /// // Advertise as a provider
+    /// let user_key = UserKey::Primary(UserPrimaryKey(1));
     /// match netabase.start_providing(user_key).await {
     ///     Ok(_) => {
     ///         println!("Now providing the key");
@@ -1084,6 +1290,8 @@ where
     ///     }
     ///     Err(e) => eprintln!("Failed to start providing: {}", e),
     /// }
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn start_providing<K: NetabaseModelTraitKey<D>>(
         &self,
@@ -1130,13 +1338,40 @@ where
     ///
     /// # Example
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
+    /// # use netabase::Netabase;
+    /// # use netabase_store::netabase_definition_module;
+    /// # use netabase_store::traits::model::NetabaseModelTrait;
+    /// #
+    /// # #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// # mod my_definition {
+    /// #     use netabase_store::{NetabaseModel, netabase};
+    /// #
+    /// #     #[derive(NetabaseModel, Clone, Debug)]
+    /// #     #[derive(bincode::Encode, bincode::Decode)]
+    /// #     #[derive(serde::Serialize, serde::Deserialize)]
+    /// #     #[netabase(MyDefinition)]
+    /// #     pub struct User {
+    /// #         #[primary_key] pub id: u64,
+    /// #         pub name: String,
+    /// #     }
+    /// # }
+    /// #
+    /// # use my_definition::*;
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let mut netabase = Netabase::<MyDefinition>::new().unwrap();
+    /// # netabase.start_swarm().await.unwrap();
+    /// # let user_key = UserKey::Primary(UserPrimaryKey(1));
     /// // Previously started providing this key
-    /// netabase.start_providing(user_key).await.unwrap();
+    /// netabase.start_providing(user_key.clone()).await.unwrap();
     ///
     /// // Later, stop providing it
     /// netabase.stop_providing(user_key).await.unwrap();
     /// println!("No longer providing this key");
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn stop_providing<K: NetabaseModelTraitKey<D>>(&self, key: K) -> anyhow::Result<()>
     where
@@ -1186,16 +1421,36 @@ where
     ///
     /// # Example
     ///
-    /// ```rust,ignore
-    /// use libp2p::kad::QueryResult;
-    /// use libp2p::{Multiaddr, PeerId};
-    ///
+    /// ```rust,no_run
+    /// # use netabase::Netabase;
+    /// # use netabase_store::netabase_definition_module;
+    /// # use libp2p::kad::QueryResult;
+    /// # use libp2p::{Multiaddr, PeerId};
+    /// #
+    /// # #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// # mod my_definition {
+    /// #     use netabase_store::{NetabaseModel, netabase};
+    /// #
+    /// #     #[derive(NetabaseModel, Clone, Debug)]
+    /// #     #[derive(bincode::Encode, bincode::Decode)]
+    /// #     #[derive(serde::Serialize, serde::Deserialize)]
+    /// #     #[netabase(MyDefinition)]
+    /// #     pub struct User {
+    /// #         #[primary_key] pub id: u64,
+    /// #         pub name: String,
+    /// #     }
+    /// # }
+    /// #
+    /// # use my_definition::*;
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let mut netabase = Netabase::<MyDefinition>::new().unwrap();
     /// // Start the swarm first
     /// netabase.start_swarm().await.unwrap();
     ///
     /// // Add known bootstrap peers (optional, but recommended)
     /// let bootstrap_addr: Multiaddr = "/ip4/192.168.1.100/tcp/4001".parse().unwrap();
-    /// let bootstrap_addr: Multiaddr = "/ip4/192.168.1.100/udp/0/quic-v1".parse().unwrap(); // Or use Quic with UDP
     /// let bootstrap_peer = PeerId::random(); // In practice, use known peer ID
     /// netabase.add_address(bootstrap_peer, bootstrap_addr).await.unwrap();
     ///
@@ -1208,8 +1463,12 @@ where
     ///             println!("Bootstrap in progress, {} peers remaining", result.num_remaining);
     ///         }
     ///     }
-    ///     Err(e) => eprintln!("Bootstrap failed: {}", e),
+    ///     Ok(QueryResult::Bootstrap(Err(e))) => eprintln!("Bootstrap failed: {:?}", e),
+    ///     Ok(_) => println!("Unexpected result"),
+    ///     Err(e) => eprintln!("Bootstrap error: {}", e),
     /// }
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn bootstrap(&self) -> anyhow::Result<QueryResult> {
         let (response_tx, response_rx) = oneshot::channel();
@@ -1344,9 +1603,31 @@ where
     ///
     /// # Example
     ///
-    /// ```rust,ignore
-    /// use libp2p::{PeerId, Multiaddr};
-    ///
+    /// ```rust,no_run
+    /// # use netabase::Netabase;
+    /// # use netabase_store::netabase_definition_module;
+    /// # use libp2p::{PeerId, Multiaddr};
+    /// #
+    /// # #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// # mod my_definition {
+    /// #     use netabase_store::{NetabaseModel, netabase};
+    /// #
+    /// #     #[derive(NetabaseModel, Clone, Debug)]
+    /// #     #[derive(bincode::Encode, bincode::Decode)]
+    /// #     #[derive(serde::Serialize, serde::Deserialize)]
+    /// #     #[netabase(MyDefinition)]
+    /// #     pub struct User {
+    /// #         #[primary_key] pub id: u64,
+    /// #         pub name: String,
+    /// #     }
+    /// # }
+    /// #
+    /// # use my_definition::*;
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let mut netabase = Netabase::<MyDefinition>::new().unwrap();
+    /// # netabase.start_swarm().await.unwrap();
     /// let peer_id = PeerId::random(); // In practice, use a known peer ID
     /// let old_address: Multiaddr = "/ip4/192.168.1.100/tcp/4001".parse().unwrap();
     ///
@@ -1355,6 +1636,8 @@ where
     ///     Ok(None) => println!("Address removed, peer completely removed from routing table"),
     ///     Err(e) => eprintln!("Failed to remove address: {}", e),
     /// }
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn remove_address(
         &self,
@@ -1410,9 +1693,31 @@ where
     ///
     /// # Example
     ///
-    /// ```rust,ignore
-    /// use libp2p::PeerId;
-    ///
+    /// ```rust,no_run
+    /// # use netabase::Netabase;
+    /// # use netabase_store::netabase_definition_module;
+    /// # use libp2p::PeerId;
+    /// #
+    /// # #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// # mod my_definition {
+    /// #     use netabase_store::{NetabaseModel, netabase};
+    /// #
+    /// #     #[derive(NetabaseModel, Clone, Debug)]
+    /// #     #[derive(bincode::Encode, bincode::Decode)]
+    /// #     #[derive(serde::Serialize, serde::Deserialize)]
+    /// #     #[netabase(MyDefinition)]
+    /// #     pub struct User {
+    /// #         #[primary_key] pub id: u64,
+    /// #         pub name: String,
+    /// #     }
+    /// # }
+    /// #
+    /// # use my_definition::*;
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let mut netabase = Netabase::<MyDefinition>::new().unwrap();
+    /// # netabase.start_swarm().await.unwrap();
     /// let problematic_peer = PeerId::random(); // In practice, use a known peer ID
     ///
     /// match netabase.remove_peer(problematic_peer).await {
@@ -1422,6 +1727,8 @@ where
     ///     Ok(None) => println!("Peer was not in routing table"),
     ///     Err(e) => eprintln!("Failed to remove peer: {}", e),
     /// }
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn remove_peer(
         &self,
@@ -1474,7 +1781,30 @@ where
     ///
     /// # Example
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
+    /// # use netabase::Netabase;
+    /// # use netabase_store::netabase_definition_module;
+    /// #
+    /// # #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// # mod my_definition {
+    /// #     use netabase_store::{NetabaseModel, netabase};
+    /// #
+    /// #     #[derive(NetabaseModel, Clone, Debug)]
+    /// #     #[derive(bincode::Encode, bincode::Decode)]
+    /// #     #[derive(serde::Serialize, serde::Deserialize)]
+    /// #     #[netabase(MyDefinition)]
+    /// #     pub struct User {
+    /// #         #[primary_key] pub id: u64,
+    /// #         pub name: String,
+    /// #     }
+    /// # }
+    /// #
+    /// # use my_definition::*;
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let mut netabase = Netabase::<MyDefinition>::new().unwrap();
+    /// # netabase.start_swarm().await.unwrap();
     /// match netabase.get_mode().await {
     ///     Ok(libp2p::kad::Mode::Client) => {
     ///         println!("Operating in client mode");
@@ -1484,6 +1814,8 @@ where
     ///     }
     ///     Err(e) => eprintln!("Failed to get mode: {}", e),
     /// }
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn get_mode(&self) -> anyhow::Result<libp2p::kad::Mode> {
         let (response_tx, response_rx) = oneshot::channel();
@@ -1524,9 +1856,31 @@ where
     ///
     /// # Example
     ///
-    /// ```rust,ignore
-    /// use libp2p::kad::Mode;
-    ///
+    /// ```rust,no_run
+    /// # use netabase::Netabase;
+    /// # use netabase_store::netabase_definition_module;
+    /// # use libp2p::kad::Mode;
+    /// #
+    /// # #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// # mod my_definition {
+    /// #     use netabase_store::{NetabaseModel, netabase};
+    /// #
+    /// #     #[derive(NetabaseModel, Clone, Debug)]
+    /// #     #[derive(bincode::Encode, bincode::Decode)]
+    /// #     #[derive(serde::Serialize, serde::Deserialize)]
+    /// #     #[netabase(MyDefinition)]
+    /// #     pub struct User {
+    /// #         #[primary_key] pub id: u64,
+    /// #         pub name: String,
+    /// #     }
+    /// # }
+    /// #
+    /// # use my_definition::*;
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let mut netabase = Netabase::<MyDefinition>::new().unwrap();
+    /// # netabase.start_swarm().await.unwrap();
     /// // Switch to server mode for full participation
     /// netabase.set_mode(Some(Mode::Server)).await.unwrap();
     /// println!("Now running in server mode");
@@ -1538,6 +1892,8 @@ where
     /// // Let the system choose automatically
     /// netabase.set_mode(None).await.unwrap();
     /// println!("Using automatic mode selection");
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn set_mode(&self, mode: Option<libp2p::kad::Mode>) -> anyhow::Result<()> {
         let command = network::swarm::handlers::command_events::Command::Kademlia(
@@ -1567,13 +1923,38 @@ where
     ///
     /// # Example
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
+    /// # use netabase::Netabase;
+    /// # use netabase_store::netabase_definition_module;
+    /// #
+    /// # #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// # mod my_definition {
+    /// #     use netabase_store::{NetabaseModel, netabase};
+    /// #
+    /// #     #[derive(NetabaseModel, Clone, Debug)]
+    /// #     #[derive(bincode::Encode, bincode::Decode)]
+    /// #     #[derive(serde::Serialize, serde::Deserialize)]
+    /// #     #[netabase(MyDefinition)]
+    /// #     pub struct User {
+    /// #         #[primary_key] pub id: u64,
+    /// #         pub name: String,
+    /// #     }
+    /// # }
+    /// #
+    /// # use my_definition::*;
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let mut netabase = Netabase::<MyDefinition>::new().unwrap();
+    /// # netabase.start_swarm().await.unwrap();
     /// match netabase.get_protocol_names().await {
     ///     Ok(protocol) => {
     ///         println!("Using protocol: {:?}", protocol);
     ///     }
     ///     Err(e) => eprintln!("Failed to get protocol: {}", e),
     /// }
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn get_protocol_names(&self) -> anyhow::Result<libp2p::StreamProtocol> {
         let (response_tx, response_rx) = oneshot::channel();
@@ -1614,7 +1995,32 @@ where
     ///
     /// # Example
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
+    /// # use netabase::Netabase;
+    /// # use netabase_store::netabase_definition_module;
+    /// # use netabase_store::traits::model::NetabaseModelTrait;
+    /// #
+    /// # #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// # mod my_definition {
+    /// #     use netabase_store::{NetabaseModel, netabase};
+    /// #
+    /// #     #[derive(NetabaseModel, Clone, Debug)]
+    /// #     #[derive(bincode::Encode, bincode::Decode)]
+    /// #     #[derive(serde::Serialize, serde::Deserialize)]
+    /// #     #[netabase(MyDefinition)]
+    /// #     pub struct User {
+    /// #         #[primary_key] pub id: u64,
+    /// #         pub name: String,
+    /// #     }
+    /// # }
+    /// #
+    /// # use my_definition::*;
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let mut netabase = Netabase::<MyDefinition>::new().unwrap();
+    /// # netabase.start_swarm().await.unwrap();
+    /// # let user_key = UserKey::Primary(UserPrimaryKey(1));
     /// // Remove from local storage
     /// match netabase.remove_record(user_key).await {
     ///     Ok(()) => println!("Record removed from local storage"),
@@ -1622,6 +2028,8 @@ where
     /// }
     ///
     /// // Note: Other nodes may still have this record
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// # Network Implications
@@ -1661,7 +2069,30 @@ where
     ///
     /// # Example
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
+    /// # use netabase::Netabase;
+    /// # use netabase_store::netabase_definition_module;
+    /// #
+    /// # #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// # mod my_definition {
+    /// #     use netabase_store::{NetabaseModel, netabase};
+    /// #
+    /// #     #[derive(NetabaseModel, Clone, Debug)]
+    /// #     #[derive(bincode::Encode, bincode::Decode)]
+    /// #     #[derive(serde::Serialize, serde::Deserialize)]
+    /// #     #[netabase(MyDefinition)]
+    /// #     pub struct User {
+    /// #         #[primary_key] pub id: u64,
+    /// #         pub name: String,
+    /// #     }
+    /// # }
+    /// #
+    /// # use my_definition::*;
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let mut netabase = Netabase::<MyDefinition>::new().unwrap();
+    /// # netabase.start_swarm().await.unwrap();
     /// // Get all records from local store
     /// match netabase.query_local_records(None).await {
     ///     Ok(records) => {
@@ -1675,6 +2106,8 @@ where
     ///
     /// // Get only the first 10 records
     /// let recent_records = netabase.query_local_records(Some(10)).await?;
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// # Note
