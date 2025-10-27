@@ -7,57 +7,35 @@ Add these to your `Cargo.toml`:
 ```toml
 [dependencies]
 # Main libraries
-netabase = { version = "0.1", features = ["native"] }
-netabase_store = { version = "0.1", features = ["native"] }
+netabase = "0.0.1"
+netabase_store = "0.0.1"
+netabase_deps = "0.0.1"
 
-# Required for macros
-bincode = "2.0.1"
+# Required for macros to work
+bincode = { version = "2.0", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 strum = { version = "0.27.2", features = ["derive"] }
-derive_more = "2.0.1"
+derive_more = { version = "2.0.1", features = ["from", "try_into", "into"] }
 
 # Runtime dependencies
 tokio = { version = "1.0", features = ["full"] }
 anyhow = "1.0"
-libp2p = { version = "0.54", features = ["kad", "identify", "mdns", "tcp", "quic", "noise", "yamux"] }
 ```
 
-For GitHub-hosted versions:
+**Why so many dependencies?** The macros from `netabase_store` generate code that uses these crates. Due to Rust's macro hygiene rules, they must be available in your `Cargo.toml`. The `netabase_deps` crate provides internal dependencies used by the macros.
 
-```toml
-[dependencies]
-netabase = { git = "https://github.com/newsnet-africa/netabase.git", features = ["native"] }
-netabase_store = { git = "https://github.com/newsnet-africa/netabase_store.git", features = ["native"] }
-netabase_deps = { git = "https://github.com/newsnet-africa/netabase_store.git" }
-bincode = "2.0.1"
-serde = { version = "1.0", features = ["derive"] }
-strum = { version = "0.27.2", features = ["derive"] }
-derive_more = "2.0.1"
-tokio = { version = "1.0", features = ["full"] }
-anyhow = "1.0"
-```
+## Define Your Data Model
 
-## Required Imports
-
-Inside your schema definition module, you MUST import the `netabase` attribute:
+Inside your schema definition module, import the required items:
 
 ```rust
-use netabase_store::{netabase_definition_module, NetabaseModel};
+use netabase_store::netabase_definition_module;
 
 #[netabase_definition_module(ChatDefinition, ChatKeys)]
-mod chat {
-    use super::*;
-    use netabase_store::netabase;  // ⚠️ REQUIRED!
+pub mod chat {
+    use netabase_store::{NetabaseModel, netabase};
 
-    #[derive(
-        NetabaseModel,
-        Clone,
-        Debug,
-        bincode::Encode,
-        bincode::Decode,
-        serde::Serialize,
-        serde::Deserialize,
-    )]
+    #[derive(NetabaseModel, bincode::Encode, bincode::Decode, Clone, Debug)]
     #[netabase(ChatDefinition)]
     pub struct Message {
         #[primary_key]

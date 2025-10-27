@@ -49,8 +49,19 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-netabase = { version = "0.1", features = ["native"] }
-netabase_store = "0.1"
+netabase = "0.0.1"
+netabase_store = "0.0.1"
+netabase_deps = "0.0.1"
+
+# Required for macros to work
+bincode = { version = "2.0", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+strum = { version = "0.27.2", features = ["derive"] }
+derive_more = { version = "2.0.1", features = ["from", "try_into", "into"] }
+
+# Runtime dependencies
+tokio = { version = "1.0", features = ["full"] }
+anyhow = "1.0"
 ```
 
 ## Quick Start
@@ -58,21 +69,13 @@ netabase_store = "0.1"
 ### 1. Define Your Data Model
 
 ```rust
-use netabase_store::{netabase_definition_module, NetabaseModel};
+use netabase_store::netabase_definition_module;
 
 #[netabase_definition_module(ChatDefinition, ChatKeys)]
-mod chat {
-    use super::*;
+pub mod chat {
+    use netabase_store::{NetabaseModel, netabase};
 
-    #[derive(
-        NetabaseModel,
-        Clone,
-        Debug,
-        bincode::Encode,
-        bincode::Decode,
-        serde::Serialize,
-        serde::Deserialize,
-    )]
+    #[derive(NetabaseModel, bincode::Encode, bincode::Decode, Clone, Debug)]
     #[netabase(ChatDefinition)]
     pub struct Message {
         #[primary_key]
