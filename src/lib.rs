@@ -286,6 +286,9 @@ pub mod errors;
 pub mod network;
 
 #[cfg(feature = "native")]
+pub mod sync;
+
+#[cfg(feature = "native")]
 pub use network::behaviour::NetabaseBehaviourEvent;
 #[cfg(feature = "native")]
 pub use network::behaviour::clone_impl::NetabaseSwarmEvent;
