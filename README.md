@@ -7,6 +7,18 @@ A peer-to-peer networking layer built on libp2p with integrated type-safe storag
 
 # This crate is still in early development and will change frequently as it stabalises. It is not advised to use this in a production environment until it stabalises.
 
+## Roadmap
+
+### Version 1.0
+
+- [ ] Complete WASM support (WebRTC, IndexedDB)
+- [ ] Connection profiles (local/global/hybrid modes)
+- [ ] Data synchronization with conflict resolution
+- [ ] Relay support for NAT traversal
+- [ ] Advanced query API
+- [ ] Metrics and monitoring
+- [ ] Migration tools
+
 ## Features
 
 ### Current Features
@@ -437,17 +449,7 @@ cargo build --release --features native
 - Verify the record was published successfully
 - Allow time for DHT propagation
 
-## Roadmap
 
-### Version 1.0
-
-- [ ] Complete WASM support (WebRTC, IndexedDB)
-- [ ] Connection profiles (local/global/hybrid modes)
-- [ ] Data synchronization with conflict resolution
-- [ ] Relay support for NAT traversal
-- [ ] Advanced query API
-- [ ] Metrics and monitoring
-- [ ] Migration tools
 
 ## License
 
