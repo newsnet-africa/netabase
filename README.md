@@ -1,3 +1,6 @@
+![crates.io](https://img.shields.io/crates/v/netabase.svg)
+![crates.io downloads](https://img.shields.io/crates/d/netabase.svg) ![docs.rs](https://docs.rs/netabase/badge.svg)
+
 # Netabase
 
 A peer-to-peer networking layer built on libp2p with integrated type-safe storage, enabling distributed applications with automatic data synchronization across native and WASM environments.
