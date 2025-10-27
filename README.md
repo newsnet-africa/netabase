@@ -1,8 +1,23 @@
+![crates.io](https://img.shields.io/crates/v/netabase.svg)
+![crates.io downloads](https://img.shields.io/crates/d/netabase.svg) ![docs.rs](https://docs.rs/netabase/badge.svg)
+
 # Netabase
 
 A peer-to-peer networking layer built on libp2p with integrated type-safe storage, enabling distributed applications with automatic data synchronization across native and WASM environments.
 
 # This crate is still in early development and will change frequently as it stabalises. It is not advised to use this in a production environment until it stabalises.
+
+## Roadmap
+
+### Version 1.0
+
+- [ ] Complete WASM support (WebRTC, IndexedDB)
+- [ ] Connection profiles (local/global/hybrid modes)
+- [ ] Data synchronization with conflict resolution
+- [ ] Relay support for NAT traversal
+- [ ] Advanced query API
+- [ ] Metrics and monitoring
+- [ ] Migration tools
 
 ## Features
 
@@ -434,21 +449,11 @@ cargo build --release --features native
 - Verify the record was published successfully
 - Allow time for DHT propagation
 
-## Roadmap
 
-### Version 1.0
-
-- [ ] Complete WASM support (WebRTC, IndexedDB)
-- [ ] Connection profiles (local/global/hybrid modes)
-- [ ] Data synchronization with conflict resolution
-- [ ] Relay support for NAT traversal
-- [ ] Advanced query API
-- [ ] Metrics and monitoring
-- [ ] Migration tools
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the GPL 3 License.
 
 ## Related Projects
 
