@@ -115,7 +115,7 @@ pub trait ByzantineValidator: Send + Sync {
     }
 
     /// Check if enough ready messages received (for BRB ready phase)
-    fn has_ready_threshold(&self, ready: usize, total_peers: usize, max_faulty: usize) -> bool {
+    fn has_ready_threshold(&self, ready: usize, _total_peers: usize, max_faulty: usize) -> bool {
         let required = 2 * max_faulty + 1;
         ready >= required
     }

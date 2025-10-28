@@ -60,5 +60,11 @@ pub(crate) fn handle_behaviour_event<D: NetabaseDefinitionTrait + Send + Sync + 
         NetabaseBehaviourEvent::ConnectionLimit(connection_limit_event) => {
             handle_connection_limit_event::<D>(connection_limit_event);
         }
+        #[cfg(feature = "native")]
+        NetabaseBehaviourEvent::Sync(_sync_event) => {
+            // Handle sync events here
+            // For now, we just log them
+            // TODO: Implement proper sync event handling
+        }
     }
 }

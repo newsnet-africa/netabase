@@ -677,6 +677,70 @@ where
         })
     }
 
+    /// Create a new Netabase instance with a custom path and full configuration.
+    ///
+    /// This method allows you to specify both the database path and complete
+    /// network/sync configuration, providing maximum control over the instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Custom database storage path
+    /// * `config` - Complete NetabaseConfig including sync settings
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use netabase::Netabase;
+    /// use netabase::network::config::{NetabaseConfig, SyncConfig};
+    /// use netabase_store::netabase_definition_module;
+    ///
+    /// #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// mod my_definition {
+    ///     use netabase_store::{NetabaseModel, netabase};
+    ///     #[derive(NetabaseModel, Clone, Debug)]
+    ///     #[derive(bincode::Encode, bincode::Decode)]
+    ///     #[derive(serde::Serialize, serde::Deserialize)]
+    ///     #[netabase(MyDefinition)]
+    ///     pub struct User {
+    ///         #[primary_key] pub id: u64,
+    ///         pub name: String,
+    ///     }
+    /// }
+    ///
+    /// use my_definition::*;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> anyhow::Result<()> {
+    ///     let config = NetabaseConfig {
+    ///         sync: SyncConfig::default(),
+    ///         ..Default::default()
+    ///     };
+    ///
+    ///     let mut netabase = Netabase::<MyDefinition>::new_with_path_and_config(
+    ///         "./my_db",
+    ///         config,
+    ///     )?;
+    ///
+    ///     netabase.start_swarm().await?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn new_with_path_and_config<P: AsRef<std::path::Path>>(
+        path: P,
+        config: NetabaseConfig,
+    ) -> anyhow::Result<Self> {
+        let (command_sender, _command_receiver) = mpsc::channel(100);
+        let (_broadcast_sender, broadcast_receiver) = broadcast::channel(1000);
+
+        Ok(Self {
+            swarm_thread: None,
+            config,
+            command_sender,
+            broadcast_receiver,
+            database_path: Some(path.as_ref().to_string_lossy().to_string()),
+        })
+    }
+
     /// Start the swarm thread to enable network operations.
     ///
     /// This method initializes and starts the background libp2p swarm that handles

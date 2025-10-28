@@ -330,8 +330,8 @@ mod tests {
         // Now clock_c happened after clock_a
         assert!(clock_a.happened_before(&clock_c));
 
-        // A and B are concurrent (A sent before B updated)
+        // A happened before B (B updated with A's clock)
         let clock_a_after_send = clock_a.clone();
-        assert!(clock_a_after_send.is_concurrent(&clock_b));
+        assert!(clock_a_after_send.happened_before(&clock_b));
     }
 }

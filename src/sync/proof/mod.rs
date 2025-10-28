@@ -32,7 +32,7 @@ impl Default for ProofOfWorkConfig {
 }
 
 /// Proof-of-Work result
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct ProofOfWork {
     /// Nonce that satisfies difficulty
     pub nonce: u64,
@@ -123,7 +123,7 @@ impl StakeSystem {
 }
 
 impl SybilResistance for StakeSystem {
-    fn verify_peer(&self, peer_id: &PeerId) -> bool {
+    fn verify_peer(&self, _peer_id: &PeerId) -> bool {
         // TODO: Implement actual stake verification
         // For now, accept all peers
         true

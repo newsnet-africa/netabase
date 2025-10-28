@@ -48,6 +48,7 @@ native = [
     "libp2p/macros",
     "libp2p/websocket",
     "libp2p/tokio",
+    "libp2p/request-response",
     "tokio/full"
 ]
 wasm = [
@@ -92,6 +93,7 @@ serde = { workspace = true }
 bincode = { workspace = true }
 serde_json = "1.0"
 rand = { workspace = true }
+futures = { workspace = true }
 
 # WASM-only dependencies
 web-sys = { version = "0.3", features = ["console"], optional = true }
@@ -122,6 +124,7 @@ chrono = { workspace = true }
 uuid = { workspace = true }
 futures = { workspace = true }
 getrandom = { workspace = true }
+clap = { version = "4.5", features = ["derive"] }
 
 [[example]]
 name = "simple_mdns_chat"

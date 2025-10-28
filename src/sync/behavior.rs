@@ -227,9 +227,6 @@ pub enum SyncEvent {
         payload: Vec<u8>,
         version: crate::sync::types::Version,
     },
-
-    /// Kademlia event
-    Kademlia(Box<KademliaEvent>),
 }
 
 // Note: NetworkBehaviour implementation would go here
@@ -252,41 +249,39 @@ pub enum SyncEvent {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sync::clock::VectorClock;
 
     #[test]
-    fn test_sync_behavior_creation() {
+    fn test_sync_manager_creation() {
         let peer = PeerId::random();
-        let config = SyncBehaviorConfig::default();
-        let behavior = SyncBehavior::new(peer, config);
-        assert!(behavior.is_ok());
+        let config = SyncManagerConfig::default();
+        let manager = SyncManager::new(peer, config);
+        assert!(manager.is_ok());
     }
 
     #[test]
     fn test_add_remove_peer() {
         let peer = PeerId::random();
-        let config = SyncBehaviorConfig::default();
-        let mut behavior = SyncBehavior::new(peer, config).unwrap();
+        let config = SyncManagerConfig::default();
+        let mut manager = SyncManager::new(peer, config).unwrap();
 
         let other_peer = PeerId::random();
-        let addr: Multiaddr = "/ip4/127.0.0.1/tcp/1234".parse().unwrap();
 
-        behavior.add_peer(other_peer, addr);
-        assert_eq!(behavior.peer_count(), 1);
+        manager.add_peer(other_peer);
+        assert_eq!(manager.peer_count(), 1);
 
-        behavior.remove_peer(&other_peer);
-        assert_eq!(behavior.peer_count(), 0);
+        manager.remove_peer(&other_peer);
+        assert_eq!(manager.peer_count(), 0);
     }
 
     #[test]
     fn test_challenge_system_integration() {
         let peer = PeerId::random();
-        let config = SyncBehaviorConfig::default();
-        let mut behavior = SyncBehavior::new(peer, config).unwrap();
+        let config = SyncManagerConfig::default();
+        let mut manager = SyncManager::new(peer, config).unwrap();
 
         let other_peer = PeerId::random();
-        let challenge = behavior.issue_challenge(other_peer);
+        let challenge = manager.issue_challenge(other_peer);
         assert!(!challenge.is_empty());
-        assert!(!behavior.is_peer_verified(&other_peer));
+        assert!(!manager.is_peer_verified(&other_peer));
     }
 }

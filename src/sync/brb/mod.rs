@@ -210,7 +210,7 @@ impl BrbManager {
         }
 
         // Check if we already have this message
-        if let Some(state) = self.messages.get_mut(&message_hash) {
+        if let Some(_state) = self.messages.get_mut(&message_hash) {
             // Already processing this message
             return Ok(BrbAction::None);
         }

@@ -19,6 +19,11 @@ pub mod proof;
 pub mod reputation;
 pub mod behavior;
 pub mod paxos;
+pub mod config;
+pub mod protocol;
+pub mod codec;
+#[cfg(feature = "native")]
+pub mod netabase_ext;
 mod serde_helper;
 
 // Re-export commonly used types
@@ -26,8 +31,17 @@ pub use types::{
     SyncMessage, SyncState, SyncStatus, Version, SignedMessage, MessageSignature,
     PeerSyncState, MerkleNode, StateDigest,
 };
-pub use traits::{Syncable, SyncableStore, ByzantineValidator};
+pub use traits::{Syncable, SyncableStore, ByzantineValidator, ReputationSystem, SybilResistance as SybilResistanceTrait};
 pub use clock::{VectorClock, LogicalTimestamp};
+pub use behavior::{SyncManager as SyncBehaviorManager, SyncManagerConfig, SyncEvent};
+pub use reputation::SimpleReputationSystem;
+pub use proof::{ProofOfWork, ProofOfWorkConfig, PoWSystem, ChallengeSystem};
+pub use paxos::{PaxosInstance, PaxosConfig, PaxosMessage, ProposalNumber};
+pub use config::{SyncConfigBuilder, SyncManagerConfigBuilder, SyncPresets, SyncManagerPresets};
+pub use protocol::{SyncRequest, SyncResponse, SyncRecord};
+pub use codec::{SyncCodec, SYNC_PROTOCOL};
+#[cfg(feature = "native")]
+pub use netabase_ext::NetabaseWithSync;
 
 use libp2p::PeerId;
 use std::collections::HashMap;
@@ -48,7 +62,7 @@ pub struct SyncConfig {
     pub byzantine_tolerance: ByzantineTolerance,
 
     /// Sybil resistance mechanism
-    pub sybil_resistance: SybilResistance,
+    pub sybil_resistance: SybilResistanceMode,
 
     /// Maximum size of a sync batch
     pub max_sync_batch_size: usize,
@@ -70,7 +84,7 @@ impl Default for SyncConfig {
             gossip_interval: std::time::Duration::from_secs(10),
             gossip_fanout: 3,
             byzantine_tolerance: ByzantineTolerance::default(),
-            sybil_resistance: SybilResistance::Reputation,
+            sybil_resistance: SybilResistanceMode::Reputation,
             max_sync_batch_size: 100,
             signature_required: true,
             max_concurrent_syncs: 5,
@@ -106,9 +120,9 @@ impl Default for ByzantineTolerance {
     }
 }
 
-/// Sybil resistance mechanism
+/// Sybil resistance mechanism configuration
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum SybilResistance {
+pub enum SybilResistanceMode {
     /// No Sybil resistance (trust all peers)
     None,
 

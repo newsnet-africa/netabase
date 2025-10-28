@@ -86,6 +86,12 @@ where
             NetabaseBehaviourEvent::ConnectionLimit(i) => {
                 NetabaseBehaviourEvent::ConnectionLimit(*i)
             }
+            #[cfg(feature = "native")]
+            NetabaseBehaviourEvent::Sync(_sync_event) => {
+                // Sync events cannot be cloned, so we skip them
+                // This is a limitation of libp2p's request_response events
+                panic!("Sync events do not support cloning")
+            }
         }
     }
 }

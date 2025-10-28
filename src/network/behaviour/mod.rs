@@ -7,6 +7,9 @@ pub mod clone_impl;
 #[cfg(feature = "native")]
 use libp2p::mdns;
 
+#[cfg(feature = "native")]
+use crate::sync::{SyncCodec, SyncRequest, SyncResponse, SYNC_PROTOCOL};
+
 #[derive(NetworkBehaviour)]
 pub struct NetabaseBehaviour<D: NetabaseDefinitionTrait + Send + Sync + 'static>
 where
@@ -38,6 +41,8 @@ where
     #[cfg(feature = "native")]
     pub mdns: libp2p::mdns::tokio::Behaviour,
     pub connection_limit: libp2p::connection_limits::Behaviour,
+    #[cfg(feature = "native")]
+    pub sync: libp2p::request_response::Behaviour<SyncCodec>,
 }
 
 impl<D: NetabaseDefinitionTrait + Send + Sync + 'static> NetabaseBehaviour<D>
@@ -112,12 +117,31 @@ where
         let limits = connection_limits::ConnectionLimits::default();
         let connection_limit = connection_limits::Behaviour::new(limits);
 
+        #[cfg(feature = "native")]
+        let sync = {
+            use libp2p::request_response::{Config, ProtocolSupport};
+            use std::iter;
+
+            let protocols = iter::once((SYNC_PROTOCOL.to_string(), ProtocolSupport::Full));
+            let cfg = Config::default();
+            libp2p::request_response::Behaviour::with_codec(
+                SyncCodec::default(),
+                protocols,
+                cfg,
+            )
+        };
+
         Ok(Self {
             kad,
             identify,
             #[cfg(feature = "native")]
             mdns,
             connection_limit,
+            #[cfg(feature = "native")]
+            sync,
         })
     }
+
 }
+
+

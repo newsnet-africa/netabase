@@ -37,7 +37,7 @@ impl BrbValidator {
             SyncMessage::BrbInit {
                 peer_id,
                 payload,
-                version,
+                version: _,
             } => {
                 // Verify sender matches claimed peer_id
                 if from != peer_id {
@@ -65,7 +65,7 @@ impl BrbValidator {
             SyncMessage::BrbEcho {
                 peer_id,
                 message_hash,
-                original_sender,
+                original_sender: _,
             } => {
                 if from != peer_id {
                     return Err(anyhow!("Sender mismatch"));
@@ -81,7 +81,7 @@ impl BrbValidator {
             SyncMessage::BrbReady {
                 peer_id,
                 message_hash,
-                original_sender,
+                original_sender: _,
             } => {
                 if from != peer_id {
                     return Err(anyhow!("Sender mismatch"));
@@ -172,6 +172,7 @@ impl BrbValidator {
     }
 
     /// Verify a signature using peer's public key
+    #[allow(unused_variables)]
     fn verify_signature(
         &self,
         peer_id: &PeerId,
