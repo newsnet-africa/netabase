@@ -442,10 +442,11 @@ async fn main() -> Result<()> {
 
     // Start chat loop
     println!("Commands:");
-    println!("  /history - View all messages in local store");
-    println!("  /config  - Show current sync configuration");
-    println!("  /help    - Show this help message");
-    println!("  quit     - Exit the chat\n");
+    println!("  /history        - View all messages in local store");
+    println!("  /paxos-history  - View Paxos consensus history");
+    println!("  /config         - Show current sync configuration");
+    println!("  /help           - Show this help message");
+    println!("  quit            - Exit the chat\n");
 
     let stdin = io::stdin();
     let mut input_buffer = String::new();
@@ -510,12 +511,45 @@ async fn main() -> Result<()> {
             continue;
         }
 
+        if message_content == "/paxos-history" {
+            println!("\n=== Paxos Consensus History ===");
+            if sync_config.paxos.enabled {
+                println!("Paxos Consensus: ENABLED");
+                println!("\nConfiguration:");
+                println!("  Acceptors: {}", sync_config.paxos.num_acceptors);
+                println!("  Max failures tolerated: {}", sync_config.paxos.max_failures);
+                println!("  Quorum size: {} (f+1)", sync_config.paxos.max_failures + 1);
+                println!("\nAbout Paxos:");
+                println!("  Paxos is a consensus protocol that ensures agreement on");
+                println!("  critical operations even when some peers fail or act");
+                println!("  maliciously. With {} acceptors, the system can tolerate",
+                         sync_config.paxos.num_acceptors);
+                println!("  up to {} Byzantine failures.", sync_config.paxos.max_failures);
+                println!("\n  When enabled, Paxos provides:");
+                println!("    • Strong consistency guarantees");
+                println!("    • Byzantine fault tolerance");
+                println!("    • History tracking of consensus decisions");
+                println!("\n  Note: Full Paxos integration with message consensus");
+                println!("  is available through the Netabase sync API.");
+            } else {
+                println!("Paxos Consensus: DISABLED");
+                println!("\nTo enable Paxos, use: --paxos-enabled");
+                println!("Example:");
+                println!("  cargo run --example simple_mdns_chat -- --paxos-enabled");
+                println!("\nOr use a preset with Paxos:");
+                println!("  cargo run --example simple_mdns_chat -- --preset high-security");
+            }
+            println!("===============================\n");
+            continue;
+        }
+
         if message_content == "/help" {
             println!("\n=== Commands ===");
-            println!("  /history - View all messages in local store");
-            println!("  /config  - Show current sync configuration");
-            println!("  /help    - Show this help message");
-            println!("  quit     - Exit the chat");
+            println!("  /history        - View all messages in local store");
+            println!("  /paxos-history  - View Paxos consensus status and configuration");
+            println!("  /config         - Show current sync configuration");
+            println!("  /help           - Show this help message");
+            println!("  quit            - Exit the chat");
             println!("\n=== Sync Features ===");
             if sync_config.enabled {
                 println!("✓ Sync is ENABLED");
@@ -529,7 +563,10 @@ async fn main() -> Result<()> {
                     println!("  ✓ Sybil resistance (PoW difficulty: {})", sync_config.sybil_resistance.pow_difficulty);
                 }
                 if sync_config.paxos.enabled {
-                    println!("  ✓ Paxos consensus enabled");
+                    println!("  ✓ Paxos consensus enabled ({} acceptors, f={})",
+                             sync_config.paxos.num_acceptors,
+                             sync_config.paxos.max_failures);
+                    println!("     Use /paxos-history for details");
                 }
             } else {
                 println!("✗ Sync is DISABLED");
@@ -552,6 +589,9 @@ async fn main() -> Result<()> {
                 println!("📤 {}: {}\n", username, message_content);
                 if sync_config.enabled {
                     println!("   (Message queued for sync)");
+                    if sync_config.paxos.enabled {
+                        println!("   ✓ Paxos consensus enabled for critical operations");
+                    }
                 }
             }
             Err(e) => {

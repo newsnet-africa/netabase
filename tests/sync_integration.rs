@@ -184,7 +184,7 @@ fn test_config_builder_custom() {
     let config = SyncManagerConfigBuilder::new()
         .gossip_interval(Duration::from_secs(5))
         .gossip_fanout(5)
-        .brb_config(9, 3)
+        .brb_config(10, 3)  // n=10, f=3 (valid: 10 >= 3*3+1)
         .pow_difficulty(8)
         .challenge_duration(Duration::from_secs(120))
         .build();
@@ -192,7 +192,7 @@ fn test_config_builder_custom() {
     assert_eq!(config.gossip.interval, Duration::from_secs(5));
     assert_eq!(config.gossip.fanout, 5);
     assert_eq!(config.pow.difficulty, 8);
-    // BRB with n=9, f=3 requires 2f+1 = 7 for ready quorum
+    // BRB with n=10, f=3 requires 2f+1 = 7 for ready quorum
     assert_eq!(config.brb.max_faulty, 3);
 }
 

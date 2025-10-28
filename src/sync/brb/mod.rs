@@ -112,12 +112,14 @@ pub struct BrbConfig {
 
 impl BrbConfig {
     /// Create a new BRB configuration
-    pub fn new(total_peers: usize, max_faulty: usize) -> Self {
-        Self {
+    pub fn new(total_peers: usize, max_faulty: usize) -> Result<Self> {
+        let config = Self {
             total_peers,
             max_faulty,
             require_signatures: false,
-        }
+        };
+        config.validate()?;
+        Ok(config)
     }
 
     /// Validate configuration
@@ -130,6 +132,11 @@ impl BrbConfig {
             ));
         }
         Ok(())
+    }
+
+    /// Get the quorum size (2f+1)
+    pub fn quorum_size(&self) -> usize {
+        2 * self.max_faulty + 1
     }
 }
 
@@ -402,17 +409,17 @@ mod tests {
     fn test_brb_config_validation() {
         // Valid config: n=4, f=1 (4 >= 3*1+1)
         let config = BrbConfig::new(4, 1);
-        assert!(config.validate().is_ok());
+        assert!(config.is_ok());
 
         // Invalid config: n=3, f=1 (3 < 3*1+1)
         let config = BrbConfig::new(3, 1);
-        assert!(config.validate().is_err());
+        assert!(config.is_err());
     }
 
     #[test]
     fn test_brb_manager_creation() {
         let peer = PeerId::random();
-        let config = BrbConfig::new(4, 1);
+        let config = BrbConfig::new(4, 1).unwrap();
         let manager = BrbManager::new(config, peer);
         assert!(manager.is_ok());
     }
@@ -420,15 +427,20 @@ mod tests {
     #[test]
     fn test_invalid_brb_manager_creation() {
         let peer = PeerId::random();
-        let config = BrbConfig::new(3, 1); // Invalid config
-        let manager = BrbManager::new(config, peer);
-        assert!(manager.is_err());
+        // Invalid config should fail at construction
+        let config = BrbConfig::new(3, 1);
+        assert!(config.is_err());
+
+        // Verify error message
+        if let Err(e) = config {
+            assert!(e.to_string().contains("need at least 3f+1 nodes"));
+        }
     }
 
     #[test]
     fn test_initiate_broadcast() {
         let peer = PeerId::random();
-        let config = BrbConfig::new(4, 1);
+        let config = BrbConfig::new(4, 1).unwrap();
         let mut manager = BrbManager::new(config, peer).unwrap();
 
         let payload = vec![1, 2, 3, 4];
@@ -451,7 +463,7 @@ mod tests {
     #[test]
     fn test_handle_init() {
         let peer = PeerId::random();
-        let config = BrbConfig::new(4, 1);
+        let config = BrbConfig::new(4, 1).unwrap();
         let mut manager = BrbManager::new(config, peer).unwrap();
 
         let sender = PeerId::random();
@@ -485,7 +497,7 @@ mod tests {
     #[test]
     fn test_handle_echo_reaches_threshold() {
         let peer = PeerId::random();
-        let config = BrbConfig::new(4, 1);
+        let config = BrbConfig::new(4, 1).unwrap();
         let mut manager = BrbManager::new(config, peer).unwrap();
 
         let sender = PeerId::random();
@@ -526,7 +538,7 @@ mod tests {
     #[test]
     fn test_handle_ready_delivers() {
         let peer = PeerId::random();
-        let config = BrbConfig::new(4, 1);
+        let config = BrbConfig::new(4, 1).unwrap();
         let mut manager = BrbManager::new(config, peer).unwrap();
 
         let sender = PeerId::random();
@@ -577,7 +589,7 @@ mod tests {
     #[test]
     fn test_ready_amplification() {
         let peer = PeerId::random();
-        let config = BrbConfig::new(7, 2); // f=2
+        let config = BrbConfig::new(7, 2).unwrap(); // f=2
         let mut manager = BrbManager::new(config, peer).unwrap();
 
         let sender = PeerId::random();
@@ -621,7 +633,7 @@ mod tests {
     #[test]
     fn test_duplicate_echo_ignored() {
         let peer = PeerId::random();
-        let config = BrbConfig::new(4, 1);
+        let config = BrbConfig::new(4, 1).unwrap();
         let mut manager = BrbManager::new(config, peer).unwrap();
 
         let sender = PeerId::random();
@@ -671,7 +683,7 @@ mod tests {
     #[test]
     fn test_cleanup_delivered() {
         let peer = PeerId::random();
-        let config = BrbConfig::new(4, 1);
+        let config = BrbConfig::new(4, 1).unwrap();
         let mut manager = BrbManager::new(config, peer).unwrap();
 
         let sender = PeerId::random();

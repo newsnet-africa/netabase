@@ -1,0 +1,47 @@
+[2025-10-28T12:46:50Z INFO  sync_network_node] Starting node 3 on port 9003
+[2025-10-28T12:46:50Z INFO  sync_network_node] Test mode: brb
+[2025-10-28T12:46:50Z INFO  sync_network_node] Paxos enabled: true
+[2025-10-28T12:46:50Z INFO  sync_network_node] Node 3 peer ID: 12D3KooWErMqrzhwnL7HY4aVLyTn8ahDJZEeBv7qqw5NxbfAsBxj
+[2025-10-28T12:46:50Z INFO  sync_network_node] Bootstrap peers: [/ip4/127.0.0.1/tcp/9000, /ip4/127.0.0.1/tcp/9001, /ip4/127.0.0.1/tcp/9002]
+[2025-10-28T12:46:50Z INFO  sync_network_node] Running BRB test
+[2025-10-28T12:46:50Z INFO  sync_network_node] Node 3 initiating BRB broadcast
+[2025-10-28T12:46:50Z INFO  sync_network_node] Node 3 initiated BRB broadcast with hash: [136, 157, 105, 53, 98, 117, 10, 39]
+[2025-10-28T12:46:50Z INFO  sync_network_node] Node 3 handled BRB echo from 1Ajda7qP6cTh3egBdSebFCZnq7xbqsyoaUrm728PbdehJX
+[2025-10-28T12:46:50Z INFO  sync_network_node] BRB echo handled successfully
+
+=== Node 3 Test Results ===
+{
+  "paxos_proposals": 0,
+  "paxos_consensuses": 0,
+  "brb_broadcasts": 1,
+  "brb_deliveries": 0,
+  "gossip_rounds": 0,
+  "state_syncs": 0,
+  "pow_challenges_iss[2025-10-28T12:46:51Z INFO  sync_network_node] Running BRB test
+[2025-10-28T12:46:51Z INFO  sync_network_node] Node 3 initiating BRB broadcast
+[2025-10-28T12:46:51Z INFO  sync_network_node] Node 3 initiated BRB broadcast with hash: [136, 157, 105, 53, 98, 117, 10, 39]
+[2025-10-28T12:46:51Z INFO  sync_network_node] Node 3 handled BRB echo from 1AcBLmrx5Mq8NynADXJF79A3zRS1BkeR6SStBVfHN6aTpt
+[2025-10-28T12:46:51Z INFO  sync_network_node] BRB echo handled successfully
+[2025-10-28T12:46:52Z INFO  sync_network_node] Running gossip test
+[2025-10-28T12:46:52Z INFO  sync_network_node] Stored 5 records
+[2025-10-28T12:46:52Z INFO  sync_network_node] State digest: merkle_root=[107, 86, 212, 131, 129, 145, 7, 255], count=5
+[2025-10-28T12:46:52Z INFO  sync_network_node] Node 3 initiating gossip round
+[2025-10-28T12:46:53Z INFO  sync_network_node] Running Sybil resistance test
+[2025-10-28T12:46:53Z INFO  sync_network_node] Issued challenge: 32 bytes
+[2025-10-28T12:46:53Z INFO  sync_network_node] Peer verified: false
+[2025-10-28T12:46:53Z INFO  sync_network_node] Testing history retrieval with Paxos enabled
+[2025-10-28T12:46:53Z INFO  sync_network_node] Node 3 has 0 learned values from Paxos
+[2025-10-28T12:46:53Z INFO  sync_network_node] History entries: 0
+
+=== Node 3 Test Results ===
+{
+  "paxos_proposals": 1,
+  "paxos_consensuses": 0,
+  "brb_broadcasts": 1,
+  "brb_deliveries": 0,
+  "gossip_rounds": 1,
+  "state_syncs": 0,
+  "pow_challenges_issued": 1,
+  "pow_challenges_verified": 0,
+  "errors": []
+}

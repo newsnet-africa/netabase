@@ -1,0 +1,23 @@
+[2025-10-28T12:46:50Z INFO  sync_network_node] Starting node 4 on port 9004
+[2025-10-28T12:46:50Z INFO  sync_network_node] Test mode: brb
+[2025-10-28T12:46:50Z INFO  sync_network_node] Paxos enabled: true
+[2025-10-28T12:46:50Z INFO  sync_network_node] Node 4 peer ID: 12D3KooW9w5U83GxozcRqhm9Hr2tda7aKg75gKoE4aRrCPg5JVX7
+[2025-10-28T12:46:50Z INFO  sync_network_node] Bootstrap peers: [/ip4/127.0.0.1/tcp/9000, /ip4/127.0.0.1/tcp/9001, /ip4/127.0.0.1/tcp/9002, /ip4/127.0.0.1/tcp/9003]
+[2025-10-28T12:46:50Z INFO  sync_network_node] Running BRB test
+[2025-10-28T12:46:50Z INFO  sync_network_node] Node 4 initiating BRB broadcast
+[2025-10-28T12:46:50Z INFO  sync_network_node] Node 4 initiated BRB broadcast with hash: [182, 43, 137, 60, 232, 232, 148, 217]
+[2025-10-28T12:46:50Z INFO  sync_network_node] Node 4 handled BRB echo from 1AYWdv1tSVXwxTqMjobkAWwytx4dKXwFpfndSri6VJL6Qv
+[2025-10-28T12:46:50Z INFO  sync_network_node] BRB echo handled successfully
+
+=== Node 4 Test Results ===
+{
+  "paxos_proposals": 0,
+  "paxos_consensuses": 0,
+  "brb_broadcasts": 1,
+  "brb_deliveries": 0,
+  "gossip_rounds": 0,
+  "state_syncs": 0,
+  "pow_challenges_issued": 0,
+  "pow_challenges_verified": 0,
+  "errors": []
+}

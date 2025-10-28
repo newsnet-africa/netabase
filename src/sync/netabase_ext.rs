@@ -6,6 +6,7 @@
 use crate::sync::{
     SyncBehaviorManager, SimpleReputationSystem, ReputationSystem,
     ProofOfWork, ChallengeSystem, ProofOfWorkConfig,
+    PaxosInstance, PaxosConfig as SyncPaxosConfig,
 };
 use crate::network::config::{
     SyncConfig, GossipConfig, BrbConfig, SybilResistanceConfig, PaxosConfig
@@ -44,6 +45,9 @@ where
 
     /// Challenge system
     challenges: Arc<RwLock<ChallengeSystem>>,
+
+    /// Paxos instance (if enabled)
+    paxos: Option<Arc<RwLock<PaxosInstance>>>,
 
     /// Configuration
     config: SyncConfig,
@@ -88,10 +92,23 @@ where
             config.sybil_resistance.verification_duration,
         )));
 
+        // Initialize Paxos if enabled
+        let paxos = if config.paxos.enabled {
+            let paxos_config = SyncPaxosConfig::new(
+                config.paxos.num_acceptors,
+                config.paxos.max_failures
+            );
+            let paxos_instance = PaxosInstance::new(peer_id, paxos_config);
+            Some(Arc::new(RwLock::new(paxos_instance)))
+        } else {
+            None
+        };
+
         Ok(Self {
             sync_manager,
             reputation,
             challenges,
+            paxos,
             config,
             _phantom: std::marker::PhantomData,
         })
@@ -163,6 +180,45 @@ where
     /// Get sync configuration
     pub fn config(&self) -> &SyncConfig {
         &self.config
+    }
+
+    // ===== Paxos Consensus Methods =====
+
+    /// Check if Paxos is enabled
+    pub fn is_paxos_enabled(&self) -> bool {
+        self.paxos.is_some()
+    }
+
+    /// Propose a value through Paxos consensus
+    /// Returns the proposal number if Paxos is enabled
+    pub fn paxos_propose(&mut self, value: Vec<u8>) -> Option<crate::sync::ProposalNumber> {
+        if let Some(paxos) = &self.paxos {
+            let mut paxos = paxos.write().unwrap();
+            Some(paxos.propose(value))
+        } else {
+            None
+        }
+    }
+
+    /// Get all learned values from Paxos consensus
+    /// Returns empty vector if Paxos is not enabled
+    pub fn paxos_learned_values(&self) -> Vec<Vec<u8>> {
+        if let Some(paxos) = &self.paxos {
+            let paxos = paxos.read().unwrap();
+            paxos.learned_values().to_vec()
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Get the number of values learned through Paxos consensus
+    pub fn paxos_history_len(&self) -> usize {
+        if let Some(paxos) = &self.paxos {
+            let paxos = paxos.read().unwrap();
+            paxos.learned_values().len()
+        } else {
+            0
+        }
     }
 }
 

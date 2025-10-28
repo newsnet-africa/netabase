@@ -120,7 +120,7 @@ impl SyncManagerConfigBuilder {
     pub fn new() -> Self {
         Self {
             gossip: GossipConfig::default(),
-            brb: BrbConfig::new(7, 2),
+            brb: BrbConfig::new(7, 2).expect("Invalid BRB config"),
             pow: ProofOfWorkConfig::default(),
             challenge_duration: Duration::from_secs(60),
             verification_duration: Duration::from_secs(3600),
@@ -141,7 +141,7 @@ impl SyncManagerConfigBuilder {
 
     /// Set BRB configuration (total nodes, max Byzantine faults)
     pub fn brb_config(mut self, total_nodes: usize, max_faults: usize) -> Self {
-        self.brb = BrbConfig::new(total_nodes, max_faults);
+        self.brb = BrbConfig::new(total_nodes, max_faults).expect("Invalid BRB config");
         self
     }
 

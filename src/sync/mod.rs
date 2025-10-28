@@ -40,6 +40,8 @@ pub use paxos::{PaxosInstance, PaxosConfig, PaxosMessage, ProposalNumber};
 pub use config::{SyncConfigBuilder, SyncManagerConfigBuilder, SyncPresets, SyncManagerPresets};
 pub use protocol::{SyncRequest, SyncResponse, SyncRecord};
 pub use codec::{SyncCodec, SYNC_PROTOCOL};
+pub use brb::{BrbManager, BrbConfig, BrbPhase, BrbMessageState, QuorumTracker};
+pub use gossip::{GossipManager, GossipConfig, ByzantineFilterConfig};
 #[cfg(feature = "native")]
 pub use netabase_ext::NetabaseWithSync;
 

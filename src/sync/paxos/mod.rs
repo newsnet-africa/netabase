@@ -326,6 +326,11 @@ impl PaxosInstance {
         &self.learned_values
     }
 
+    /// Get local peer ID
+    pub fn peer_id(&self) -> PeerId {
+        self.local_peer_id
+    }
+
     /// Check if a proposal succeeded
     pub fn is_proposal_successful(&self, proposal_number: &ProposalNumber) -> bool {
         self.proposals
