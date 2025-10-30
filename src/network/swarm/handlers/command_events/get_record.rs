@@ -11,7 +11,7 @@ pub(crate) fn handle_get_record<D: NetabaseDefinitionTrait>(
     key: D::Keys,
     response_channel: Sender<QueryResult>,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -39,19 +39,32 @@ pub(crate) fn handle_get_record<D: NetabaseDefinitionTrait>(
     // Convert NetabaseSchemaKeys to libp2p::kad::RecordKey
     match key.to_record_key() {
         Ok(record_key) => {
-            // Call the libp2p Kademlia API with the converted key
-            let query_id = swarm.behaviour_mut().kad.get_record(record_key);
+            // Use kad_mut() helper - works whether paxos is enabled or not
+            if let Some(kad) = swarm.behaviour_mut().kad_mut() {
+                // Call the libp2p Kademlia API with the converted key
+                let query_id = kad.get_record(record_key);
 
-            // Store the response channel for when the query completes
-            super::super::swarm_events::behaviour::kad::store_query_response_channel(
-                query_id,
-                response_channel,
-            );
+                // Store the response channel for when the query completes
+                super::super::swarm_events::behaviour::kad::store_query_response_channel(
+                    query_id,
+                    response_channel,
+                );
 
-            println!(
-                "GetRecord: Query started with ID {:?}, response will be sent via event loop",
-                query_id
-            );
+                println!(
+                    "GetRecord: Query started with ID {:?}, response will be sent via event loop",
+                    query_id
+                );
+            } else {
+                println!("Kademlia is not available");
+                // Send an error response indicating kad is not available
+                let error_result = QueryResult::GetRecord(Err(libp2p::kad::GetRecordError::NotFound {
+                    key: record_key,
+                    closest_peers: vec![],
+                }));
+                if let Err(_) = response_channel.send(error_result) {
+                    println!("Failed to send GetRecord kad-unavailable error response - receiver dropped");
+                }
+            }
         }
         Err(conversion_error) => {
             println!(

@@ -7,7 +7,7 @@ pub(crate) fn handle_set_mode<D: NetabaseDefinitionTrait + Send + Sync + 'static
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     mode: Option<Mode>,
 )where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -32,9 +32,13 @@ pub(crate) fn handle_set_mode<D: NetabaseDefinitionTrait + Send + Sync + 'static
     println!("SetMode command: mode={:?}", mode);
 
     // Call the libp2p Kademlia API
-    swarm.behaviour_mut().kad.set_mode(mode);
-
-    println!("SetMode: Mode updated successfully");
+    // Access kad through helper method which works whether paxos is enabled or not
+    if let Some(kad) = swarm.behaviour_mut().kad_mut() {
+        kad.set_mode(mode);
+        println!("SetMode: Mode updated successfully");
+    } else {
+        println!("SetMode: Kad behavior not available");
+    }
 
     // Note: This command doesn't have a response channel as it's fire-and-forget
 }

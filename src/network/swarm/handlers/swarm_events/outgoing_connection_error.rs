@@ -7,7 +7,7 @@ pub fn handle_outgoing_connection_error<D: NetabaseDefinitionTrait + Send + Sync
     peer_id: Option<PeerId>,
     error: DialError,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy

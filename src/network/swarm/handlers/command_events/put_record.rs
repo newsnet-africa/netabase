@@ -9,7 +9,7 @@ pub(crate) fn handle_put_record<D: NetabaseDefinitionTrait>(
     record: D,
     response_channel: Sender<Result<kad::QueryResult, kad::store::Error>>,
 )where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -35,22 +35,24 @@ pub(crate) fn handle_put_record<D: NetabaseDefinitionTrait>(
     match record.to_record() {
         Ok(kad_record) => {
             // Call the libp2p Kademlia API with the converted record
-            match swarm
-                .behaviour_mut()
-                .kad
-                .put_record(kad_record, kad::Quorum::One)
-            {
-                Ok(query_id) => {
-                    // Store the response channel for when the query completes
-                    super::super::swarm_events::behaviour::kad::store_query_response_channel(
-                        query_id,
-                        response_channel,
-                    );
+            // Access kad through helper method which works whether paxos is enabled or not
+            if let Some(kad) = swarm.behaviour_mut().kad_mut() {
+                match kad.put_record(kad_record, kad::Quorum::One) {
+                    Ok(query_id) => {
+                        // Store the response channel for when the query completes
+                        super::super::swarm_events::behaviour::kad::store_query_response_channel(
+                            query_id,
+                            response_channel,
+                        );
+                    }
+                    Err(store_error) => {
+                        // Send the error immediately
+                        let _ = response_channel.send(Err(store_error));
+                    }
                 }
-                Err(store_error) => {
-                    // Send the error immediately
-                    let _ = response_channel.send(Err(store_error));
-                }
+            } else {
+                // Kad not available - send error
+                let _ = response_channel.send(Err(kad::store::Error::MaxRecords));
             }
         }
         Err(conversion_error) => {

@@ -9,7 +9,7 @@ pub fn handle_mdns_event<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     config: NetabaseConfig,
     mdns_event: MdnsEvent,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -48,7 +48,7 @@ fn handle_discovered<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     config: NetabaseConfig,
     peer_addresses: &Vec<(PeerId, Multiaddr)>,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -75,23 +75,27 @@ fn handle_discovered<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
         for (peer_id, multiaddr) in peer_addresses {
             let peer_short = format!("{}", peer_id).chars().take(8).collect::<String>();
             println!("🔍 Discovered peer {} via mDNS\n", peer_short);
+
             // Add the peer to Kademlia routing table
-            swarm
-                .behaviour_mut()
-                .kad
-                .add_address(peer_id, multiaddr.clone());
+            // Access kad through helper method which works whether paxos is enabled or not
+            if let Some(kad) = swarm.behaviour_mut().kad_mut() {
+                kad.add_address(peer_id, multiaddr.clone());
+            }
+
             // Dial the peer to establish connection
             if let Err(e) = swarm.dial(*peer_id) {
                 eprintln!("Failed to dial mDNS peer {}: {:?}", peer_id, e);
             }
 
             // Bootstrap after discovering peers to join the DHT network
-            if !peer_addresses.is_empty()
-                && let Err(e) = swarm.behaviour_mut().kad.bootstrap()
-            {
-                eprintln!("Failed to bootstrap Kademlia: {:?}", e);
-            } else {
-                println!("Bootstrapped!")
+            if !peer_addresses.is_empty() {
+                if let Some(kad) = swarm.behaviour_mut().kad_mut() {
+                    if let Err(e) = kad.bootstrap() {
+                        eprintln!("Failed to bootstrap Kademlia: {:?}", e);
+                    } else {
+                        println!("Bootstrapped!")
+                    }
+                }
             }
 
             if let Err(e) = swarm.dial(*peer_id) {
@@ -100,12 +104,14 @@ fn handle_discovered<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
         }
 
         // Bootstrap after discovering peer_addresses to join the DHT network
-        if !peer_addresses.is_empty()
-            && let Err(e) = swarm.behaviour_mut().kad.bootstrap()
-        {
-            eprintln!("Failed to bootstrap Kademlia: {:?}", e);
-        } else {
-            println!("Bootstrapped!")
+        if !peer_addresses.is_empty() {
+            if let Some(kad) = swarm.behaviour_mut().kad_mut() {
+                if let Err(e) = kad.bootstrap() {
+                    eprintln!("Failed to bootstrap Kademlia: {:?}", e);
+                } else {
+                    println!("Bootstrapped!")
+                }
+            }
         }
     }
 }
@@ -114,7 +120,7 @@ fn handle_discovered<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
 fn handle_expired<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     _peer_addresses: Vec<(PeerId, Multiaddr)>,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy

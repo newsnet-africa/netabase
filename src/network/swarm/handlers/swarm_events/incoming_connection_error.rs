@@ -10,7 +10,7 @@ pub fn handle_incoming_connection_error<D: NetabaseDefinitionTrait + Send + Sync
     error: ListenError,
     peer_id: Option<PeerId>,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy

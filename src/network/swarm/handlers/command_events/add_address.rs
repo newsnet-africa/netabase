@@ -10,7 +10,7 @@ pub(crate) fn handle_add_address<D: NetabaseDefinitionTrait + Send + Sync + 'sta
     address: Multiaddr,
     response_channel: Sender<RoutingUpdate>,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -36,10 +36,17 @@ pub(crate) fn handle_add_address<D: NetabaseDefinitionTrait + Send + Sync + 'sta
     println!("AddAddress command: peer={:?}, address={:?}", peer, address);
 
     // Call the libp2p Kademlia API
-    let routing_update = swarm.behaviour_mut().kad.add_address(&peer, address);
+    // Access kad through helper method which works whether paxos is enabled or not
+    if let Some(kad) = swarm.behaviour_mut().kad_mut() {
+        let routing_update = kad.add_address(&peer, address);
 
-    // Send the result through the response channel
-    if let Err(_) = response_channel.send(routing_update) {
-        println!("Failed to send AddAddress response - receiver dropped");
+        // Send the result through the response channel
+        if let Err(_) = response_channel.send(routing_update) {
+            println!("Failed to send AddAddress response - receiver dropped");
+        }
+    } else {
+        println!("AddAddress: Kad behavior not available");
+        // Send a failure/pending response
+        let _ = response_channel.send(RoutingUpdate::Pending);
     }
 }

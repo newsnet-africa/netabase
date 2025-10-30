@@ -10,7 +10,7 @@ pub fn handle_connection_closed<D: NetabaseDefinitionTrait + Send + Sync + 'stat
     _num_established: u32,
     _cause: Option<ConnectionError>,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy

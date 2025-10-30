@@ -6,7 +6,7 @@ pub fn handle_dialing<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     peer_id: Option<PeerId>,
     connection_id: ConnectionId,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy

@@ -13,7 +13,7 @@ pub(crate) fn handle_remove_address<D: NetabaseDefinitionTrait + Send + Sync + '
     address: Multiaddr,
     response_channel: Sender<Option<EntryView<KBucketKey<PeerId>, Addresses>>>,
 )where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -40,11 +40,20 @@ pub(crate) fn handle_remove_address<D: NetabaseDefinitionTrait + Send + Sync + '
         peer, address
     );
 
-    // Call the libp2p Kademlia API
-    let result = swarm.behaviour_mut().kad.remove_address(&peer, &address);
+    // Use kad_mut() helper - works whether paxos is enabled or not
+    if let Some(kad) = swarm.behaviour_mut().kad_mut() {
+        // Call the libp2p Kademlia API
+        let result = kad.remove_address(&peer, &address);
 
-    // Send the result through the response channel
-    if let Err(_) = response_channel.send(result) {
-        println!("Failed to send RemoveAddress response - receiver dropped");
+        // Send the result through the response channel
+        if let Err(_) = response_channel.send(result) {
+            println!("Failed to send RemoveAddress response - receiver dropped");
+        }
+    } else {
+        println!("Kademlia is not available");
+        // Send None to indicate the operation couldn't be performed
+        if let Err(_) = response_channel.send(None) {
+            println!("Failed to send RemoveAddress kad-unavailable response - receiver dropped");
+        }
     }
 }

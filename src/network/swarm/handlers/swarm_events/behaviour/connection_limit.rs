@@ -7,7 +7,7 @@ use std::convert::Infallible;
 pub fn handle_connection_limit_event<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     event: Infallible,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy

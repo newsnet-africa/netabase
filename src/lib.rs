@@ -281,12 +281,10 @@ pub use netabase_store;
 /// but the macros will work even without manual imports thanks to hygiene.
 // Re-export macro dependencies conditionally when macros are used
 pub mod errors;
+pub mod routing;
 
 #[cfg(feature = "native")]
 pub mod network;
-
-#[cfg(feature = "native")]
-pub mod sync;
 
 #[cfg(feature = "native")]
 pub use network::behaviour::NetabaseBehaviourEvent;
@@ -294,7 +292,7 @@ pub use network::behaviour::NetabaseBehaviourEvent;
 pub use network::behaviour::clone_impl::NetabaseSwarmEvent;
 
 #[cfg(feature = "native")]
-use libp2p::kad::QueryResult;
+use libp2p::{PeerId, kad::QueryResult};
 use netabase_store::traits::{
     definition::NetabaseDefinitionTrait,
     model::{NetabaseModelTrait, NetabaseModelTraitKey},
@@ -375,9 +373,11 @@ use crate::network::config::NetabaseConfig;
 /// # Ok(())
 /// # }
 /// ```
+
+#[derive(Debug)]
 pub struct Netabase<D: NetabaseDefinitionTrait + Send + Sync>
 where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -409,7 +409,11 @@ where
     broadcast_receiver: broadcast::Receiver<network::behaviour::clone_impl::NetabaseSwarmEvent<D>>,
     /// Optional custom database path
     database_path: Option<String>,
+    peer_id: NetabaseNodeInfo,
 }
+
+#[derive(Debug, Clone)]
+pub struct NetabaseNodeInfo(PeerId);
 
 // /// WASM-compatible Netabase instance for local database operations only.
 // ///
@@ -426,7 +430,7 @@ where
 #[cfg(feature = "native")]
 impl<D: NetabaseDefinitionTrait + Send + Sync + 'static> Netabase<D>
 where
-    D: netabase_store::traits::convert::ToIVec,
+    D: netabase_store::traits::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     D::Keys: netabase_store::traits::convert::ToIVec,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
@@ -499,6 +503,7 @@ where
             command_sender,
             broadcast_receiver,
             database_path: None,
+            peer_id: NetabaseNodeInfo(PeerId::random()),
         })
     }
 
@@ -544,13 +549,14 @@ where
     pub fn new_with_config(config: NetabaseConfig) -> anyhow::Result<Self> {
         let (command_sender, _command_receiver) = mpsc::channel(100);
         let (_broadcast_sender, broadcast_receiver) = broadcast::channel(1000);
-
+        let peer_id = config.node.peer_id;
         Ok(Self {
             swarm_thread: None,
             config,
             command_sender,
             broadcast_receiver,
             database_path: None,
+            peer_id: NetabaseNodeInfo(peer_id),
         })
     }
 
@@ -606,13 +612,15 @@ where
     pub fn new_with_path<P: AsRef<std::path::Path>>(path: P) -> anyhow::Result<Self> {
         let (command_sender, _command_receiver) = mpsc::channel(100);
         let (_broadcast_sender, broadcast_receiver) = broadcast::channel(1000);
-
+        let config = NetabaseConfig::default();
+        let peer_id = config.node.peer_id;
         Ok(Self {
             swarm_thread: None,
-            config: NetabaseConfig::default(),
+            config,
             command_sender,
             broadcast_receiver,
             database_path: Some(path.as_ref().to_string_lossy().to_string()),
+            peer_id: NetabaseNodeInfo(peer_id),
         })
     }
 
@@ -668,12 +676,14 @@ where
 
         let config = NetabaseConfig::with_backend(backend);
 
+        let peer_id = config.node.peer_id;
         Ok(Self {
             swarm_thread: None,
             config,
             command_sender,
             broadcast_receiver,
             database_path: Some(path.as_ref().to_string_lossy().to_string()),
+            peer_id: NetabaseNodeInfo(peer_id),
         })
     }
 
@@ -732,12 +742,14 @@ where
         let (command_sender, _command_receiver) = mpsc::channel(100);
         let (_broadcast_sender, broadcast_receiver) = broadcast::channel(1000);
 
+        let peer_id = config.node.peer_id;
         Ok(Self {
             swarm_thread: None,
             config,
             command_sender,
             broadcast_receiver,
             database_path: Some(path.as_ref().to_string_lossy().to_string()),
+            peer_id: NetabaseNodeInfo(peer_id),
         })
     }
 
@@ -2326,7 +2338,7 @@ where
 #[cfg(feature = "native")]
 impl<D: NetabaseDefinitionTrait + Send + Sync> Drop for Netabase<D>
 where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -2354,6 +2366,303 @@ where
             handle.abort();
         }
     }
+}
+
+// ============================================================================
+// Paxos-Specific API Methods
+// ============================================================================
+
+#[cfg(all(feature = "native", feature = "paxos"))]
+impl<D: NetabaseDefinitionTrait + Send + Sync + 'static> Netabase<D>
+where
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
+    D::Keys: netabase_store::convert::ToIVec,
+    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
+{
+    /// Propose a database update through Paxos consensus.
+    ///
+    /// This method submits a database operation (put, delete, etc.) to the Paxos cluster
+    /// for consensus. The operation will only be applied once a majority of nodes in the
+    /// cluster agree on it.
+    ///
+    /// # Consensus Process
+    ///
+    /// 1. **Prepare Phase**: Request promises from acceptors with a unique proposal number
+    /// 2. **Accept Phase**: Ask acceptors to accept the proposed value
+    /// 3. **Learn Phase**: Once accepted by a quorum, the value is learned and applied
+    ///
+    /// # Timeout and Retry Behavior
+    ///
+    /// The operation respects the configuration in [`PaxosOperationConfig`]:
+    /// - `proposal_timeout`: Maximum time to wait for consensus
+    /// - `max_retries`: Number of retry attempts on failure
+    /// - `exponential_backoff`: Whether to use exponential backoff between retries
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The cluster doesn't have quorum (if `fail_fast_no_quorum` is true)
+    /// - The proposal times out waiting for consensus
+    /// - Maximum retries are exhausted
+    /// - Network communication fails
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use netabase::Netabase;
+    /// use netabase_store::netabase_definition_module;
+    ///
+    /// # #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// # mod definition {
+    /// #     use netabase_store::{NetabaseModel, netabase};
+    /// #     #[derive(NetabaseModel, Clone, Debug)]
+    /// #     #[derive(bincode::Encode, bincode::Decode)]
+    /// #     #[derive(serde::Serialize, serde::Deserialize)]
+    /// #     #[netabase(MyDefinition)]
+    /// #     pub struct User {
+    /// #         #[primary_key] pub id: u64,
+    /// #         pub name: String,
+    /// #     }
+    /// # }
+    /// # use definition::*;
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let mut netabase = Netabase::<MyDefinition>::new()?;
+    /// netabase.start_swarm().await?;
+    ///
+    /// let user = User { id: 1, name: "Alice".to_string() };
+    ///
+    /// // Propose the update through consensus
+    /// netabase.propose_update(user).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn propose_update<M: NetabaseModelTrait<D>>(
+        &self,
+        record: M,
+    ) -> anyhow::Result<ConsensusResult> {
+        // Get operation config from PaxosConfig
+        let operation_config = &self.config.paxos.operation;
+
+        // Check if cluster has quorum if fail_fast is enabled
+        if operation_config.fail_fast_no_quorum {
+            let cluster_size = self.config.paxos.cluster_members.len();
+            let min_quorum = self.config.paxos.min_quorum
+                .unwrap_or((cluster_size / 2) + 1);
+
+            if cluster_size < min_quorum {
+                return Err(anyhow::anyhow!(
+                    "Cluster size ({}) is below minimum quorum ({})",
+                    cluster_size,
+                    min_quorum
+                ));
+            }
+        }
+
+        // TODO: Implement actual Paxos proposal submission
+        // This is a placeholder that will be implemented when we integrate
+        // the proposal submission mechanism into the command channel
+
+        // For now, return a placeholder indicating the feature is under development
+        Err(anyhow::anyhow!(
+            "Paxos consensus proposals are not yet fully implemented. \
+             This will be completed in the integration phase."
+        ))
+    }
+
+    /// Get information about the current Paxos cluster state.
+    ///
+    /// Returns details about cluster membership, quorum status, and consensus state.
+    ///
+    /// # Returns
+    ///
+    /// A [`ClusterInfo`] struct containing:
+    /// - List of cluster members
+    /// - Current cluster size
+    /// - Required quorum size
+    /// - Whether the cluster has quorum
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// # use netabase::Netabase;
+    /// # use netabase_store::netabase_definition_module;
+    /// # #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// # mod definition {
+    /// #     use netabase_store::{NetabaseModel, netabase};
+    /// #     #[derive(NetabaseModel, Clone, Debug)]
+    /// #     #[derive(bincode::Encode, bincode::Decode)]
+    /// #     #[derive(serde::Serialize, serde::Deserialize)]
+    /// #     #[netabase(MyDefinition)]
+    /// #     pub struct User {
+    /// #         #[primary_key] pub id: u64,
+    /// #         pub name: String,
+    /// #     }
+    /// # }
+    /// # use definition::*;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let mut netabase = Netabase::<MyDefinition>::new()?;
+    /// let cluster_info = netabase.get_cluster_info()?;
+    ///
+    /// println!("Cluster size: {}", cluster_info.cluster_size);
+    /// println!("Quorum: {}", cluster_info.quorum_size);
+    /// println!("Has quorum: {}", cluster_info.has_quorum);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn get_cluster_info(&self) -> anyhow::Result<ClusterInfo> {
+        let cluster_members = self.config.paxos.cluster_members.clone();
+        let cluster_size = cluster_members.len();
+        let quorum_size = self.config.paxos.min_quorum
+            .unwrap_or((cluster_size / 2) + 1);
+        let has_quorum = cluster_size >= quorum_size;
+
+        Ok(ClusterInfo {
+            cluster_members,
+            cluster_size,
+            quorum_size,
+            has_quorum,
+            dynamic_membership: self.config.paxos.dynamic_membership,
+        })
+    }
+
+    /// Get the current Paxos operation configuration.
+    ///
+    /// Returns a copy of the [`PaxosOperationConfig`] that controls timeout,
+    /// retry, and other operational parameters for consensus proposals.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// # use netabase::Netabase;
+    /// # use netabase_store::netabase_definition_module;
+    /// # #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// # mod definition {
+    /// #     use netabase_store::{NetabaseModel, netabase};
+    /// #     #[derive(NetabaseModel, Clone, Debug)]
+    /// #     #[derive(bincode::Encode, bincode::Decode)]
+    /// #     #[derive(serde::Serialize, serde::Deserialize)]
+    /// #     #[netabase(MyDefinition)]
+    /// #     pub struct User {
+    /// #         #[primary_key] pub id: u64,
+    /// #         pub name: String,
+    /// #     }
+    /// # }
+    /// # use definition::*;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let mut netabase = Netabase::<MyDefinition>::new()?;
+    /// let op_config = netabase.get_operation_config();
+    ///
+    /// println!("Proposal timeout: {:?}", op_config.proposal_timeout);
+    /// println!("Max retries: {}", op_config.max_retries);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn get_operation_config(&self) -> network::config::PaxosOperationConfig {
+        self.config.paxos.operation.clone()
+    }
+
+    /// Check if the cluster currently has sufficient nodes for quorum.
+    ///
+    /// This is a convenience method that checks whether the cluster size meets
+    /// the minimum quorum requirement. Useful for pre-flight checks before
+    /// attempting consensus operations.
+    ///
+    /// # Returns
+    ///
+    /// - `true` if cluster_size >= quorum_size
+    /// - `false` otherwise
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// # use netabase::Netabase;
+    /// # use netabase_store::netabase_definition_module;
+    /// # #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// # mod definition {
+    /// #     use netabase_store::{NetabaseModel, netabase};
+    /// #     #[derive(NetabaseModel, Clone, Debug)]
+    /// #     #[derive(bincode::Encode, bincode::Decode)]
+    /// #     #[derive(serde::Serialize, serde::Deserialize)]
+    /// #     #[netabase(MyDefinition)]
+    /// #     pub struct User {
+    /// #         #[primary_key] pub id: u64,
+    /// #         pub name: String,
+    /// #     }
+    /// # }
+    /// # use definition::*;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let mut netabase = Netabase::<MyDefinition>::new()?;
+    /// if netabase.has_quorum() {
+    ///     println!("Cluster has quorum - ready for consensus operations");
+    /// } else {
+    ///     println!("Cluster lacks quorum - waiting for more nodes");
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn has_quorum(&self) -> bool {
+        let cluster_size = self.config.paxos.cluster_members.len();
+        let quorum_size = self.config.paxos.min_quorum
+            .unwrap_or((cluster_size / 2) + 1);
+        cluster_size >= quorum_size
+    }
+}
+
+/// Result of a successful consensus proposal.
+///
+/// Contains information about the consensus round and the accepted value.
+#[cfg(all(feature = "native", feature = "paxos"))]
+#[derive(Debug, Clone)]
+pub struct ConsensusResult {
+    /// The round number in which consensus was reached
+    pub round: u64,
+    /// Number of acceptors that accepted the proposal
+    pub acceptors: usize,
+    /// Whether the proposal was unanimously accepted
+    pub unanimous: bool,
+}
+
+/// Information about the Paxos cluster state.
+///
+/// Provides a snapshot of cluster membership and quorum status.
+#[cfg(all(feature = "native", feature = "paxos"))]
+#[derive(Debug, Clone)]
+pub struct ClusterInfo {
+    /// List of peer IDs in the cluster
+    pub cluster_members: Vec<PeerId>,
+    /// Total number of nodes in the cluster
+    pub cluster_size: usize,
+    /// Number of nodes required for quorum
+    pub quorum_size: usize,
+    /// Whether the cluster currently has quorum
+    pub has_quorum: bool,
+    /// Whether dynamic membership is enabled
+    pub dynamic_membership: bool,
 }
 
 #[cfg(test)]

@@ -6,7 +6,7 @@ use super::Command;
 pub(crate) fn handle_fallback_command<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     command: Command<D>,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy

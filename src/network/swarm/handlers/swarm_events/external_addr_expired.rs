@@ -4,7 +4,7 @@ use netabase_store::traits::definition::NetabaseDefinitionTrait;
 pub fn handle_external_addr_expired<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     address: Multiaddr,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy

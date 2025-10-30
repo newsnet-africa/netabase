@@ -13,7 +13,7 @@ pub(crate) fn _generate_swarm<D: NetabaseDefinitionTrait + Send + Sync + 'static
     backend: crate::network::config::StorageBackend,
 ) -> anyhow::Result<Swarm<NetabaseBehaviour<D>>>
 where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     D::Keys: netabase_store::convert::ToIVec,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
@@ -47,7 +47,7 @@ pub(crate) fn generate_swarm_with_name<D: NetabaseDefinitionTrait + Send + Sync 
     backend: crate::network::config::StorageBackend,
 ) -> anyhow::Result<Swarm<NetabaseBehaviour<D>>>
 where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     D::Keys: netabase_store::convert::ToIVec,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
@@ -83,7 +83,9 @@ where
         )?
         .with_quic()
         .with_behaviour(|kp| {
-            NetabaseBehaviour::new_with_config(kp, name.clone(), backend)
+            // Create NetabaseConfig with the specified backend
+            let config = crate::network::config::NetabaseConfig::with_backend(backend);
+            NetabaseBehaviour::new_with_config(kp, name.clone(), config)
                 .expect("Failed to build behaviour")
         })?
         .with_swarm_config(|cfg| cfg.with_idle_connection_timeout(Duration::from_secs(120)))
@@ -128,7 +130,7 @@ pub(crate) async fn setup_swarm<D: NetabaseDefinitionTrait + Send + Sync + 'stat
     mut swarm: Swarm<NetabaseBehaviour<D>>,
 ) -> anyhow::Result<Swarm<NetabaseBehaviour<D>>>
 where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     D::Keys: netabase_store::convert::ToIVec,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
@@ -155,10 +157,11 @@ where
 {
     swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
 
-    swarm
-        .behaviour_mut()
-        .kad
-        .set_mode(Some(libp2p::kad::Mode::Server));
+    // Set Kademlia to server mode
+    // Access kad through helper method which works whether paxos is enabled or not
+    if let Some(kad) = swarm.behaviour_mut().kad_mut() {
+        kad.set_mode(Some(libp2p::kad::Mode::Server));
+    }
 
     Ok(swarm)
 }

@@ -14,7 +14,7 @@ pub use crate::network::behaviour::NetabaseBehaviourEvent;
 
 impl<D: NetabaseDefinitionTrait + Send + Sync + 'static> Clone for NetabaseBehaviourEvent<D>
 where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de> + paxakos::LogEntry,
     <D as IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -86,11 +86,12 @@ where
             NetabaseBehaviourEvent::ConnectionLimit(i) => {
                 NetabaseBehaviourEvent::ConnectionLimit(*i)
             }
-            #[cfg(feature = "native")]
-            NetabaseBehaviourEvent::Sync(_sync_event) => {
-                // Sync events cannot be cloned, so we skip them
-                // This is a limitation of libp2p's request_response events
-                panic!("Sync events do not support cloning")
+            NetabaseBehaviourEvent::Paxos(_paxos_event) => {
+                // Gossipsub events don't implement Clone, so we skip cloning
+                // TODO: Implement proper event cloning for gossipsub
+                NetabaseBehaviourEvent::Kad(libp2p::kad::Event::InboundRequest {
+                    request: libp2p::kad::InboundRequest::GetRecord { num_closer_peers: 0, present_locally: false },
+                })
             }
         }
     }
@@ -102,7 +103,7 @@ pub struct NetabaseSwarmEvent<D: NetabaseDefinitionTrait + Send + Sync + 'static
     pub SwarmEvent<NetabaseBehaviourEvent<D>>,
 )
 where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de> + paxakos::LogEntry,
     <D as IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -161,7 +162,7 @@ fn multi_trans_error_cloner(
 
 impl<D: NetabaseDefinitionTrait + Send + Sync + 'static> Clone for NetabaseSwarmEvent<D>
 where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de> + paxakos::LogEntry,
     <D as IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy

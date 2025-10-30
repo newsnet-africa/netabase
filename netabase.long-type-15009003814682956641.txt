@@ -1,0 +1,1 @@
+network::behaviour::sync_behaviour::paxakos::FrozenState<D>: paxakos::state::Frozen<Netabase<D>>

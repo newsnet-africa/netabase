@@ -22,7 +22,7 @@ pub(crate) async fn start_swarm_loop<D: NetabaseDefinitionTrait + Send + Sync + 
     swarm_event_sender: tokio::sync::broadcast::Sender<NetabaseSwarmEvent<D>>,
     mut command_event_listener: tokio::sync::mpsc::Receiver<command_events::Command<D>>,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     D::Keys: netabase_store::convert::ToIVec,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
@@ -56,7 +56,13 @@ pub(crate) async fn start_swarm_loop<D: NetabaseDefinitionTrait + Send + Sync + 
                 let event = NetabaseSwarmEvent(event);
                 let _ = swarm_event_sender.send(event.clone());
                 swarm_events::handle_swarm_events(config.clone(), &mut swarm, event);
-            }
+
+                // Poll outgoing Paxos queue after handling events
+                #[cfg(feature = "paxos")]
+                if let Some(paxos_behaviour) = swarm.behaviour_mut().paxos.as_mut() {
+                    paxos_behaviour.poll_outgoing();
+                }
+            },
         }
     }
 }

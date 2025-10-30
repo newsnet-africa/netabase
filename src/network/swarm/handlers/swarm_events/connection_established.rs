@@ -12,7 +12,7 @@ pub fn handle_connection_established<D: NetabaseDefinitionTrait + Send + Sync + 
     _concurrent_dial_errors: Option<Vec<(Multiaddr, libp2p::TransportError<std::io::Error>)>>,
     _established_in: Duration,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy

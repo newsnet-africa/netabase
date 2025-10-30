@@ -5,7 +5,7 @@ pub fn handle_new_listen_addr<D: NetabaseDefinitionTrait + Send + Sync + 'static
     _listener_id: ListenerId,
     address: Multiaddr,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy

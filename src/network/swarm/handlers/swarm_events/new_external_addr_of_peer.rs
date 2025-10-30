@@ -5,7 +5,7 @@ pub fn handle_new_external_addr_of_peer<D: NetabaseDefinitionTrait + Send + Sync
     peer_id: PeerId,
     address: Multiaddr,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy

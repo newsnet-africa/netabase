@@ -52,7 +52,7 @@ pub(crate) mod stop_providing;
 #[derive(Debug)]
 pub(crate) enum Command<D: NetabaseDefinitionTrait + Send + Sync + 'static>
 where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -84,7 +84,7 @@ where
 #[allow(dead_code)]
 pub(crate) enum KademliaCommand<D: NetabaseDefinitionTrait + Send + Sync + 'static>
 where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -171,7 +171,7 @@ where
 #[allow(dead_code)]
 pub(crate) enum LocalStoreCommand<D: NetabaseDefinitionTrait + Send + Sync + 'static>
 where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -203,7 +203,7 @@ where
 #[cfg(feature = "native")]
 pub(crate) fn handle_command_events<D>(swarm: &mut Swarm<NetabaseBehaviour<D>>, command: Command<D>)
 where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -239,7 +239,7 @@ pub(crate) fn handle_kademlia_command<D: NetabaseDefinitionTrait + Send + Sync +
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     command: KademliaCommand<D>,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -346,7 +346,7 @@ pub(crate) fn handle_local_store_command<
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     command: LocalStoreCommand<D>,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -374,35 +374,42 @@ pub(crate) fn handle_local_store_command<
             limit,
             response_channel,
         } => {
-            // Access the Kademlia store directly
-            let store = swarm.behaviour_mut().kad.store_mut();
+            // Use kad_mut() helper - works whether paxos is enabled or not
+            if let Some(kad) = swarm.behaviour_mut().kad_mut() {
+                // Access the Kademlia store directly
+                let store = kad.store_mut();
 
-            // Collect records from the store
-            let mut records = Vec::new();
-            let mut count = 0;
+                // Collect records from the store
+                let mut records = Vec::new();
+                let mut count = 0;
 
-            for record in store.records() {
-                if let Some(max_count) = limit
-                    && count >= max_count
-                {
-                    break;
+                for record in store.records() {
+                    if let Some(max_count) = limit
+                        && count >= max_count
+                    {
+                        break;
+                    }
+
+                    // Try to decode the record value
+                    // Convert Vec<u8> to IVec - use owned conversion
+                    let ivec = record.value.as_slice().to_vec().into();
+                    match D::from_ivec(&ivec) {
+                        Ok(definition) => {
+                            records.push(definition);
+                            count += 1;
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to decode record: {}", e);
+                        }
+                    }
                 }
 
-                // Try to decode the record value
-                // Convert Vec<u8> to IVec - use owned conversion
-                let ivec = record.value.as_slice().to_vec().into();
-                match D::from_ivec(&ivec) {
-                    Ok(definition) => {
-                        records.push(definition);
-                        count += 1;
-                    }
-                    Err(e) => {
-                        eprintln!("Failed to decode record: {}", e);
-                    }
-                }
+                let _ = response_channel.send(Ok(records));
+            } else {
+                println!("Kademlia is not available - cannot query records");
+                // Send empty result when kad is not available
+                let _ = response_channel.send(Ok(vec![]));
             }
-
-            let _ = response_channel.send(Ok(records));
         }
     }
 }

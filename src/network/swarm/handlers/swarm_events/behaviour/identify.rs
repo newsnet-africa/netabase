@@ -8,7 +8,7 @@ use netabase_store::traits::definition::NetabaseDefinitionTrait;
 /// Handle Identify behaviour events
 pub fn handle_identify_event<D>(identify_event: IdentifyEvent)
 where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -51,7 +51,7 @@ where
 /// Handle received identification information
 fn handle_received<D>(peer_id: PeerId)
 where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -82,7 +82,7 @@ where
 /// Handle identification errors
 fn handle_error<D>(peer_id: PeerId, error: StreamUpgradeError<UpgradeError>)
 where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy

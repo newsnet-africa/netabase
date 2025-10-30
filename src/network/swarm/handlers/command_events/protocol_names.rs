@@ -8,7 +8,7 @@ pub(crate) fn handle_protocol_names<D: NetabaseDefinitionTrait + Send + Sync + '
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     response_channel: Sender<StreamProtocol>,
 )where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -32,15 +32,22 @@ pub(crate) fn handle_protocol_names<D: NetabaseDefinitionTrait + Send + Sync + '
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send, {
     println!("ProtocolNames command received");
 
-    // Call the libp2p Kademlia API
-    let protocol_names = swarm.behaviour().kad.protocol_names();
+    // Use kad_mut() helper - works whether paxos is enabled or not
+    // Note: We use kad_mut() even though protocol_names() doesn't need mutability for consistency
+    if let Some(kad) = swarm.behaviour_mut().kad_mut() {
+        // Call the libp2p Kademlia API
+        let protocol_names = kad.protocol_names();
 
-    // Send the first protocol name (Kademlia typically has one main protocol)
-    if let Some(protocol) = protocol_names.first() {
-        if let Err(_) = response_channel.send(protocol.clone()) {
-            println!("Failed to send ProtocolNames response - receiver dropped");
+        // Send the first protocol name (Kademlia typically has one main protocol)
+        if let Some(protocol) = protocol_names.first() {
+            if let Err(_) = response_channel.send(protocol.clone()) {
+                println!("Failed to send ProtocolNames response - receiver dropped");
+            }
+        } else {
+            println!("No protocol names available");
         }
     } else {
-        println!("No protocol names available");
+        println!("Kademlia is not available - cannot retrieve protocol names");
+        // No default protocol to send when kad is not available
     }
 }

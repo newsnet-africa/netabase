@@ -6,7 +6,7 @@ pub fn handle_listener_closed<D: NetabaseDefinitionTrait + Send + Sync + 'static
     addresses: Vec<Multiaddr>,
     reason: Result<(), std::io::Error>,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy

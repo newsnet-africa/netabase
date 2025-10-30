@@ -12,7 +12,7 @@ pub(crate) fn handle_bootstrap<D: NetabaseDefinitionTrait + Send + Sync + 'stati
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     response_channel: Sender<Result<QueryResult, NoKnownPeers>>,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -37,21 +37,30 @@ pub(crate) fn handle_bootstrap<D: NetabaseDefinitionTrait + Send + Sync + 'stati
 {
     println!("Bootstrap command received");
 
-    // Call the libp2p Kademlia API
-    match swarm.behaviour_mut().kad.bootstrap() {
-        Ok(query_id) => {
-            // Store the response channel for when the query completes
-            store_query_response_channel(query_id, response_channel);
-            println!(
-                "Bootstrap: Query started with ID {:?}, response will be sent via event loop",
-                query_id
-            );
-        }
-        Err(no_known_peers) => {
-            // Send the error immediately
-            if let Err(_) = response_channel.send(Err(no_known_peers)) {
-                println!("Failed to send Bootstrap error response - receiver dropped");
+    // Use kad_mut() helper - works whether paxos is enabled or not
+    if let Some(kad) = swarm.behaviour_mut().kad_mut() {
+        // Call the libp2p Kademlia API
+        match kad.bootstrap() {
+            Ok(query_id) => {
+                // Store the response channel for when the query completes
+                store_query_response_channel(query_id, response_channel);
+                println!(
+                    "Bootstrap: Query started with ID {:?}, response will be sent via event loop",
+                    query_id
+                );
             }
+            Err(no_known_peers) => {
+                // Send the error immediately
+                if let Err(_) = response_channel.send(Err(no_known_peers)) {
+                    println!("Failed to send Bootstrap error response - receiver dropped");
+                }
+            }
+        }
+    } else {
+        println!("Kademlia is not available");
+        // Send error response indicating kad is not available
+        if let Err(_) = response_channel.send(Err(NoKnownPeers())) {
+            println!("Failed to send Bootstrap kad-unavailable error response - receiver dropped");
         }
     }
 }

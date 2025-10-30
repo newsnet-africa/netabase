@@ -8,7 +8,7 @@ pub(crate) fn handle_mode<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     response_channel: Sender<Mode>,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -33,11 +33,21 @@ pub(crate) fn handle_mode<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
 {
     println!("Mode command received");
 
-    // Call the libp2p Kademlia API
-    let mode = swarm.behaviour().kad.mode();
+    // Use kad_mut() helper - works whether paxos is enabled or not
+    // Note: We use kad_mut() even though mode() doesn't need mutability for consistency
+    if let Some(kad) = swarm.behaviour_mut().kad_mut() {
+        // Call the libp2p Kademlia API
+        let mode = kad.mode();
 
-    // Send the result through the response channel
-    if let Err(_) = response_channel.send(mode) {
-        println!("Failed to send Mode response - receiver dropped");
+        // Send the result through the response channel
+        if let Err(_) = response_channel.send(mode) {
+            println!("Failed to send Mode response - receiver dropped");
+        }
+    } else {
+        println!("Kademlia is not available");
+        // Send default Mode::Client when kad is not available
+        if let Err(_) = response_channel.send(Mode::Client) {
+            println!("Failed to send Mode kad-unavailable response - receiver dropped");
+        }
     }
 }

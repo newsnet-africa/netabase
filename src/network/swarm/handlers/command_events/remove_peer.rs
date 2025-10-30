@@ -12,7 +12,7 @@ pub(crate) fn handle_remove_peer<D: NetabaseDefinitionTrait + Send + Sync + 'sta
     peer: PeerId,
     response_channel: Sender<Option<EntryView<KBucketKey<PeerId>, Addresses>>>,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -37,11 +37,20 @@ pub(crate) fn handle_remove_peer<D: NetabaseDefinitionTrait + Send + Sync + 'sta
 {
     println!("RemovePeer command: peer={:?}", peer);
 
-    // Call the libp2p Kademlia API
-    let result = swarm.behaviour_mut().kad.remove_peer(&peer);
+    // Use kad_mut() helper - works whether paxos is enabled or not
+    if let Some(kad) = swarm.behaviour_mut().kad_mut() {
+        // Call the libp2p Kademlia API
+        let result = kad.remove_peer(&peer);
 
-    // Send the result through the response channel
-    if let Err(_) = response_channel.send(result) {
-        println!("Failed to send RemovePeer response - receiver dropped");
+        // Send the result through the response channel
+        if let Err(_) = response_channel.send(result) {
+            println!("Failed to send RemovePeer response - receiver dropped");
+        }
+    } else {
+        println!("Kademlia is not available");
+        // Send None to indicate the operation couldn't be performed
+        if let Err(_) = response_channel.send(None) {
+            println!("Failed to send RemovePeer kad-unavailable response - receiver dropped");
+        }
     }
 }

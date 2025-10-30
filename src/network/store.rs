@@ -90,6 +90,7 @@ where
 }
 
 // Implement RecordStore for the unified store by delegating to the wrapped type
+// Note: Currently only implemented for Sled backend. Redb support TODO.
 #[cfg(feature = "libp2p")]
 impl<D> RecordStore for NetabaseStore<D>
 where
@@ -128,65 +129,215 @@ where
 
     fn get(&self, k: &RecordKey) -> Option<Cow<'_, Record>> {
         match self {
-            NetabaseStore::Sled(store) => store.get(k),
+            NetabaseStore::Sled(store) => {
+                #[cfg(feature = "sled")]
+                {
+                    <SledStore<D> as RecordStore>::get(store, k)
+                }
+                #[cfg(not(feature = "sled"))]
+                {
+                    eprintln!("Sled RecordStore not available - sled feature not enabled");
+                    None
+                }
+            }
             #[cfg(feature = "native")]
-            NetabaseStore::Redb(store) => store.get(k),
+            NetabaseStore::Redb(store) => {
+                #[cfg(feature = "redb")]
+                {
+                    <RedbStore<D> as RecordStore>::get(store, k)
+                }
+                #[cfg(not(feature = "redb"))]
+                {
+                    eprintln!("Redb RecordStore not available - redb feature not enabled");
+                    None
+                }
+            }
         }
     }
 
     fn put(&mut self, r: Record) -> libp2p::kad::store::Result<()> {
         match self {
-            NetabaseStore::Sled(store) => store.put(r),
+            NetabaseStore::Sled(store) => {
+                #[cfg(feature = "sled")]
+                {
+                    <SledStore<D> as RecordStore>::put(store, r)
+                }
+                #[cfg(not(feature = "sled"))]
+                {
+                    eprintln!("Sled RecordStore not available");
+                    Err(libp2p::kad::store::Error::MaxRecords)
+                }
+            }
             #[cfg(feature = "native")]
-            NetabaseStore::Redb(store) => store.put(r),
+            NetabaseStore::Redb(store) => {
+                #[cfg(feature = "redb")]
+                {
+                    <RedbStore<D> as RecordStore>::put(store, r)
+                }
+                #[cfg(not(feature = "redb"))]
+                {
+                    eprintln!("Redb RecordStore not available");
+                    Err(libp2p::kad::store::Error::MaxRecords)
+                }
+            }
         }
     }
 
     fn remove(&mut self, k: &RecordKey) {
         match self {
-            NetabaseStore::Sled(store) => store.remove(k),
+            NetabaseStore::Sled(store) => {
+                #[cfg(feature = "sled")]
+                {
+                    <SledStore<D> as RecordStore>::remove(store, k)
+                }
+                #[cfg(not(feature = "sled"))]
+                {
+                    eprintln!("Sled RecordStore not available");
+                }
+            }
             #[cfg(feature = "native")]
-            NetabaseStore::Redb(store) => store.remove(k),
+            NetabaseStore::Redb(store) => {
+                #[cfg(feature = "redb")]
+                {
+                    <RedbStore<D> as RecordStore>::remove(store, k)
+                }
+                #[cfg(not(feature = "redb"))]
+                {
+                    eprintln!("Redb RecordStore not available");
+                }
+            }
         }
     }
 
     fn records(&self) -> Self::RecordsIter<'_> {
         match self {
-            NetabaseStore::Sled(store) => Box::new(store.records()),
+            NetabaseStore::Sled(store) => {
+                #[cfg(feature = "sled")]
+                {
+                    Box::new(<SledStore<D> as RecordStore>::records(store))
+                }
+                #[cfg(not(feature = "sled"))]
+                {
+                    Box::new(std::iter::empty())
+                }
+            }
             #[cfg(feature = "native")]
-            NetabaseStore::Redb(store) => Box::new(store.records()),
+            NetabaseStore::Redb(store) => {
+                #[cfg(feature = "redb")]
+                {
+                    Box::new(<RedbStore<D> as RecordStore>::records(store))
+                }
+                #[cfg(not(feature = "redb"))]
+                {
+                    Box::new(std::iter::empty())
+                }
+            }
         }
     }
 
     fn add_provider(&mut self, record: ProviderRecord) -> libp2p::kad::store::Result<()> {
         match self {
-            NetabaseStore::Sled(store) => store.add_provider(record),
+            NetabaseStore::Sled(store) => {
+                #[cfg(feature = "sled")]
+                {
+                    <SledStore<D> as RecordStore>::add_provider(store, record)
+                }
+                #[cfg(not(feature = "sled"))]
+                {
+                    eprintln!("Sled RecordStore not available");
+                    Err(libp2p::kad::store::Error::MaxRecords)
+                }
+            }
             #[cfg(feature = "native")]
-            NetabaseStore::Redb(store) => store.add_provider(record),
+            NetabaseStore::Redb(store) => {
+                #[cfg(feature = "redb")]
+                {
+                    <RedbStore<D> as RecordStore>::add_provider(store, record)
+                }
+                #[cfg(not(feature = "redb"))]
+                {
+                    eprintln!("Redb RecordStore not available");
+                    Err(libp2p::kad::store::Error::MaxRecords)
+                }
+            }
         }
     }
 
     fn providers(&self, key: &RecordKey) -> Vec<ProviderRecord> {
         match self {
-            NetabaseStore::Sled(store) => store.providers(key),
+            NetabaseStore::Sled(store) => {
+                #[cfg(feature = "sled")]
+                {
+                    <SledStore<D> as RecordStore>::providers(store, key)
+                }
+                #[cfg(not(feature = "sled"))]
+                {
+                    Vec::new()
+                }
+            }
             #[cfg(feature = "native")]
-            NetabaseStore::Redb(store) => store.providers(key),
+            NetabaseStore::Redb(store) => {
+                #[cfg(feature = "redb")]
+                {
+                    <RedbStore<D> as RecordStore>::providers(store, key)
+                }
+                #[cfg(not(feature = "redb"))]
+                {
+                    Vec::new()
+                }
+            }
         }
     }
 
     fn provided(&self) -> Self::ProvidedIter<'_> {
         match self {
-            NetabaseStore::Sled(store) => Box::new(store.provided()),
+            NetabaseStore::Sled(store) => {
+                #[cfg(feature = "sled")]
+                {
+                    Box::new(<SledStore<D> as RecordStore>::provided(store))
+                }
+                #[cfg(not(feature = "sled"))]
+                {
+                    Box::new(std::iter::empty())
+                }
+            }
             #[cfg(feature = "native")]
-            NetabaseStore::Redb(store) => Box::new(store.provided()),
+            NetabaseStore::Redb(store) => {
+                #[cfg(feature = "redb")]
+                {
+                    Box::new(<RedbStore<D> as RecordStore>::provided(store))
+                }
+                #[cfg(not(feature = "redb"))]
+                {
+                    Box::new(std::iter::empty())
+                }
+            }
         }
     }
 
     fn remove_provider(&mut self, key: &RecordKey, provider: &PeerId) {
         match self {
-            NetabaseStore::Sled(store) => store.remove_provider(key, provider),
+            NetabaseStore::Sled(store) => {
+                #[cfg(feature = "sled")]
+                {
+                    <SledStore<D> as RecordStore>::remove_provider(store, key, provider)
+                }
+                #[cfg(not(feature = "sled"))]
+                {
+                    eprintln!("Sled RecordStore not available");
+                }
+            }
             #[cfg(feature = "native")]
-            NetabaseStore::Redb(store) => store.remove_provider(key, provider),
+            NetabaseStore::Redb(store) => {
+                #[cfg(feature = "redb")]
+                {
+                    <RedbStore<D> as RecordStore>::remove_provider(store, key, provider)
+                }
+                #[cfg(not(feature = "redb"))]
+                {
+                    eprintln!("Redb RecordStore not available");
+                }
+            }
         }
     }
 }

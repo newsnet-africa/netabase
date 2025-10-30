@@ -7,7 +7,7 @@ pub(crate) fn handle_remove_record<D: NetabaseDefinitionTrait>(
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     key: D::Keys,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -35,9 +35,14 @@ pub(crate) fn handle_remove_record<D: NetabaseDefinitionTrait>(
     // Convert NetabaseSchemaKeys to libp2p::kad::RecordKey
     match key.to_record_key() {
         Ok(record_key) => {
-            // Call the libp2p Kademlia API with the converted key
-            swarm.behaviour_mut().kad.remove_record(&record_key);
-            println!("RemoveRecord: Record removal requested successfully");
+            // Use kad_mut() helper - works whether paxos is enabled or not
+            if let Some(kad) = swarm.behaviour_mut().kad_mut() {
+                // Call the libp2p Kademlia API with the converted key
+                kad.remove_record(&record_key);
+                println!("RemoveRecord: Record removal requested successfully");
+            } else {
+                println!("Kademlia is not available - cannot remove record");
+            }
         }
         Err(conversion_error) => {
             println!(

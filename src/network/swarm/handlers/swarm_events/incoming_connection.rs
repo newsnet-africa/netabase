@@ -7,7 +7,7 @@ pub fn handle_incoming_connection<D: NetabaseDefinitionTrait + Send + Sync + 'st
     local_addr: Multiaddr,
     send_back_addr: Multiaddr,
 ) where
-    D: netabase_store::convert::ToIVec,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
