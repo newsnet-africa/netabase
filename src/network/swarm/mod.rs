@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use libp2p::Swarm;
-use netabase_store::traits::definition::NetabaseDefinitionTrait;
+use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
 use crate::network::behaviour::NetabaseBehaviour;
 
@@ -9,7 +9,7 @@ pub(crate) mod handlers;
 
 // Native implementation with full networking support
 #[cfg(feature = "native")]
-pub(crate) fn _generate_swarm<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+pub(crate) fn _generate_swarm<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     backend: crate::network::config::StorageBackend,
 ) -> anyhow::Result<Swarm<NetabaseBehaviour<D>>>
 where
@@ -42,7 +42,7 @@ where
 }
 
 #[cfg(feature = "native")]
-pub(crate) fn generate_swarm_with_name<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+pub(crate) fn generate_swarm_with_name<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     name: Option<String>,
     backend: crate::network::config::StorageBackend,
 ) -> anyhow::Result<Swarm<NetabaseBehaviour<D>>>
@@ -92,7 +92,7 @@ where
 
 // WASM implementation with limited networking capabilities
 #[cfg(all(feature = "wasm", not(feature = "native")))]
-pub fn generate_swarm<D: NetabaseDefinitionTrait + Send + Sync + 'static>()
+pub fn generate_swarm<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>()
 -> anyhow::Result<Swarm<NetabaseBehaviour<D>>>
 where
     D: ToIVec,
@@ -102,7 +102,7 @@ where
 }
 
 #[cfg(all(feature = "wasm", not(feature = "native")))]
-pub fn generate_swarm_with_name<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+pub fn generate_swarm_with_name<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     _name: Option<String>,
 ) -> anyhow::Result<Swarm<NetabaseBehaviour<D>>>
 where
@@ -124,7 +124,7 @@ where
 
 // Native swarm setup with listening capabilities
 #[cfg(feature = "native")]
-pub(crate) async fn setup_swarm<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+pub(crate) async fn setup_swarm<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     mut swarm: Swarm<NetabaseBehaviour<D>>,
 ) -> anyhow::Result<Swarm<NetabaseBehaviour<D>>>
 where
@@ -165,7 +165,7 @@ where
 
 // WASM swarm setup - placeholder for future implementation
 #[cfg(all(feature = "wasm", not(feature = "native")))]
-pub async fn setup_swarm<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+pub async fn setup_swarm<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     _swarm: Swarm<NetabaseBehaviour<D>>,
 ) -> anyhow::Result<Swarm<NetabaseBehaviour<D>>>
 where

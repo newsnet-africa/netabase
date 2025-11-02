@@ -1,9 +1,9 @@
-use netabase_store::traits::definition::NetabaseDefinitionTrait;
+use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
 use super::Command;
 
 #[allow(dead_code)]
-pub(crate) fn handle_fallback_command<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+pub(crate) fn handle_fallback_command<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     command: Command<D>,
 ) where
     D: netabase_store::convert::ToIVec,

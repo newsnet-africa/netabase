@@ -3,7 +3,7 @@ use crate::network::{
     config::NetabaseConfig,
 };
 use libp2p::Swarm;
-use netabase_store::traits::definition::NetabaseDefinitionTrait;
+use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
 pub mod connection_limit;
 pub mod identify;
@@ -18,7 +18,7 @@ use kad::handle_kad_event;
 use mdns::handle_mdns_event;
 
 /// Handle all NetabaseBehaviour events by delegating to specific handlers
-pub(crate) fn handle_behaviour_event<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+pub(crate) fn handle_behaviour_event<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     config: NetabaseConfig,
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     behaviour_event: NetabaseBehaviourEvent<D>,

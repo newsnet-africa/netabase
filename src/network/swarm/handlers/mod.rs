@@ -1,4 +1,4 @@
-use netabase_store::traits::definition::NetabaseDefinitionTrait;
+use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
 #[cfg(feature = "native")]
 use libp2p::{Swarm, futures::StreamExt};
@@ -16,7 +16,7 @@ pub(crate) mod swarm_events;
 
 // Native implementation with full swarm event loop
 #[cfg(feature = "native")]
-pub(crate) async fn start_swarm_loop<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+pub(crate) async fn start_swarm_loop<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     config: crate::network::config::NetabaseConfig,
     mut swarm: Swarm<NetabaseBehaviour<D>>,
     swarm_event_sender: tokio::sync::broadcast::Sender<NetabaseSwarmEvent<D>>,

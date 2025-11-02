@@ -7,7 +7,7 @@ use libp2p::{
     },
 };
 #[cfg(feature = "native")]
-use netabase_store::traits::{convert::ToIVec, definition::NetabaseDefinitionTrait};
+use netabase_store::traits::{convert::ToIVec, definition::{NetabaseDefinitionTrait, RecordStoreExt}};
 #[cfg(feature = "native")]
 use strum::IntoDiscriminant;
 #[cfg(feature = "native")]
@@ -50,7 +50,7 @@ pub(crate) mod stop_providing;
 
 #[cfg(feature = "native")]
 #[derive(Debug)]
-pub(crate) enum Command<D: NetabaseDefinitionTrait + Send + Sync + 'static>
+pub(crate) enum Command<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>
 where
     D: netabase_store::convert::ToIVec,
     <D as IntoDiscriminant>::Discriminant: AsRef<str>
@@ -82,7 +82,7 @@ where
 #[cfg(feature = "native")]
 #[derive(Debug)]
 #[allow(dead_code)]
-pub(crate) enum KademliaCommand<D: NetabaseDefinitionTrait + Send + Sync + 'static>
+pub(crate) enum KademliaCommand<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>
 where
     D: netabase_store::convert::ToIVec,
     <D as IntoDiscriminant>::Discriminant: AsRef<str>
@@ -169,7 +169,7 @@ where
 #[cfg(feature = "native")]
 #[derive(Debug)]
 #[allow(dead_code)]
-pub(crate) enum LocalStoreCommand<D: NetabaseDefinitionTrait + Send + Sync + 'static>
+pub(crate) enum LocalStoreCommand<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>
 where
     D: netabase_store::convert::ToIVec,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
@@ -225,7 +225,7 @@ where
     <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
-    D: NetabaseDefinitionTrait + Send + Sync + 'static,
+    D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static,
 {
     match command {
         Command::Kademlia(kad_command) => {
@@ -235,7 +235,7 @@ where
 }
 
 #[cfg(feature = "native")]
-pub(crate) fn handle_kademlia_command<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+pub(crate) fn handle_kademlia_command<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     command: KademliaCommand<D>,
 ) where
@@ -341,7 +341,7 @@ pub(crate) fn handle_kademlia_command<D: NetabaseDefinitionTrait + Send + Sync +
 
 #[cfg(feature = "native")]
 pub(crate) fn handle_local_store_command<
-    D: NetabaseDefinitionTrait + Send + Sync + 'static + ToIVec,
+    D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static + ToIVec,
 >(
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     command: LocalStoreCommand<D>,

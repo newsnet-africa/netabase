@@ -3,7 +3,7 @@ use libp2p::{
     identify::{Event as IdentifyEvent, UpgradeError},
     swarm::StreamUpgradeError,
 };
-use netabase_store::traits::definition::NetabaseDefinitionTrait;
+use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
 /// Handle Identify behaviour events
 pub fn handle_identify_event<D>(identify_event: IdentifyEvent)
@@ -30,7 +30,7 @@ where
     <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
-    D: NetabaseDefinitionTrait + Send + Sync + 'static,
+    D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static,
 {
     match identify_event {
         IdentifyEvent::Received { peer_id, .. } => {
@@ -73,7 +73,7 @@ where
     <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
-    D: NetabaseDefinitionTrait + Send + Sync + 'static,
+    D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static,
 {
     let peer_short = format!("{}", peer_id).chars().take(8).collect::<String>();
     println!("🤝 Connected to peer {}\n", peer_short);
@@ -104,7 +104,7 @@ where
     <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
-    D: NetabaseDefinitionTrait + Send + Sync + 'static,
+    D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static,
 {
     eprintln!("⚠️  Identify error with peer {:?}: {:?}", peer_id, error);
 }

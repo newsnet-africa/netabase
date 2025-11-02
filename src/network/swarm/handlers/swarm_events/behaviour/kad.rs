@@ -5,7 +5,7 @@ use libp2p::{
         QueryStats,
     },
 };
-use netabase_store::traits::definition::NetabaseDefinitionTrait;
+use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -26,7 +26,7 @@ pub fn store_query_response_channel<T: 'static + Send>(query_id: QueryId, sender
 }
 
 /// Handle Kademlia behaviour events
-pub fn handle_kad_event<D: NetabaseDefinitionTrait + Send + Sync + 'static>(kad_event: KadEvent)
+pub fn handle_kad_event<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(kad_event: KadEvent)
 where
     D: netabase_store::convert::ToIVec,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
@@ -88,7 +88,7 @@ where
 }
 
 /// Handle inbound Kademlia requests
-fn handle_inbound_request<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+fn handle_inbound_request<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     request: InboundRequest,
 ) where
     D: netabase_store::convert::ToIVec,
@@ -125,7 +125,7 @@ fn handle_inbound_request<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
 }
 
 /// Handle outbound query progress - wait for ProgressStep.last and return result
-fn handle_outbound_query_progressed<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+fn handle_outbound_query_progressed<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     id: QueryId,
     result: QueryResult,
     _stats: QueryStats,
@@ -234,7 +234,7 @@ fn handle_outbound_query_progressed<D: NetabaseDefinitionTrait + Send + Sync + '
 }
 
 /// Handle routing table updates
-fn handle_routing_updated<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+fn handle_routing_updated<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     _peer: PeerId,
     _is_new_peer: bool,
     _addresses: Addresses,
@@ -268,7 +268,7 @@ fn handle_routing_updated<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
 }
 
 /// Handle unroutable peer events
-fn handle_unroutable_peer<D: NetabaseDefinitionTrait + Send + Sync + 'static>(_peer: PeerId)
+fn handle_unroutable_peer<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(_peer: PeerId)
 where
     D: netabase_store::convert::ToIVec,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
@@ -297,7 +297,7 @@ where
 }
 
 /// Handle routable peer events
-fn handle_routable_peer<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+fn handle_routable_peer<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     _peer: PeerId,
     _address: Multiaddr,
 ) where
@@ -328,7 +328,7 @@ fn handle_routable_peer<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
 }
 
 /// Handle pending routable peer events
-fn handle_pending_routable_peer<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+fn handle_pending_routable_peer<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     _peer: PeerId,
     _address: Multiaddr,
 ) where
@@ -359,7 +359,7 @@ fn handle_pending_routable_peer<D: NetabaseDefinitionTrait + Send + Sync + 'stat
 }
 
 /// Handle mode change events
-fn handle_mode_changed<D: NetabaseDefinitionTrait + Send + Sync + 'static>(_new_mode: Mode)
+fn handle_mode_changed<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(_new_mode: Mode)
 where
     D: netabase_store::convert::ToIVec,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>

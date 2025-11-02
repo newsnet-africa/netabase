@@ -19,19 +19,8 @@ use std::borrow::Cow;
 pub enum NetabaseStore<D>
 where
     D: NetabaseDefinitionTrait,
-    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
-        + Clone
-        + Copy
-        + std::fmt::Debug
-        + std::fmt::Display
-        + PartialEq
-        + Eq
-        + std::hash::Hash
-        + strum::IntoEnumIterator
-        + Send
-        + Sync
-        + 'static
-        + std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: netabase_store::traits::definition::NetabaseDiscriminant,
+    <<D as NetabaseDefinitionTrait>::Keys as strum::IntoDiscriminant>::Discriminant: netabase_store::traits::definition::NetabaseKeyDiscriminant,
 {
     Sled(SledStore<D>),
     #[cfg(feature = "native")]
@@ -41,19 +30,8 @@ where
 impl<D> NetabaseStore<D>
 where
     D: NetabaseDefinitionTrait + netabase_store::convert::ToIVec,
-    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
-        + Clone
-        + Copy
-        + std::fmt::Debug
-        + std::fmt::Display
-        + PartialEq
-        + Eq
-        + std::hash::Hash
-        + strum::IntoEnumIterator
-        + Send
-        + Sync
-        + 'static
-        + std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: netabase_store::traits::definition::NetabaseDiscriminant,
+    <<D as NetabaseDefinitionTrait>::Keys as strum::IntoDiscriminant>::Discriminant: netabase_store::traits::definition::NetabaseKeyDiscriminant,
 {
     /// Create a new store with the specified backend and path
     pub fn new(backend: StorageBackend, path: &str) -> anyhow::Result<Self> {
@@ -89,104 +67,5 @@ where
     }
 }
 
-// Implement RecordStore for the unified store by delegating to the wrapped type
-#[cfg(feature = "libp2p")]
-impl<D> RecordStore for NetabaseStore<D>
-where
-    D: NetabaseDefinitionTrait,
-    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
-        + Clone
-        + Copy
-        + std::fmt::Debug
-        + std::fmt::Display
-        + PartialEq
-        + Eq
-        + std::hash::Hash
-        + strum::IntoEnumIterator
-        + Send
-        + Sync
-        + 'static
-        + std::str::FromStr,
-    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
-    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
-    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
-    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
-    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
-    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
-    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
-    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
-{
-    type RecordsIter<'a>
-        = Box<dyn Iterator<Item = Cow<'a, Record>> + 'a>
-    where
-        Self: 'a;
-
-    type ProvidedIter<'a>
-        = Box<dyn Iterator<Item = Cow<'a, ProviderRecord>> + 'a>
-    where
-        Self: 'a;
-
-    fn get(&self, k: &RecordKey) -> Option<Cow<'_, Record>> {
-        match self {
-            NetabaseStore::Sled(store) => store.get(k),
-            #[cfg(feature = "native")]
-            NetabaseStore::Redb(store) => store.get(k),
-        }
-    }
-
-    fn put(&mut self, r: Record) -> libp2p::kad::store::Result<()> {
-        match self {
-            NetabaseStore::Sled(store) => store.put(r),
-            #[cfg(feature = "native")]
-            NetabaseStore::Redb(store) => store.put(r),
-        }
-    }
-
-    fn remove(&mut self, k: &RecordKey) {
-        match self {
-            NetabaseStore::Sled(store) => store.remove(k),
-            #[cfg(feature = "native")]
-            NetabaseStore::Redb(store) => store.remove(k),
-        }
-    }
-
-    fn records(&self) -> Self::RecordsIter<'_> {
-        match self {
-            NetabaseStore::Sled(store) => Box::new(store.records()),
-            #[cfg(feature = "native")]
-            NetabaseStore::Redb(store) => Box::new(store.records()),
-        }
-    }
-
-    fn add_provider(&mut self, record: ProviderRecord) -> libp2p::kad::store::Result<()> {
-        match self {
-            NetabaseStore::Sled(store) => store.add_provider(record),
-            #[cfg(feature = "native")]
-            NetabaseStore::Redb(store) => store.add_provider(record),
-        }
-    }
-
-    fn providers(&self, key: &RecordKey) -> Vec<ProviderRecord> {
-        match self {
-            NetabaseStore::Sled(store) => store.providers(key),
-            #[cfg(feature = "native")]
-            NetabaseStore::Redb(store) => store.providers(key),
-        }
-    }
-
-    fn provided(&self) -> Self::ProvidedIter<'_> {
-        match self {
-            NetabaseStore::Sled(store) => Box::new(store.provided()),
-            #[cfg(feature = "native")]
-            NetabaseStore::Redb(store) => Box::new(store.provided()),
-        }
-    }
-
-    fn remove_provider(&mut self, key: &RecordKey, provider: &PeerId) {
-        match self {
-            NetabaseStore::Sled(store) => store.remove_provider(key, provider),
-            #[cfg(feature = "native")]
-            NetabaseStore::Redb(store) => store.remove_provider(key, provider),
-        }
-    }
-}
+// RecordStore implementations moved to netabase_store to satisfy orphan rules
+// (RecordStore is from libp2p, SledStore/RedbStore are from netabase_store)

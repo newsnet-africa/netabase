@@ -1,8 +1,8 @@
 use libp2p::PeerId;
 use libp2p::swarm::ConnectionId;
-use netabase_store::traits::definition::NetabaseDefinitionTrait;
+use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
-pub fn handle_dialing<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+pub fn handle_dialing<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     peer_id: Option<PeerId>,
     connection_id: ConnectionId,
 ) where

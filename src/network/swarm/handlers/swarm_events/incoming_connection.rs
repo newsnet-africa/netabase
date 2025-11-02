@@ -1,8 +1,8 @@
 use libp2p::Multiaddr;
 use libp2p::swarm::ConnectionId;
-use netabase_store::traits::definition::NetabaseDefinitionTrait;
+use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
-pub fn handle_incoming_connection<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+pub fn handle_incoming_connection<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     connection_id: ConnectionId,
     local_addr: Multiaddr,
     send_back_addr: Multiaddr,

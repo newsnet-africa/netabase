@@ -1,10 +1,10 @@
 use libp2p::{Multiaddr, PeerId, Swarm, mdns::Event as MdnsEvent};
-use netabase_store::traits::definition::NetabaseDefinitionTrait;
+use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
 use crate::network::{behaviour::NetabaseBehaviour, config::NetabaseConfig};
 
 /// Handle mDNS behaviour events
-pub fn handle_mdns_event<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+pub fn handle_mdns_event<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     config: NetabaseConfig,
     mdns_event: MdnsEvent,
@@ -43,7 +43,7 @@ pub fn handle_mdns_event<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
 }
 
 /// Handle discovered peers via mDNS
-fn handle_discovered<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+fn handle_discovered<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     config: NetabaseConfig,
     peer_addresses: &Vec<(PeerId, Multiaddr)>,
@@ -111,7 +111,7 @@ fn handle_discovered<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
 }
 
 /// Handle expired peer addresses from mDNS
-fn handle_expired<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+fn handle_expired<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     _peer_addresses: Vec<(PeerId, Multiaddr)>,
 ) where
     D: netabase_store::convert::ToIVec,

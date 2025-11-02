@@ -1,8 +1,8 @@
-use netabase_store::traits::definition::NetabaseDefinitionTrait;
+use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
 use crate::network::behaviour::clone_impl::NetabaseSwarmEvent;
 
-pub fn handle_fallback_event<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+pub fn handle_fallback_event<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     event: NetabaseSwarmEvent<D>,
 ) where
     D: netabase_store::convert::ToIVec,

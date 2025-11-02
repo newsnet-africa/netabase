@@ -1,12 +1,12 @@
 use libp2p::{Swarm, kad::QueryResult};
 use netabase_store::{
-    definition::NetabaseDefinitionTraitKey, traits::definition::NetabaseDefinitionTrait,
+    definition::NetabaseDefinitionTraitKey, traits::definition::{NetabaseDefinitionTrait, RecordStoreExt},
 };
 use tokio::sync::oneshot::Sender;
 
 use crate::network::behaviour::NetabaseBehaviour;
 
-pub(crate) fn handle_get_record<D: NetabaseDefinitionTrait>(
+pub(crate) fn handle_get_record<D: NetabaseDefinitionTrait + RecordStoreExt>(
     swarm: &mut Swarm<NetabaseBehaviour<D>>,
     key: D::Keys,
     response_channel: Sender<QueryResult>,

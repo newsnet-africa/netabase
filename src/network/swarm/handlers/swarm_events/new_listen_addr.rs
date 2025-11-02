@@ -1,7 +1,7 @@
 use libp2p::{Multiaddr, core::transport::ListenerId};
-use netabase_store::traits::definition::NetabaseDefinitionTrait;
+use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
-pub fn handle_new_listen_addr<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+pub fn handle_new_listen_addr<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     _listener_id: ListenerId,
     address: Multiaddr,
 ) where

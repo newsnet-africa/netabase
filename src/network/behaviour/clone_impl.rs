@@ -8,11 +8,11 @@ use libp2p::swarm::ConnectionError;
 use libp2p::swarm::SwarmEvent;
 
 use netabase_store::strum::IntoDiscriminant;
-use netabase_store::traits::definition::NetabaseDefinitionTrait;
+use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
 pub use crate::network::behaviour::NetabaseBehaviourEvent;
 
-impl<D: NetabaseDefinitionTrait + Send + Sync + 'static> Clone for NetabaseBehaviourEvent<D>
+impl<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static> Clone for NetabaseBehaviourEvent<D>
 where
     D: netabase_store::convert::ToIVec,
     <D as IntoDiscriminant>::Discriminant: AsRef<str>
@@ -92,7 +92,7 @@ where
 
 #[repr(transparent)]
 #[derive(Debug)]
-pub struct NetabaseSwarmEvent<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+pub struct NetabaseSwarmEvent<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     pub SwarmEvent<NetabaseBehaviourEvent<D>>,
 )
 where
@@ -153,7 +153,7 @@ fn multi_trans_error_cloner(
         .collect()
 }
 
-impl<D: NetabaseDefinitionTrait + Send + Sync + 'static> Clone for NetabaseSwarmEvent<D>
+impl<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static> Clone for NetabaseSwarmEvent<D>
 where
     D: netabase_store::convert::ToIVec,
     <D as IntoDiscriminant>::Discriminant: AsRef<str>

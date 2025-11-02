@@ -1,7 +1,7 @@
 #[cfg(feature = "native")]
 use libp2p::Swarm;
 #[cfg(feature = "native")]
-use netabase_store::traits::definition::NetabaseDefinitionTrait;
+use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
 #[cfg(feature = "native")]
 use crate::network::behaviour::{NetabaseBehaviour, clone_impl::NetabaseSwarmEvent};
@@ -68,7 +68,7 @@ pub fn handle_swarm_events<D>(
     <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
-    D: NetabaseDefinitionTrait + Send + Sync + 'static,
+    D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static,
 {
     match event.0 {
         libp2p::swarm::SwarmEvent::Behaviour(behaviour_event) => {

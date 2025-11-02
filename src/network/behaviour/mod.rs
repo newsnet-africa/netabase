@@ -1,70 +1,35 @@
-use crate::network::{config::StorageBackend, store::NetabaseStore};
+use crate::network::config::StorageBackend;
 use libp2p::{PeerId, connection_limits, identity::Keypair, swarm::NetworkBehaviour};
-use netabase_store::traits::definition::NetabaseDefinitionTrait;
+use netabase_store::{databases::sled_store::SledStore, traits::definition::{NetabaseDefinitionTrait, RecordStoreExt}};
 
 pub mod clone_impl;
+// Sync behaviour module commented out - not yet fully implemented
+// pub mod sync_behaviour;
 
 #[cfg(feature = "native")]
 use libp2p::mdns;
 
+// Kad behavior now works with generic Definition types via instance method dispatch
 #[derive(NetworkBehaviour)]
-pub struct NetabaseBehaviour<D: NetabaseDefinitionTrait + Send + Sync + 'static>
+pub struct NetabaseBehaviour<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>
 where
     D: netabase_store::convert::ToIVec,
-    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
-        + Clone
-        + Copy
-        + std::fmt::Debug
-        + std::fmt::Display
-        + PartialEq
-        + Eq
-        + std::hash::Hash
-        + strum::IntoEnumIterator
-        + Send
-        + Sync
-        + 'static
-        + std::str::FromStr,
-    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
-    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
-    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
-    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
-    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
-    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
-    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
-    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
+    <D as strum::IntoDiscriminant>::Discriminant: netabase_store::traits::definition::NetabaseDiscriminant,
+    <<D as NetabaseDefinitionTrait>::Keys as strum::IntoDiscriminant>::Discriminant: netabase_store::traits::definition::NetabaseKeyDiscriminant,
 {
-    pub kad: libp2p::kad::Behaviour<NetabaseStore<D>>,
+    pub kad: libp2p::kad::Behaviour<SledStore<D>>,
     pub identify: libp2p::identify::Behaviour,
     #[cfg(feature = "native")]
     pub mdns: libp2p::mdns::tokio::Behaviour,
     pub connection_limit: libp2p::connection_limits::Behaviour,
 }
 
-impl<D: NetabaseDefinitionTrait + Send + Sync + 'static> NetabaseBehaviour<D>
+impl<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static> NetabaseBehaviour<D>
 where
     D: netabase_store::convert::ToIVec,
     D::Keys: netabase_store::convert::ToIVec,
-    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
-        + Clone
-        + Copy
-        + std::fmt::Debug
-        + std::fmt::Display
-        + PartialEq
-        + Eq
-        + std::hash::Hash
-        + strum::IntoEnumIterator
-        + Send
-        + Sync
-        + 'static
-        + std::str::FromStr,
-    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
-    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
-    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
-    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
-    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
-    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
-    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
-    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
+    <D as strum::IntoDiscriminant>::Discriminant: netabase_store::traits::definition::NetabaseDiscriminant,
+    <<D as NetabaseDefinitionTrait>::Keys as strum::IntoDiscriminant>::Discriminant: netabase_store::traits::definition::NetabaseKeyDiscriminant,
 {
     pub fn _new(keypair: &Keypair) -> Result<Self, crate::errors::Error> {
         Self::new_with_config(keypair, None, StorageBackend::default())
@@ -80,24 +45,25 @@ where
     pub fn new_with_config(
         keypair: &Keypair,
         name: Option<String>,
-        backend: StorageBackend,
+        _backend: StorageBackend,
     ) -> Result<Self, crate::errors::Error> {
         let pub_key = keypair.public();
         let peer_id = PeerId::from_public_key(&pub_key);
 
+        // Create the store - currently using SledStore, backend parameter ignored
         #[cfg(feature = "native")]
         let store = if let Some(name) = name {
-            NetabaseStore::<D>::new(backend, &name)
+            SledStore::<D>::new(&name)
                 .map_err(|e| crate::errors::Error::Database(e.to_string()))?
         } else {
             // Use a default path based on peer_id
             let default_path = format!("./netabase_data/{}", peer_id);
-            NetabaseStore::<D>::new(backend, &default_path)
+            SledStore::<D>::new(&default_path)
                 .map_err(|e| crate::errors::Error::Database(e.to_string()))?
         };
 
         #[cfg(all(feature = "wasm", not(feature = "native")))]
-        let store = NetabaseStore::<D>::temp(backend)
+        let store = SledStore::<D>::temp()
             .map_err(|e| crate::errors::Error::Database(e.to_string()))?;
 
         let kad = libp2p::kad::Behaviour::new(peer_id.clone(), store);

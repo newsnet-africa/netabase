@@ -1,7 +1,7 @@
 use libp2p::core::transport::ListenerId;
-use netabase_store::traits::definition::NetabaseDefinitionTrait;
+use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
-pub fn handle_listener_error<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+pub fn handle_listener_error<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     listener_id: ListenerId,
     error: std::io::Error,
 ) where

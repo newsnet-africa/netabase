@@ -293,7 +293,7 @@ pub use network::behaviour::clone_impl::NetabaseSwarmEvent;
 #[cfg(feature = "native")]
 use libp2p::kad::QueryResult;
 use netabase_store::traits::{
-    definition::NetabaseDefinitionTrait,
+    definition::{NetabaseDefinitionTrait, RecordStoreExt},
     model::{NetabaseModelTrait, NetabaseModelTraitKey},
 };
 #[cfg(feature = "native")]
@@ -372,30 +372,10 @@ use crate::network::config::NetabaseConfig;
 /// # Ok(())
 /// # }
 /// ```
-pub struct Netabase<D: NetabaseDefinitionTrait + Send + Sync>
+pub struct Netabase<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync>
 where
     D: netabase_store::convert::ToIVec,
-    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
-        + Clone
-        + Copy
-        + std::fmt::Debug
-        + std::fmt::Display
-        + PartialEq
-        + Eq
-        + std::hash::Hash
-        + strum::IntoEnumIterator
-        + Send
-        + Sync
-        + 'static
-        + std::str::FromStr,
-    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
-    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
-    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
-    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
-    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
-    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
-    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
-    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
+    <D as strum::IntoDiscriminant>::Discriminant: netabase_store::traits::definition::NetabaseDiscriminant,
 {
     config: NetabaseConfig,
     /// Handle to the background swarm task
@@ -421,31 +401,11 @@ where
 // }
 
 #[cfg(feature = "native")]
-impl<D: NetabaseDefinitionTrait + Send + Sync + 'static> Netabase<D>
+impl<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static> Netabase<D>
 where
     D: netabase_store::traits::convert::ToIVec,
     D::Keys: netabase_store::traits::convert::ToIVec,
-    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
-        + Clone
-        + Copy
-        + std::fmt::Debug
-        + std::fmt::Display
-        + PartialEq
-        + Eq
-        + std::hash::Hash
-        + strum::IntoEnumIterator
-        + Send
-        + Sync
-        + 'static
-        + std::str::FromStr,
-    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
-    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
-    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
-    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
-    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
-    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
-    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
-    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
+    <D as strum::IntoDiscriminant>::Discriminant: netabase_store::traits::definition::NetabaseDiscriminant,
 {
     /// Create a new Netabase instance with default settings.
     ///
@@ -2220,7 +2180,7 @@ where
 
 // /// WASM-specific implementation with local database operations only
 // #[cfg(all(feature = "wasm", not(feature = "native")))]
-// impl<D: NetabaseDefinitionTrait + Send + Sync + 'static> Netabase<D> {
+// impl<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static> Netabase<D> {
 //     /// Create a new WASM Netabase instance for local operations.
 //     ///
 //     /// This creates a local-only database instance suitable for WASM environments.
@@ -2257,7 +2217,7 @@ where
 // }
 
 #[cfg(feature = "native")]
-impl<D: NetabaseDefinitionTrait + Send + Sync> Drop for Netabase<D>
+impl<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync> Drop for Netabase<D>
 where
     D: netabase_store::convert::ToIVec,
     <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
@@ -2289,69 +2249,7 @@ where
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::tests::test_definition::*;
-    use bincode::{Decode, Encode};
-    use netabase_store::*;
-    use serde::{Deserialize, Serialize};
-
-    #[netabase_definition_module(TestDefinition, TestDefinitionKeys)]
-    mod test_definition {
-        use super::*;
-
-        #[derive(
-            NetabaseModel, Clone, Encode, Decode, Debug, PartialEq, Serialize, Deserialize,
-        )]
-        pub struct TestUser {
-            #[primary_key]
-            pub id: u64,
-            pub name: String,
-        }
-    }
-
-    use test_definition::TestDefinition;
-
-    #[test]
-    fn test_subscribe_to_broadcasts_is_not_async() {
-        let netabase = Netabase::<TestDefinition>::new().unwrap();
-
-        // This should compile without .await - proving the method is synchronous
-        let _receiver = netabase.subscribe_to_broadcasts();
-    }
-
-    #[test]
-    fn test_multiple_broadcast_subscriptions() {
-        let netabase = Netabase::<TestDefinition>::new().unwrap();
-
-        // Test that we can create multiple receivers without Arc wrapping
-        let receiver1 = netabase.subscribe_to_broadcasts();
-        let receiver2 = netabase.subscribe_to_broadcasts();
-        let receiver3 = netabase.subscribe_to_broadcasts();
-
-        // Verify they are independent instances
-        let addr1 = &receiver1 as *const _ as usize;
-        let addr2 = &receiver2 as *const _ as usize;
-        let addr3 = &receiver3 as *const _ as usize;
-
-        assert_ne!(addr1, addr2);
-        assert_ne!(addr2, addr3);
-        assert_ne!(addr1, addr3);
-    }
-
-    #[test]
-    fn test_broadcast_receiver_cloning() {
-        let netabase = Netabase::<TestDefinition>::new().unwrap();
-
-        // Get a receiver
-        let mut receiver1 = netabase.subscribe_to_broadcasts();
-
-        // Clone it using resubscribe - this proves broadcast receivers are cloneable
-        let mut receiver2 = receiver1.resubscribe();
-
-        // Both should be empty initially
-        assert!(receiver1.try_recv().is_err());
-        assert!(receiver2.try_recv().is_err());
-    }
-}
+// Note: Tests have been moved to tests/broadcast_tests.rs
+//
+// Inline test modules using netabase_definition_module can encounter trait resolution issues
+// in certain Rust compiler contexts. External test files work correctly and are preferred.

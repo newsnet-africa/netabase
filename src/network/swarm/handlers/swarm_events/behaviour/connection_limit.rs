@@ -1,10 +1,10 @@
-use netabase_store::traits::definition::NetabaseDefinitionTrait;
+use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 use std::convert::Infallible;
 
 /// Handle connection limit behaviour events
 /// Note: libp2p connection limits use Infallible as the event type,
 /// meaning this behaviour never emits events
-pub fn handle_connection_limit_event<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+pub fn handle_connection_limit_event<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     event: Infallible,
 ) where
     D: netabase_store::convert::ToIVec,

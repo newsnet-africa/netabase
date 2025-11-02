@@ -98,6 +98,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "76a2e8124351fda1ef8aaaa3bbd7ebbcb486bbcd4225aca0aa0d84bb2db8fecb"
 
 [[package]]
+name = "arrayvec"
+version = "0.7.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
+
+[[package]]
 name = "asn1-rs"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -284,6 +290,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "blake3"
+version = "1.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3888aaa89e4b2a40fca9848e400f6a658a5a3978de7be858e209cafa8be9a4a0"
+dependencies = [
+ "arrayref",
+ "arrayvec",
+ "cc",
+ "cfg-if",
+ "constant_time_eq",
+ "serde",
+]
+
+[[package]]
 name = "block-buffer"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -410,6 +430,12 @@ name = "const-str"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f421161cb492475f1661ddc9815a745a1c894592070661180fdec3d4872e9c3"
+
+[[package]]
+name = "constant_time_eq"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c74b8349d32d297c9134b8c88677813a227df8f779daa29bfc29c183fe3dca6"
 
 [[package]]
 name = "core-foundation"
@@ -1751,6 +1777,7 @@ checksum = "805a555148522cb3414493a5153451910cb1a146c53ffbf4385708349baf62b7"
 dependencies = [
  "futures",
  "libp2p-core",
+ "libp2p-gossipsub",
  "libp2p-identify",
  "libp2p-identity",
  "libp2p-kad",
@@ -2210,6 +2237,7 @@ version = "0.0.2"
 dependencies = [
  "anyhow",
  "bincode",
+ "blake3",
  "chrono",
  "derive_more",
  "env_logger",
@@ -2218,9 +2246,10 @@ dependencies = [
  "js-sys",
  "libp2p",
  "log",
- "netabase_deps",
+ "netabase_deps 0.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "netabase_store",
  "once_cell",
+ "paxakos",
  "serde",
  "sled",
  "strum",
@@ -2231,6 +2260,19 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+]
+
+[[package]]
+name = "netabase_deps"
+version = "0.0.2"
+dependencies = [
+ "bincode",
+ "blake3",
+ "derive_more",
+ "paxakos",
+ "serde",
+ "sled",
+ "strum",
 ]
 
 [[package]]
@@ -2249,17 +2291,16 @@ dependencies = [
 [[package]]
 name = "netabase_macros"
 version = "0.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e5a586bea09efaab99b98e63300583655cac0c05859066d29490474d7e6b6a1"
 dependencies = [
  "anyhow",
  "bincode",
  "derive_more",
  "heck",
+ "netabase_deps 0.0.2",
+ "paxakos",
  "proc-macro2",
  "quote",
  "serde",
- "sled",
  "strum",
  "strum_macros",
  "syn 2.0.108",
@@ -2269,8 +2310,6 @@ dependencies = [
 [[package]]
 name = "netabase_store"
 version = "0.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2f56151d9c8e94dfbb1a1b35be91bce4c13dacc70e32185b247dc32b250a366"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2280,7 +2319,7 @@ dependencies = [
  "indexed_db_futures",
  "js-sys",
  "libp2p",
- "netabase_deps",
+ "netabase_deps 0.0.2",
  "netabase_macros",
  "redb",
  "serde",
@@ -2511,6 +2550,24 @@ name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
+
+[[package]]
+name = "paxakos"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74de017293cf1de1b10d3b852acc347c255ad0a9347a7ce4e485ac4fcff55e53"
+dependencies = [
+ "futures",
+ "futures-timer",
+ "instant",
+ "num-traits",
+ "pin-project",
+ "serde",
+ "smallvec",
+ "snarc",
+ "thiserror 1.0.69",
+ "tracing",
+]
 
 [[package]]
 name = "pem"
@@ -3166,6 +3223,15 @@ name = "smallvec"
 version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
+
+[[package]]
+name = "snarc"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "86139386a5d6f6943239b0ce483b10a730981060055b77fb7b0c657a1119de7c"
+dependencies = [
+ "scopeguard",
+]
 
 [[package]]
 name = "snow"
