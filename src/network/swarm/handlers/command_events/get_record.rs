@@ -1,5 +1,5 @@
 use libp2p::{Swarm, kad::QueryResult};
-use log::{debug, info, warn, error};
+use log::debug;
 use netabase_store::{
     definition::NetabaseDefinitionTraitKey, traits::definition::{NetabaseDefinitionTrait, RecordStoreExt},
 };

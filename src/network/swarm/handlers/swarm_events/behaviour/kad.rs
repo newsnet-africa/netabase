@@ -5,7 +5,7 @@ use libp2p::{
         QueryStats,
     },
 };
-use log::{debug, info, warn, error};
+use log::{debug, info, warn};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;

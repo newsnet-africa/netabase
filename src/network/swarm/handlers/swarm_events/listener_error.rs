@@ -1,5 +1,5 @@
 use libp2p::core::transport::ListenerId;
-use log::{debug, info, warn, error};
+use log::{debug, warn};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
 pub fn handle_listener_error<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(

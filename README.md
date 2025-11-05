@@ -19,6 +19,107 @@ A peer-to-peer networking layer built on libp2p with integrated type-safe storag
 - [ ] Metrics and monitoring
 - [ ] Migration tools
 
+### Paxos Consensus Integration
+
+Netabase has begun integrating paxakos for distributed consensus. Implementation roadmap:
+
+#### Phase 1: Core Trait Implementation
+- [ ] **Implement `LogEntry` trait** for netabase_store definitions
+  - Add `id()` method returning unique identifier for each entry
+  - Ensure serialization compatibility with bincode
+  - Update `NetabaseDefinitionTrait` to require `LogEntry` bound
+
+- [ ] **Create `State` implementation** for distributed state management
+  - `apply(&mut self, entry: &LogEntry)` - process entries and update state
+  - `freeze(&self)` - create immutable snapshot of current state
+  - `cluster_at(&self, round: RoundNum)` - return cluster membership at round
+  - `concurrency(&self)` - return parallelism level for round processing
+
+- [ ] **Implement `NodeInfo` trait** for peer identification
+  - Define node identity compatible with libp2p `PeerId`
+  - Add serialization for network transmission
+  - Integrate with existing peer discovery mechanisms
+
+#### Phase 2: libp2p Communicator
+- [ ] **Create `PaxosComm unificator` for libp2p integration**
+  - Implement `Communicator` trait with 12 associated types:
+    - `Node`, `RoundNum`, `CoordNum`, `LogEntry`, `Error`
+    - Future types: `SendPrepare`, `SendProposal`, `SendCommit`, `SendCommitById`
+    - Vote metadata: `Abstain`, `Yea`, `Nay`
+  - Implement 4 required message-sending methods:
+    - `send_prepare(coord, round, receivers)` - broadcast prepare messages
+    - `send_proposal(coord, round, entry, receivers)` - propose log entry
+    - `send_commit(coord, round, entry, receivers)` - commit with full entry
+    - `send_commit_by_id(coord, round, entry_id, receivers)` - commit by ID only
+
+- [ ] **Create custom libp2p protocol handler** (`/paxos/1.0.0`)
+  - Define request/response message types using serde
+  - Integrate with libp2p's `request_response` behavior
+  - Handle protocol message routing through swarm
+  - Implement timeout and retry logic
+
+- [ ] **Add `PaxosBehaviour` to libp2p swarm**
+  - Create behavior struct wrapping paxakos `Node`
+  - Implement `NetworkBehaviour` trait
+  - Handle protocol events and route to paxakos
+  - Integrate with existing Kademlia and Identify behaviors
+
+#### Phase 3: Node Lifecycle Integration
+- [ ] **Integrate paxakos node with netabase lifecycle**
+  - Initialize paxakos `Node` in `start_swarm()`
+  - Use `NodeBuilder` with custom `Communicator` and `State`
+  - Handle graceful shutdown in `stop_swarm()`
+  - Expose node handle through netabase API
+
+- [ ] **Implement consensus-backed operations**
+  - `put_record_consensus(&mut self, record: D)` - append via paxakos
+  - Handle `Commit<S, R, P>` futures and apply outcomes
+  - Propagate consensus results through event system
+  - Provide fallback to DHT for non-consensus operations
+
+#### Phase 4: Optional Features & Optimizations
+- [ ] **Add paxakos decorations**
+  - `heartbeats` - node liveness monitoring
+  - `autofill` - automatic log gap filling
+  - `catch-up` - synchronize lagging nodes
+  - `master-leases` - optimize read-only operations
+
+- [ ] **Implement cluster management**
+  - Dynamic cluster membership changes
+  - Node addition/removal protocols
+  - Quorum reconfiguration
+
+- [ ] **Performance optimization**
+  - Batch log entry applications
+  - Concurrent round processing
+  - Message compression and deduplication
+
+#### Phase 5: Testing & Documentation
+- [ ] **Comprehensive testing**
+  - Multi-node consensus tests with nextest
+  - Network partition tolerance tests
+  - Leader election and failover tests
+  - Performance benchmarks with criterion
+
+- [ ] **Documentation & examples**
+  - Paxos API documentation
+  - Consensus vs DHT operation guide
+  - Example: distributed counter with strong consistency
+  - Example: replicated state machine
+
+#### Implementation Notes
+
+**Key Design Decisions:**
+- Paxos consensus optional via `paxos` feature flag (native-only)
+- Coexists with existing DHT-based operations (eventual consistency)
+- Users choose consistency model per operation
+- WebRTC/WASM compatibility requires alternative consensus (Paxos uses threading)
+
+**Dependencies:**
+- `paxakos = "0.13.0"` (already added to netabase_store)
+- libp2p request-response protocol for message transport
+- Separate feature flag to avoid WASM compilation issues
+
 ## Features
 
 ### Current Features

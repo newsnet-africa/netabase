@@ -8,12 +8,6 @@ use netabase_store::{
 #[cfg(feature = "native")]
 use netabase_store::databases::redb_store::RedbStore;
 
-#[cfg(feature = "libp2p")]
-use libp2p::PeerId;
-#[cfg(feature = "libp2p")]
-use libp2p::kad::{ProviderRecord, Record, RecordKey, store::RecordStore};
-#[cfg(feature = "libp2p")]
-use std::borrow::Cow;
 
 /// Unified store that can use any supported backend
 pub enum NetabaseStore<D>

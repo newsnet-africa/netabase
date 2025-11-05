@@ -1,5 +1,5 @@
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
-use log::{debug, info, warn, error};
+use log::{debug, warn};
 
 use crate::network::behaviour::clone_impl::NetabaseSwarmEvent;
 

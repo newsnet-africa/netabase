@@ -1,5 +1,5 @@
 use libp2p::Multiaddr;
-use log::{debug, info, warn, error};
+use log::debug;
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
 pub fn handle_external_addr_expired<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(

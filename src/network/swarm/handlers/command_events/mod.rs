@@ -6,7 +6,6 @@ use libp2p::{
         store::RecordStore,
     },
 };
-use log::{debug, info, warn, error};
 #[cfg(feature = "native")]
 use netabase_store::traits::{convert::ToIVec, definition::{NetabaseDefinitionTrait, RecordStoreExt}};
 #[cfg(feature = "native")]

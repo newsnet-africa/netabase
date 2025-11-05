@@ -12,6 +12,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion, Benchmark
 use netabase::Netabase;
 use netabase_store::*;
 use tokio::runtime::Runtime;
+use tempfile::TempDir;
 
 // Test schema for benchmarks
 #[netabase_definition_module(BenchDefinition, BenchKeys)]
@@ -42,7 +43,8 @@ use bench_schema::*;
 fn bench_netabase_creation(c: &mut Criterion) {
     c.bench_function("netabase_creation", |b| {
         b.iter(|| {
-            let _ = Netabase::<BenchDefinition>::temp_db();
+            let temp_dir = TempDir::new().unwrap();
+            let _ = Netabase::<BenchDefinition>::new_with_path(temp_dir.path());
         });
     });
 }
@@ -54,9 +56,10 @@ fn bench_swarm_lifecycle(c: &mut Criterion) {
     c.bench_function("swarm_lifecycle", |b| {
         b.iter(|| {
             rt.block_on(async {
-                let mut netabase = Netabase::<BenchDefinition>::temp_db().unwrap();
-                netabase.start_swarm().await.unwrap();
-                netabase.stop_swarm().await.unwrap();
+                let temp_dir = TempDir::new().unwrap();
+                let mut netabase = Netabase::<BenchDefinition>::new_with_path(temp_dir.path()).unwrap();
+                let _ = netabase.start_swarm().await;
+                let _ = netabase.stop_swarm().await;
             });
         });
     });
@@ -70,9 +73,10 @@ fn bench_local_record_storage(c: &mut Criterion) {
 
     for size in [100, 1000, 10000].iter() {
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
+            let temp_dir = TempDir::new().unwrap();
             let mut netabase = rt.block_on(async {
-                let mut nb = Netabase::<BenchDefinition>::temp_db().unwrap();
-                nb.start_swarm().await.unwrap();
+                let mut nb = Netabase::<BenchDefinition>::new_with_path(temp_dir.path()).unwrap();
+                let _ = nb.start_swarm().await;
                 nb
             });
 
@@ -87,7 +91,7 @@ fn bench_local_record_storage(c: &mut Criterion) {
             });
 
             rt.block_on(async {
-                netabase.stop_swarm().await.unwrap();
+                let _ = netabase.stop_swarm().await;
             });
         });
     }
@@ -103,9 +107,10 @@ fn bench_query_local_records(c: &mut Criterion) {
 
     for count in [10, 100, 1000].iter() {
         group.bench_with_input(BenchmarkId::from_parameter(count), count, |b, &count| {
+            let temp_dir = TempDir::new().unwrap();
             let mut netabase = rt.block_on(async {
-                let mut nb = Netabase::<BenchDefinition>::temp_db().unwrap();
-                nb.start_swarm().await.unwrap();
+                let mut nb = Netabase::<BenchDefinition>::new_with_path(temp_dir.path()).unwrap();
+                let _ = nb.start_swarm().await;
 
                 // Pre-populate with records
                 for i in 0..count {
@@ -126,7 +131,7 @@ fn bench_query_local_records(c: &mut Criterion) {
             });
 
             rt.block_on(async {
-                netabase.stop_swarm().await.unwrap();
+                let _ = netabase.stop_swarm().await;
             });
         });
     }
@@ -142,9 +147,10 @@ fn bench_dht_put_record(c: &mut Criterion) {
 
     for size in [100, 1000].iter() {
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
+            let temp_dir = TempDir::new().unwrap();
             let mut netabase = rt.block_on(async {
-                let mut nb = Netabase::<BenchDefinition>::temp_db().unwrap();
-                nb.start_swarm().await.unwrap();
+                let mut nb = Netabase::<BenchDefinition>::new_with_path(temp_dir.path()).unwrap();
+                let _ = nb.start_swarm().await;
                 nb
             });
 
@@ -164,7 +170,7 @@ fn bench_dht_put_record(c: &mut Criterion) {
             });
 
             rt.block_on(async {
-                netabase.stop_swarm().await.unwrap();
+                let _ = netabase.stop_swarm().await;
             });
         });
     }
@@ -177,9 +183,10 @@ fn bench_event_subscription(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
     c.bench_function("event_subscription", |b| {
+        let temp_dir = TempDir::new().unwrap();
         let mut netabase = rt.block_on(async {
-            let mut nb = Netabase::<BenchDefinition>::temp_db().unwrap();
-            nb.start_swarm().await.unwrap();
+            let mut nb = Netabase::<BenchDefinition>::new_with_path(temp_dir.path()).unwrap();
+            let _ = nb.start_swarm().await;
             nb
         });
 
@@ -189,7 +196,7 @@ fn bench_event_subscription(c: &mut Criterion) {
         });
 
         rt.block_on(async {
-            netabase.stop_swarm().await.unwrap();
+            let _ = netabase.stop_swarm().await;
         });
     });
 }

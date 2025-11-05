@@ -3,7 +3,7 @@ use libp2p::{
     identify::{Event as IdentifyEvent, UpgradeError},
     swarm::StreamUpgradeError,
 };
-use log::{debug, info, warn, error};
+use log::{info, warn};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
 /// Handle Identify behaviour events

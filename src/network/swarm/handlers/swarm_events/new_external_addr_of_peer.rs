@@ -1,5 +1,5 @@
 use libp2p::{Multiaddr, PeerId};
-use log::{debug, info, warn, error};
+use log::debug;
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
 pub fn handle_new_external_addr_of_peer<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(

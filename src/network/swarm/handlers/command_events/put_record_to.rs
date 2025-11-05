@@ -2,7 +2,7 @@ use libp2p::{
     PeerId, Swarm,
     kad::{QueryResult, Quorum},
 };
-use log::{debug, info, warn, error};
+use log::debug;
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 use tokio::sync::oneshot::Sender;
 

@@ -1,5 +1,5 @@
 use libp2p::Multiaddr;
-use log::{debug, info, warn, error};
+use log::info;
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
 pub fn handle_new_external_addr_candidate<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(

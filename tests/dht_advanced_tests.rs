@@ -329,8 +329,8 @@ fn test_multiple_providers() -> Result<()> {
         println!("✓ {} started providing", node.name);
     }
 
-    // Wait for provider records to propagate
-    std::thread::sleep(Duration::from_secs(5));
+    // Wait for provider records to propagate (increased for better reliability in local tests)
+    std::thread::sleep(Duration::from_secs(15));
 
     // Last node searches for providers
     nodes[3].send_command(TestCommand::GetProviders {
