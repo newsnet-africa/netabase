@@ -1,4 +1,5 @@
 use libp2p::Multiaddr;
+use log::{debug, info, warn, error};
 use libp2p::swarm::ConnectionId;
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
@@ -31,7 +32,7 @@ pub fn handle_incoming_connection<D: NetabaseDefinitionTrait + RecordStoreExt + 
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
 {
     // TODO: Implement incoming connection handling
-    println!(
+    debug!(
         "Incoming connection: connection_id: {:?}, local_addr: {:?}, send_back_addr: {:?}",
         connection_id, local_addr, send_back_addr
     );

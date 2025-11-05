@@ -3,6 +3,7 @@ use libp2p::{
     identify::{Event as IdentifyEvent, UpgradeError},
     swarm::StreamUpgradeError,
 };
+use log::{debug, info, warn, error};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
 /// Handle Identify behaviour events
@@ -76,7 +77,7 @@ where
     D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static,
 {
     let peer_short = format!("{}", peer_id).chars().take(8).collect::<String>();
-    println!("🤝 Connected to peer {}\n", peer_short);
+    info!("🤝 Connected to peer {}\n", peer_short);
 }
 
 /// Handle identification errors
@@ -106,5 +107,5 @@ where
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
     D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static,
 {
-    eprintln!("⚠️  Identify error with peer {:?}: {:?}", peer_id, error);
+    warn!("⚠️  Identify error with peer {:?}: {:?}", peer_id, error);
 }

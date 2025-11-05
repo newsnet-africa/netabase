@@ -1,0 +1,42 @@
+# Nextest configuration for netabase
+# https://nexte.st/book/configuration.html
+
+[profile.default]
+# Run integration tests with single thread to avoid port conflicts
+test-threads = 1
+
+# Increase timeout for integration tests (default is 60s)
+slow-timeout = { period = "120s", terminate-after = 3 }
+
+[profile.ci]
+# CI-specific settings
+test-threads = 1
+slow-timeout = { period = "180s", terminate-after = 5 }
+retries = 2
+
+# Fail fast on first error in CI
+fail-fast = true
+
+[profile.integration]
+# Profile specifically for integration tests
+test-threads = 1
+slow-timeout = { period = "300s" }
+
+# Don't fail fast - we want to see all results
+fail-fast = false
+
+# Filter: Only run integration tests (those marked with #[ignore])
+filter = 'test(//)'
+
+[test-groups]
+# Group tests by type for better organization
+
+integration-p2p = { max-threads = 1 }
+integration-dht = { max-threads = 1 }
+integration-chat = { max-threads = 1 }
+
+[[profile.default.overrides]]
+# Specific settings for ignored tests (integration tests)
+filter = 'test(~ignored)'
+test-threads = 1
+slow-timeout = { period = "180s" }

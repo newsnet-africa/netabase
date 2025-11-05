@@ -165,8 +165,16 @@ println!("Now providing this message");
 // Find providers for a key
 let providers_result = netabase.get_providers(key).await?;
 match providers_result {
-    libp2p::kad::QueryResult::GetProviders(Ok(result)) => {
-        println!("Found {} providers", result.providers.len());
+    libp2p::kad::QueryResult::GetProviders(Ok(get_providers_ok)) => {
+        use libp2p::kad::GetProvidersOk;
+        match get_providers_ok {
+            GetProvidersOk::FoundProviders { providers, .. } => {
+                println!("Found {} providers", providers.len());
+            }
+            GetProvidersOk::FinishedWithNoAdditionalRecord { .. } => {
+                println!("No providers found");
+            }
+        }
     }
     _ => {}
 }
@@ -433,6 +441,87 @@ cargo build --release --features native
 - `set_mode(mode)` - Change DHT mode
 - `get_protocol_names()` - Get protocol info
 
+## Testing
+
+Netabase includes a comprehensive test suite to ensure reliability and correctness.
+
+### Test Suite Overview
+
+1. **Unit Tests**: Core functionality tests
+   ```bash
+   cargo test --lib
+   ```
+
+2. **Integration Tests**: Multi-node P2P tests using `std::process::Command`
+   ```bash
+   # Basic P2P tests
+   cargo test --test p2p_integration_tests -- --ignored --test-threads=1
+
+   # Advanced DHT tests
+   cargo test --test dht_advanced_tests -- --ignored --test-threads=1
+
+   # Chat application tests
+   cargo test --test chat_integration_tests -- --ignored --test-threads=1
+   ```
+
+3. **Build Verification**: Ensures examples, doctests, and benchmarks compile
+   ```bash
+   cargo test --test build_verification
+   ```
+
+4. **WASM Compilation Tests**: Verifies WASM target compilation
+   ```bash
+   cargo test --test wasm_compilation
+   ```
+
+5. **Benchmarks**: Performance benchmarking
+   ```bash
+   cargo bench
+   ```
+
+### Comprehensive Test Runner
+
+Run all tests systematically using the provided Nushell script:
+
+```bash
+# Make script executable
+chmod +x run_comprehensive_tests.nu
+
+# Run all tests
+./run_comprehensive_tests.nu
+```
+
+### Test Coverage
+
+The test suite covers:
+
+- ✅ **mDNS Peer Discovery**: Automatic local network peer discovery
+- ✅ **DHT Record Operations**: Put/get records across nodes
+- ✅ **Provider Records**: Advertising and querying content providers
+- ✅ **Bootstrap**: Joining the DHT network
+- ✅ **Cross-Node Communication**: Message passing between nodes
+- ✅ **Concurrent Operations**: Multiple simultaneous operations
+- ✅ **Network Scalability**: Tests with 2-15 nodes
+- ✅ **Record Replication**: Data distribution across the network
+- ✅ **Local Storage**: Query and persistence operations
+- ✅ **Event Subscription**: Network event broadcasting
+- ✅ **Build Verification**: Examples and doctests compilation
+- ⚠️ **WASM Compilation**: Currently failing (see WASM Support section)
+
+### CI/CD Integration
+
+For continuous integration, use:
+
+```bash
+# Quick test suite (no integration tests)
+cargo test --all-features
+
+# Full test suite including integration tests
+cargo test --all-features -- --ignored --test-threads=1
+```
+
+**Note**: Integration tests use `--test-threads=1` to avoid port conflicts when spawning multiple test nodes.
+
 ## Troubleshooting
 
 ### Peers Not Discovered
@@ -449,7 +538,89 @@ cargo build --release --features native
 - Verify the record was published successfully
 - Allow time for DHT propagation
 
+## WASM Support
 
+### Current Status
+
+WASM support is under active development. The `wasm` feature exists but requires additional work to fully function.
+
+### Known WASM Compilation Issues
+
+The following issues prevent successful WASM compilation and need to be resolved:
+
+#### 1. Storage Backend Abstraction Issue
+
+**Problem**: The `IndexedDBStore` and `MemoryStore` implementations use sled-specific methods (`to_ivec()` and `from_ivec()`) that don't exist in the WASM context.
+
+**Location**:
+- `netabase_store/src/databases/indexeddb_store.rs:204`
+- `netabase_store/src/databases/memory_store.rs:334, 376, 607`
+
+**Error**:
+```
+error[E0599]: no method named `to_ivec` found for type parameter `D`
+error[E0599]: no function or associated item named `from_ivec` found for type parameter `D`
+```
+
+**Resolution Needed**:
+- Create a platform-agnostic serialization trait that provides `to_vec()` and `from_vec()` for all backends
+- Update WASM backends to use the generic serialization methods
+- Properly feature-gate sled-specific `IVec` usage
+
+#### 2. Feature Gating
+
+**Issue**: Some features are referenced but not properly defined:
+- `feature = "memory"` - Referenced but not in Cargo.toml
+- `feature = "indexeddb"` - Referenced as "indexeddb" but defined as "indexed_db_futures"
+
+**Resolution Needed**:
+- Add missing feature flags to Cargo.toml
+- Ensure consistent feature naming across the codebase
+
+### WASM TODO List
+
+To complete WASM support, the following tasks must be completed:
+
+- [ ] Fix storage backend serialization abstraction (see issue #1 above)
+- [ ] Properly implement IndexedDB storage backend for WASM
+- [ ] Test WebRTC transport in WASM environment
+- [ ] Test WebSocket-WebSys transport
+- [ ] Test WebTransport-WebSys functionality
+- [ ] Create WASM-specific examples
+- [ ] Add browser-based integration tests
+- [ ] Document browser storage limitations
+- [ ] Add WASM-specific configuration guide
+- [ ] Benchmark WASM performance vs native
+
+### Testing WASM Compilation
+
+To test WASM compilation:
+
+```bash
+# Install WASM target
+rustup target add wasm32-unknown-unknown
+
+# Attempt to build for WASM
+cargo build --target wasm32-unknown-unknown --no-default-features --features wasm
+
+# Run WASM-specific tests
+cargo test --test wasm_compilation
+```
+
+### Workaround for Development
+
+Until WASM support is fully implemented, you can:
+
+1. Use the `native` feature for desktop/server applications
+2. Implement your own browser-specific storage using `IndexedDB` directly
+3. Use a native backend as a bridge for WASM applications
+4. Consider using the library in client mode only (no local storage)
+
+## Documentation
+
+- **[Getting Started](./GETTING_STARTED.md)**: Step-by-step tutorial for building your first distributed application
+- **[Architecture](./ARCHITECTURE.md)**: Deep dive into netabase's design and internal architecture
+- **[Macro Guide](../netabase_store/MACRO_GUIDE.md)**: Learn what happens behind the scenes with the `netabase_definition_module` macro
 
 ## License
 

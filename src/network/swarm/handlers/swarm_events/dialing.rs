@@ -1,4 +1,5 @@
 use libp2p::PeerId;
+use log::{debug, info, warn, error};
 use libp2p::swarm::ConnectionId;
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
@@ -31,11 +32,11 @@ pub fn handle_dialing<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync 
 {
     // TODO: Implement dialing handling
     if let Some(peer) = peer_id {
-        println!(
+        debug!(
             "Dialing peer: {:?}, connection_id: {:?}",
             peer, connection_id
         );
     } else {
-        println!("Dialing unknown peer, connection_id: {:?}", connection_id);
+        debug!("Dialing unknown peer, connection_id: {:?}", connection_id);
     }
 }

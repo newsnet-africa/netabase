@@ -5,6 +5,7 @@ use libp2p::{
         QueryStats,
     },
 };
+use log::{debug, info, warn, error};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
@@ -117,9 +118,9 @@ fn handle_inbound_request<D: NetabaseDefinitionTrait + RecordStoreExt + Send + S
     // Only log PutRecord requests in a clean format
     if let InboundRequest::PutRecord { source, record, .. } = &request {
         let peer_short = format!("{}", source).chars().take(8).collect::<String>();
-        println!("📥 Receiving message from peer {}...", peer_short);
+        info!("📥 Receiving message from peer {}...", peer_short);
         if record.is_some() {
-            println!("   Record received and stored\n");
+            debug!("   Record received and stored\n");
         }
     }
 }
@@ -206,7 +207,7 @@ fn handle_outbound_query_progressed<D: NetabaseDefinitionTrait + RecordStoreExt 
                 }
                 QueryResult::RepublishProvider(republish_result) => {
                     // Handle republish provider results if needed
-                    println!("RepublishProvider result: {:?}", republish_result);
+                    debug!("RepublishProvider result: {:?}", republish_result);
                     true
                 }
                 QueryResult::GetClosestPeers(_) => {
@@ -218,13 +219,13 @@ fn handle_outbound_query_progressed<D: NetabaseDefinitionTrait + RecordStoreExt 
                 }
                 QueryResult::RepublishRecord(republish_result) => {
                     // Handle republish record results if needed
-                    println!("RepublishRecord result: {:?}", republish_result);
+                    debug!("RepublishRecord result: {:?}", republish_result);
                     true
                 }
             };
 
             if !sent {
-                eprintln!(
+                warn!(
                     "Failed to send result for query {:?} - channel type mismatch",
                     id
                 );

@@ -1,4 +1,5 @@
 use libp2p::{StreamProtocol, Swarm};
+use log::{debug, info, warn, error};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 use tokio::sync::oneshot::Sender;
 
@@ -30,7 +31,7 @@ pub(crate) fn handle_protocol_names<D: NetabaseDefinitionTrait + RecordStoreExt 
     <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send, {
-    println!("ProtocolNames command received");
+    debug!("ProtocolNames command received");
 
     // Call the libp2p Kademlia API
     let protocol_names = swarm.behaviour().kad.protocol_names();
@@ -38,9 +39,9 @@ pub(crate) fn handle_protocol_names<D: NetabaseDefinitionTrait + RecordStoreExt 
     // Send the first protocol name (Kademlia typically has one main protocol)
     if let Some(protocol) = protocol_names.first() {
         if let Err(_) = response_channel.send(protocol.clone()) {
-            println!("Failed to send ProtocolNames response - receiver dropped");
+            debug!("Failed to send ProtocolNames response - receiver dropped");
         }
     } else {
-        println!("No protocol names available");
+        debug!("No protocol names available");
     }
 }

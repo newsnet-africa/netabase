@@ -1,4 +1,5 @@
 use libp2p::Swarm;
+use log::{debug, info, warn, error};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, NetabaseDefinitionTraitKey, RecordStoreExt};
 
 use crate::network::behaviour::NetabaseBehaviour;
@@ -29,17 +30,17 @@ pub(crate) fn handle_stop_providing<D: NetabaseDefinitionTrait + RecordStoreExt>
     <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send, {
-    println!("StopProviding command: key={:?}", key);
+    debug!("StopProviding command: key={:?}", key);
 
     // Convert NetabaseSchemaKeys to libp2p::kad::RecordKey
     match key.to_record_key() {
         Ok(record_key) => {
             // Call the libp2p Kademlia API with the converted key
             swarm.behaviour_mut().kad.stop_providing(&record_key);
-            println!("StopProviding: Provider registration stopped successfully");
+            debug!("StopProviding: Provider registration stopped successfully");
         }
         Err(conversion_error) => {
-            println!(
+            debug!(
                 "Failed to convert key to kad::RecordKey: {:?}",
                 conversion_error
             );

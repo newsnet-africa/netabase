@@ -246,7 +246,8 @@ let events3 = netabase.subscribe_to_broadcasts();
 
 ## Next Steps
 
-- Read [README.md](./README.md) for complete API reference
-- Check [ARCHITECTURE.md](./ARCHITECTURE.md) to understand internals
-- See [examples/simple_mdns_chat.rs](./examples/simple_mdns_chat.rs) for a complete app
+- **[README.md](./README.md)** - Complete API reference with advanced features
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - Deep dive into netabase internals
+- **[Macro Guide](../netabase_store/MACRO_GUIDE.md)** - Learn what the macros generate behind the scenes
+- **[examples/simple_mdns_chat.rs](./examples/simple_mdns_chat.rs)** - Complete chat app
 - Run the example: `cargo run --example simple_mdns_chat --features native`

@@ -2,6 +2,7 @@ use libp2p::{
     PeerId, Swarm,
     kad::{Addresses, EntryView, KBucketKey},
 };
+use log::{debug, info, warn, error};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 use tokio::sync::oneshot::Sender;
 
@@ -35,13 +36,13 @@ pub(crate) fn handle_remove_peer<D: NetabaseDefinitionTrait + RecordStoreExt + S
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
 {
-    println!("RemovePeer command: peer={:?}", peer);
+    debug!("RemovePeer command: peer={:?}", peer);
 
     // Call the libp2p Kademlia API
     let result = swarm.behaviour_mut().kad.remove_peer(&peer);
 
     // Send the result through the response channel
     if let Err(_) = response_channel.send(result) {
-        println!("Failed to send RemovePeer response - receiver dropped");
+        debug!("Failed to send RemovePeer response - receiver dropped");
     }
 }

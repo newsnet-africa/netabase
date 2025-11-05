@@ -1,4 +1,5 @@
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
+use log::{debug, info, warn, error};
 
 use crate::network::behaviour::clone_impl::NetabaseSwarmEvent;
 
@@ -28,7 +29,7 @@ pub fn handle_fallback_event<D: NetabaseDefinitionTrait + RecordStoreExt + Send 
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,{
     // TODO: Implement fallback event handling
-    println!("Unhandled swarm event (fallback): {:?}", event);
+    debug!("Unhandled swarm event (fallback): {:?}", event);
 
     // This handler catches any SwarmEvent variants that are not explicitly
     // handled by other specific handlers. This is useful for:
@@ -36,7 +37,7 @@ pub fn handle_fallback_event<D: NetabaseDefinitionTrait + RecordStoreExt + Send 
     // 2. Debugging and logging unhandled events
     // 3. Providing a safe fallback when the match arms are incomplete
 
-    eprintln!(
+    warn!(
         "Warning: SwarmEvent fell through to fallback handler. Consider implementing a specific handler for this event type."
     );
 }

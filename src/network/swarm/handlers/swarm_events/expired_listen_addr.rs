@@ -1,4 +1,5 @@
 use libp2p::{Multiaddr, core::transport::ListenerId};
+use log::{debug, info, warn, error};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
 pub fn handle_expired_listen_addr<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
@@ -28,7 +29,7 @@ pub fn handle_expired_listen_addr<D: NetabaseDefinitionTrait + RecordStoreExt + 
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,{
     // TODO: Implement expired listen address handling
-    println!(
+    debug!(
         "Listen address expired: listener_id: {:?}, address: {:?}",
         listener_id, address
     );

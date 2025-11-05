@@ -2,6 +2,7 @@ use libp2p::{
     Multiaddr, PeerId, Swarm,
     kad::{Addresses, EntryView, KBucketKey},
 };
+use log::{debug, info, warn, error};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 use tokio::sync::oneshot::Sender;
 
@@ -35,7 +36,7 @@ pub(crate) fn handle_remove_address<D: NetabaseDefinitionTrait + RecordStoreExt 
     <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send, {
-    println!(
+    debug!(
         "RemoveAddress command: peer={:?}, address={:?}",
         peer, address
     );
@@ -45,6 +46,6 @@ pub(crate) fn handle_remove_address<D: NetabaseDefinitionTrait + RecordStoreExt 
 
     // Send the result through the response channel
     if let Err(_) = response_channel.send(result) {
-        println!("Failed to send RemoveAddress response - receiver dropped");
+        debug!("Failed to send RemoveAddress response - receiver dropped");
     }
 }

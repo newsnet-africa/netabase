@@ -1,4 +1,5 @@
 use libp2p::Multiaddr;
+use log::{debug, info, warn, error};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
 pub fn handle_new_external_addr_candidate<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
@@ -27,7 +28,7 @@ pub fn handle_new_external_addr_candidate<D: NetabaseDefinitionTrait + RecordSto
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,{
     // TODO: Implement new external address candidate handling
-    println!("New external address candidate discovered: {:?}", address);
+    info!("New external address candidate discovered: {:?}", address);
 
     // This event is fired when the swarm discovers a potential external address
     // that could be used to reach this node from the outside network

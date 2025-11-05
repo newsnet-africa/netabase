@@ -1,4 +1,5 @@
 use libp2p::{Multiaddr, PeerId, Swarm, kad::RoutingUpdate};
+use log::{debug, info, warn, error};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 use tokio::sync::oneshot::Sender;
 
@@ -33,13 +34,13 @@ pub(crate) fn handle_add_address<D: NetabaseDefinitionTrait + RecordStoreExt + S
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
 {
-    println!("AddAddress command: peer={:?}, address={:?}", peer, address);
+    debug!("AddAddress command: peer={:?}, address={:?}", peer, address);
 
     // Call the libp2p Kademlia API
     let routing_update = swarm.behaviour_mut().kad.add_address(&peer, address);
 
     // Send the result through the response channel
     if let Err(_) = response_channel.send(routing_update) {
-        println!("Failed to send AddAddress response - receiver dropped");
+        debug!("Failed to send AddAddress response - receiver dropped");
     }
 }

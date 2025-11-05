@@ -1,4 +1,5 @@
 use libp2p::{Swarm, kad};
+use log::{debug, info, warn, error};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt, NetabaseDefinitionTraitKey};
 use tokio::sync::oneshot::Sender;
 
@@ -31,7 +32,7 @@ pub(crate) fn handle_start_providing<D: NetabaseDefinitionTrait + RecordStoreExt
     <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send, {
-    println!("StartProviding command: key={:?}", key);
+    debug!("StartProviding command: key={:?}", key);
 
     // Convert NetabaseSchemaKeys to libp2p::kad::RecordKey
     match key.to_record_key() {
@@ -44,7 +45,7 @@ pub(crate) fn handle_start_providing<D: NetabaseDefinitionTrait + RecordStoreExt
                         query_id,
                         response_channel,
                     );
-                    println!(
+                    debug!(
                         "StartProviding: Query started with ID {:?}, response will be sent via event loop",
                         query_id
                     );
@@ -52,19 +53,19 @@ pub(crate) fn handle_start_providing<D: NetabaseDefinitionTrait + RecordStoreExt
                 Err(store_error) => {
                     // Send the error immediately
                     if let Err(_) = response_channel.send(Err(store_error)) {
-                        println!("Failed to send StartProviding error response - receiver dropped");
+                        debug!("Failed to send StartProviding error response - receiver dropped");
                     }
                 }
             }
         }
         Err(conversion_error) => {
-            println!(
+            debug!(
                 "Failed to convert key to kad::RecordKey: {:?}",
                 conversion_error
             );
             // Convert NetabaseError to store::Error (this is a simplification)
             if let Err(_) = response_channel.send(Err(kad::store::Error::MaxRecords)) {
-                println!(
+                debug!(
                     "Failed to send StartProviding conversion error response - receiver dropped"
                 );
             }

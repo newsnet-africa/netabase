@@ -50,7 +50,9 @@ pub(crate) async fn start_swarm_loop<D: NetabaseDefinitionTrait + RecordStoreExt
     loop {
         tokio::select! {
             Some(command) = command_event_listener.recv() => {
+                eprintln!("[SWARM_LOOP] Received command, dispatching to handler");
                 handle_command_events(&mut swarm, command);
+                eprintln!("[SWARM_LOOP] Command handling completed");
             },
             Some(event) = swarm.next() => {
                 let event = NetabaseSwarmEvent(event);

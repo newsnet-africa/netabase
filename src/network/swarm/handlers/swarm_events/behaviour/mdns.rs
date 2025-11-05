@@ -1,5 +1,6 @@
 use libp2p::{Multiaddr, PeerId, Swarm, mdns::Event as MdnsEvent};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
+use log::{info, warn};
 
 use crate::network::{behaviour::NetabaseBehaviour, config::NetabaseConfig};
 
@@ -74,7 +75,7 @@ fn handle_discovered<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync +
     if config.dht_discovery.mdns_discovery.auto_connect.is_some() {
         for (peer_id, multiaddr) in peer_addresses {
             let peer_short = format!("{}", peer_id).chars().take(8).collect::<String>();
-            println!("🔍 Discovered peer {} via mDNS\n", peer_short);
+            info!("🔍 Discovered peer {} via mDNS", peer_short);
             // Add the peer to Kademlia routing table
             swarm
                 .behaviour_mut()
@@ -82,20 +83,20 @@ fn handle_discovered<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync +
                 .add_address(peer_id, multiaddr.clone());
             // Dial the peer to establish connection
             if let Err(e) = swarm.dial(*peer_id) {
-                eprintln!("Failed to dial mDNS peer {}: {:?}", peer_id, e);
+                warn!("Failed to dial mDNS peer {}: {:?}", peer_id, e);
             }
 
             // Bootstrap after discovering peers to join the DHT network
             if !peer_addresses.is_empty()
                 && let Err(e) = swarm.behaviour_mut().kad.bootstrap()
             {
-                eprintln!("Failed to bootstrap Kademlia: {:?}", e);
+                warn!("Failed to bootstrap Kademlia: {:?}", e);
             } else {
-                println!("Bootstrapped!")
+                info!("Bootstrapped!")
             }
 
             if let Err(e) = swarm.dial(*peer_id) {
-                eprintln!("Failed to dial mDNS peer {}: {:?}", peer_id, e);
+                warn!("Failed to dial mDNS peer {}: {:?}", peer_id, e);
             }
         }
 
@@ -103,9 +104,9 @@ fn handle_discovered<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync +
         if !peer_addresses.is_empty()
             && let Err(e) = swarm.behaviour_mut().kad.bootstrap()
         {
-            eprintln!("Failed to bootstrap Kademlia: {:?}", e);
+            warn!("Failed to bootstrap Kademlia: {:?}", e);
         } else {
-            println!("Bootstrapped!")
+            info!("Bootstrapped!")
         }
     }
 }

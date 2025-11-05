@@ -1,4 +1,5 @@
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
+use log::{debug, info, warn, error};
 
 use super::Command;
 
@@ -30,7 +31,7 @@ pub(crate) fn handle_fallback_command<D: NetabaseDefinitionTrait + RecordStoreEx
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
 {
     // TODO: Handle any unmatched command events or implement proper error handling
-    println!("Fallback command handler: unhandled command={:?}", command);
+    debug!("Fallback command handler: unhandled command={:?}", command);
 
     // This handler catches any commands that don't match the specific handlers
     // In the future, this could log errors, send default responses, or implement

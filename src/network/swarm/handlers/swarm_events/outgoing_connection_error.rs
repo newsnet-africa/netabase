@@ -1,4 +1,5 @@
 use libp2p::PeerId;
+use log::{debug, info, warn, error};
 use libp2p::swarm::{ConnectionId, DialError};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
@@ -30,14 +31,14 @@ pub fn handle_outgoing_connection_error<D: NetabaseDefinitionTrait + RecordStore
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,{
     // TODO: Implement outgoing connection error handling
-    println!(
+    debug!(
         "Outgoing connection error: connection_id: {:?}, error: {:?}",
         connection_id, error
     );
 
     if let Some(peer) = &peer_id {
-        println!("Error occurred while connecting to peer: {:?}", peer);
+        debug!("Error occurred while connecting to peer: {:?}", peer);
     } else {
-        println!("Error occurred while dialing unknown peer");
+        debug!("Error occurred while dialing unknown peer");
     }
 }

@@ -6,6 +6,7 @@ use libp2p::{
         store::RecordStore,
     },
 };
+use log::{debug, info, warn, error};
 #[cfg(feature = "native")]
 use netabase_store::traits::{convert::ToIVec, definition::{NetabaseDefinitionTrait, RecordStoreExt}};
 #[cfg(feature = "native")]
@@ -198,6 +199,10 @@ where
         limit: Option<usize>,
         response_channel: Sender<Result<Vec<D>, String>>,
     },
+    PutRecordLocally {
+        record: D,
+        response_channel: Sender<Result<(), String>>,
+    },
 }
 
 #[cfg(feature = "native")]
@@ -334,6 +339,7 @@ pub(crate) fn handle_kademlia_command<D: NetabaseDefinitionTrait + RecordStoreEx
             stop_providing::handle_stop_providing(swarm, key);
         }
         KademliaCommand::LocalStore(local_store_command) => {
+            eprintln!("[DISPATCH] LocalStore command dispatching to handler");
             handle_local_store_command(swarm, local_store_command);
         }
     }
@@ -374,12 +380,16 @@ pub(crate) fn handle_local_store_command<
             limit,
             response_channel,
         } => {
+            eprintln!("[HANDLER] QueryRecords command received");
             // Access the Kademlia store directly
             let store = swarm.behaviour_mut().kad.store_mut();
 
             // Collect records from the store
             let mut records = Vec::new();
             let mut count = 0;
+
+            let total_records = store.records().count();
+            eprintln!("[HANDLER] Querying local store - total records available: {}", total_records);
 
             for record in store.records() {
                 if let Some(max_count) = limit
@@ -388,21 +398,58 @@ pub(crate) fn handle_local_store_command<
                     break;
                 }
 
+                eprintln!("[HANDLER] Processing record with key: {:?}, value length: {}", record.key, record.value.len());
+
                 // Try to decode the record value
                 // Convert Vec<u8> to IVec - use owned conversion
                 let ivec = record.value.as_slice().to_vec().into();
                 match D::from_ivec(&ivec) {
                     Ok(definition) => {
+                        eprintln!("[HANDLER] Successfully decoded record");
                         records.push(definition);
                         count += 1;
                     }
                     Err(e) => {
-                        eprintln!("Failed to decode record: {}", e);
+                        eprintln!("[HANDLER] Failed to decode record: {}", e);
                     }
                 }
             }
 
+            eprintln!("[HANDLER] Returning {} decoded records out of {} total", records.len(), total_records);
             let _ = response_channel.send(Ok(records));
+        }
+        LocalStoreCommand::PutRecordLocally {
+            record,
+            response_channel,
+        } => {
+            eprintln!("[HANDLER] PutRecordLocally command received");
+            // Access the Kademlia store directly
+            let store = swarm.behaviour_mut().kad.store_mut();
+
+            // Convert the record using the built-in to_record method
+            match record.to_record() {
+                Ok(libp2p_record) => {
+                    eprintln!("[HANDLER] Storing record locally with key: {:?}", libp2p_record.key);
+                    // Store the record directly to local store
+                    match store.put(libp2p_record.clone()) {
+                        Ok(_) => {
+                            eprintln!("[HANDLER] Successfully stored record to local Kademlia store");
+                            // Verify it was stored
+                            let count = store.records().count();
+                            eprintln!("[HANDLER] Total records in store after put: {}", count);
+                            let _ = response_channel.send(Ok(()));
+                        }
+                        Err(e) => {
+                            eprintln!("[HANDLER] Failed to store record: {:?}", e);
+                            let _ = response_channel.send(Err(format!("Failed to store record: {:?}", e)));
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("[HANDLER] Failed to convert record: {:?}", e);
+                    let _ = response_channel.send(Err(format!("Failed to convert record: {:?}", e)));
+                }
+            }
         }
     }
 }

@@ -1,4 +1,5 @@
 use libp2p::{Swarm, kad::QueryResult};
+use log::{debug, info, warn, error};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt, NetabaseDefinitionTraitKey};
 use tokio::sync::oneshot::Sender;
 
@@ -32,7 +33,7 @@ pub(crate) fn handle_get_providers<D: NetabaseDefinitionTrait + RecordStoreExt>(
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
 {
-    println!("GetProviders command: key={:?}", key);
+    debug!("GetProviders command: key={:?}", key);
 
     // Convert NetabaseSchemaKeys to libp2p::kad::RecordKey
     match key.to_record_key() {
@@ -46,13 +47,13 @@ pub(crate) fn handle_get_providers<D: NetabaseDefinitionTrait + RecordStoreExt>(
                 response_channel,
             );
 
-            println!(
+            debug!(
                 "GetProviders: Query started with ID {:?}, response will be sent via event loop",
                 query_id
             );
         }
         Err(conversion_error) => {
-            println!(
+            debug!(
                 "Failed to convert key to kad::RecordKey: {:?}",
                 conversion_error
             );
@@ -63,7 +64,7 @@ pub(crate) fn handle_get_providers<D: NetabaseDefinitionTrait + RecordStoreExt>(
                     closest_peers: vec![],
                 }));
             if let Err(_) = response_channel.send(error_result) {
-                println!(
+                debug!(
                     "Failed to send GetProviders conversion error response - receiver dropped"
                 );
             }

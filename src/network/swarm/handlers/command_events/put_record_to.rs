@@ -2,6 +2,7 @@ use libp2p::{
     PeerId, Swarm,
     kad::{QueryResult, Quorum},
 };
+use log::{debug, info, warn, error};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 use tokio::sync::oneshot::Sender;
 
@@ -36,7 +37,7 @@ pub(crate) fn handle_put_record_to<D: NetabaseDefinitionTrait + RecordStoreExt>(
     <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send, {
-    println!(
+    debug!(
         "PutRecordTo command: record={:?}, peers={:?}, quorum={:?}",
         record, peers, quorum
     );
@@ -57,13 +58,13 @@ pub(crate) fn handle_put_record_to<D: NetabaseDefinitionTrait + RecordStoreExt>(
                 response_channel,
             );
 
-            println!(
+            debug!(
                 "PutRecordTo: Query started with ID {:?}, response will be sent via event loop",
                 query_id
             );
         }
         Err(conversion_error) => {
-            println!(
+            debug!(
                 "Failed to convert record to kad::Record: {:?}",
                 conversion_error
             );
@@ -79,7 +80,7 @@ pub(crate) fn handle_put_record_to<D: NetabaseDefinitionTrait + RecordStoreExt>(
                 },
             }));
             if let Err(_) = response_channel.send(error_result) {
-                println!("Failed to send PutRecordTo conversion error response - receiver dropped");
+                debug!("Failed to send PutRecordTo conversion error response - receiver dropped");
             }
         }
     }

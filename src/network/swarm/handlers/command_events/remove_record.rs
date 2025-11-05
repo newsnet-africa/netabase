@@ -1,4 +1,5 @@
 use libp2p::Swarm;
+use log::{debug, info, warn, error};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt, NetabaseDefinitionTraitKey};
 
 use crate::network::behaviour::NetabaseBehaviour;
@@ -30,17 +31,17 @@ pub(crate) fn handle_remove_record<D: NetabaseDefinitionTrait + RecordStoreExt>(
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
 {
-    println!("RemoveRecord command: key={:?}", key);
+    debug!("RemoveRecord command: key={:?}", key);
 
     // Convert NetabaseSchemaKeys to libp2p::kad::RecordKey
     match key.to_record_key() {
         Ok(record_key) => {
             // Call the libp2p Kademlia API with the converted key
             swarm.behaviour_mut().kad.remove_record(&record_key);
-            println!("RemoveRecord: Record removal requested successfully");
+            debug!("RemoveRecord: Record removal requested successfully");
         }
         Err(conversion_error) => {
-            println!(
+            debug!(
                 "Failed to convert key to kad::RecordKey: {:?}",
                 conversion_error
             );

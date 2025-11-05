@@ -1,4 +1,5 @@
 use libp2p::{Multiaddr, core::transport::ListenerId};
+use log::{debug, info, warn, error};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
 pub fn handle_listener_closed<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
@@ -29,17 +30,17 @@ pub fn handle_listener_closed<D: NetabaseDefinitionTrait + RecordStoreExt + Send
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,{
     // TODO: Implement listener closed handling
-    println!(
+    debug!(
         "Listener closed: listener_id: {:?}, addresses: {:?}",
         listener_id, &addresses
     );
 
     match reason {
         Ok(()) => {
-            println!("Listener closed gracefully");
+            debug!("Listener closed gracefully");
         }
         Err(error) => {
-            println!("Listener closed due to error: {:?}", error);
+            debug!("Listener closed due to error: {:?}", error);
         }
     }
 }

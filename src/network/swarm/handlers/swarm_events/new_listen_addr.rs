@@ -1,5 +1,6 @@
 use libp2p::{Multiaddr, core::transport::ListenerId};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
+use log::info;
 
 pub fn handle_new_listen_addr<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
     _listener_id: ListenerId,
@@ -27,5 +28,5 @@ pub fn handle_new_listen_addr<D: NetabaseDefinitionTrait + RecordStoreExt + Send
     <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,{
-    println!("🎧 Listening on {}", address);
+    info!("🎧 Listening on {}", address);
 }

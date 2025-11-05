@@ -2,6 +2,7 @@ use libp2p::{
     Swarm,
     kad::{NoKnownPeers, QueryResult},
 };
+use log::{debug, info, warn, error};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 use tokio::sync::oneshot::Sender;
 
@@ -35,14 +36,14 @@ pub(crate) fn handle_bootstrap<D: NetabaseDefinitionTrait + RecordStoreExt + Sen
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
 {
-    println!("Bootstrap command received");
+    debug!("Bootstrap command received");
 
     // Call the libp2p Kademlia API
     match swarm.behaviour_mut().kad.bootstrap() {
         Ok(query_id) => {
             // Store the response channel for when the query completes
             store_query_response_channel(query_id, response_channel);
-            println!(
+            debug!(
                 "Bootstrap: Query started with ID {:?}, response will be sent via event loop",
                 query_id
             );
@@ -50,7 +51,7 @@ pub(crate) fn handle_bootstrap<D: NetabaseDefinitionTrait + RecordStoreExt + Sen
         Err(no_known_peers) => {
             // Send the error immediately
             if let Err(_) = response_channel.send(Err(no_known_peers)) {
-                println!("Failed to send Bootstrap error response - receiver dropped");
+                debug!("Failed to send Bootstrap error response - receiver dropped");
             }
         }
     }

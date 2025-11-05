@@ -1,4 +1,5 @@
 use libp2p::Multiaddr;
+use log::{debug, info, warn, error};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
 pub fn handle_external_addr_expired<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
@@ -27,7 +28,7 @@ pub fn handle_external_addr_expired<D: NetabaseDefinitionTrait + RecordStoreExt 
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,{
     // TODO: Implement external address expired handling
-    println!("External address expired: {:?}", address);
+    debug!("External address expired: {:?}", address);
 
     // This event is fired when a previously confirmed external address
     // is no longer valid and has expired, meaning it can no longer be used

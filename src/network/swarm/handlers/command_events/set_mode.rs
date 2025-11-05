@@ -1,4 +1,5 @@
 use libp2p::{Swarm, kad::Mode};
+use log::{debug, info, warn, error};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
 use crate::network::behaviour::NetabaseBehaviour;
@@ -29,12 +30,12 @@ pub(crate) fn handle_set_mode<D: NetabaseDefinitionTrait + RecordStoreExt + Send
     <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send, {
-    println!("SetMode command: mode={:?}", mode);
+    debug!("SetMode command: mode={:?}", mode);
 
     // Call the libp2p Kademlia API
     swarm.behaviour_mut().kad.set_mode(mode);
 
-    println!("SetMode: Mode updated successfully");
+    debug!("SetMode: Mode updated successfully");
 
     // Note: This command doesn't have a response channel as it's fire-and-forget
 }

@@ -1,4 +1,5 @@
 use libp2p::{Swarm, kad};
+use log::{debug, info, warn, error};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 use tokio::sync::oneshot::Sender;
 
@@ -54,7 +55,7 @@ pub(crate) fn handle_put_record<D: NetabaseDefinitionTrait + RecordStoreExt>(
             }
         }
         Err(conversion_error) => {
-            eprintln!(
+            warn!(
                 "Failed to convert record to kad::Record: {:?}",
                 conversion_error
             );

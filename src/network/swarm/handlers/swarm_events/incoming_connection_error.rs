@@ -1,4 +1,5 @@
 use libp2p::Multiaddr;
+use log::{debug, info, warn, error};
 use libp2p::PeerId;
 use libp2p::swarm::{ConnectionId, ListenError};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
@@ -34,12 +35,12 @@ pub fn handle_incoming_connection_error<D: NetabaseDefinitionTrait + RecordStore
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
 {
     // TODO: Implement incoming connection error handling
-    println!(
+    debug!(
         "Incoming connection error: connection_id: {:?}, local_addr: {:?}, send_back_addr: {:?}, error: {:?}",
         connection_id, local_addr, send_back_addr, error
     );
 
     if let Some(peer) = &peer_id {
-        println!("Error occurred with peer: {:?}", peer);
+        debug!("Error occurred with peer: {:?}", peer);
     }
 }

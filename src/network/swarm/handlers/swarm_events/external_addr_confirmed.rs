@@ -1,4 +1,5 @@
 use libp2p::Multiaddr;
+use log::{debug, info, warn, error};
 use netabase_store::traits::definition::{NetabaseDefinitionTrait, RecordStoreExt};
 
 pub fn handle_external_addr_confirmed<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>(
@@ -27,7 +28,7 @@ pub fn handle_external_addr_confirmed<D: NetabaseDefinitionTrait + RecordStoreEx
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
     <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,{
     // TODO: Implement external address confirmed handling
-    println!("External address confirmed: {:?}", address);
+    debug!("External address confirmed: {:?}", address);
 
     // This event is fired when an external address candidate has been confirmed
     // as a valid external address that can be used to reach this node

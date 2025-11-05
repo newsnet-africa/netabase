@@ -128,7 +128,7 @@
 //!
 //! // Secondary key queries
 //! let users_by_email = user_tree.get_by_secondary_key(
-//!     UserSecondaryKeys::Email(EmailSecondaryKey("some@email.com".to_string()))
+//!     UserSecondaryKeys::Email(UserEmailSecondaryKey("some@email.com".to_string()))
 //! ).unwrap();
 //! assert_eq!(users_by_email.len(), 1);
 //! ```
@@ -141,6 +141,7 @@
 //! use netabase::Netabase;
 //! use netabase_store::*;
 //! use netabase_store::traits::model::NetabaseModelTrait;
+//! use log::{debug, info, warn};
 //!
 //! /// Example definition module for testing netabase functionality
 //! #[netabase_definition_module(TestDefinition, TestDefinitionKeys)]
@@ -193,7 +194,7 @@
 //!     loop {
 //!         match timeout(duration, receiver.recv()).await {
 //!             Ok(Ok(event)) => {
-//!                 println!("Network event: {:?}", event);
+//!                 debug!("Network event: {:?}", event);
 //!             }
 //!             Ok(Err(_closed)) => {
 //!                 // channel closed
@@ -201,7 +202,7 @@
 //!             }
 //!             Err(_) => {
 //!                 // timeout elapsed
-//!                 println!("No event received for {}s — timing out", duration.as_secs());
+//!                 debug!("No event received for {}s — timing out", duration.as_secs());
 //!                 break; // or continue, or handle timeout
 //!             }
 //!         }
@@ -292,6 +293,7 @@ pub use network::behaviour::clone_impl::NetabaseSwarmEvent;
 
 #[cfg(feature = "native")]
 use libp2p::kad::QueryResult;
+use log::{debug, info, warn, error};
 use netabase_store::traits::{
     definition::{NetabaseDefinitionTrait, RecordStoreExt},
     model::{NetabaseModelTrait, NetabaseModelTraitKey},
@@ -376,6 +378,7 @@ pub struct Netabase<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync>
 where
     D: netabase_store::convert::ToIVec,
     <D as strum::IntoDiscriminant>::Discriminant: netabase_store::traits::definition::NetabaseDiscriminant,
+    <<D as netabase_store::traits::definition::NetabaseDefinitionTrait>::Keys as strum::IntoDiscriminant>::Discriminant: netabase_store::traits::definition::NetabaseKeyDiscriminant,
 {
     config: NetabaseConfig,
     /// Handle to the background swarm task
@@ -406,6 +409,7 @@ where
     D: netabase_store::traits::convert::ToIVec,
     D::Keys: netabase_store::traits::convert::ToIVec,
     <D as strum::IntoDiscriminant>::Discriminant: netabase_store::traits::definition::NetabaseDiscriminant,
+    <<D as netabase_store::traits::definition::NetabaseDefinitionTrait>::Keys as strum::IntoDiscriminant>::Discriminant: netabase_store::traits::definition::NetabaseKeyDiscriminant,
 {
     /// Create a new Netabase instance with default settings.
     ///
@@ -427,6 +431,7 @@ where
     /// ```rust,no_run
     /// use netabase::Netabase;
     /// use netabase_store::netabase_definition_module;
+    /// use log::{debug, info, warn};
     ///
     /// #[netabase_definition_module(MyDefinition, MyKeys)]
     /// mod my_definition {
@@ -663,6 +668,7 @@ where
     /// ```rust,no_run
     /// use netabase::Netabase;
     /// use netabase_store::netabase_definition_module;
+    /// use log::{debug, info, warn};
     ///
     /// #[netabase_definition_module(MyDefinition, MyKeys)]
     /// mod my_definition {
@@ -754,6 +760,7 @@ where
     /// ```rust,no_run
     /// use netabase::Netabase;
     /// use netabase_store::netabase_definition_module;
+    /// use log::{debug, info, warn};
     ///
     /// #[netabase_definition_module(MyDefinition, MyKeys)]
     /// mod my_definition {
@@ -829,6 +836,7 @@ where
     /// ```rust,no_run
     /// use netabase::Netabase;
     /// use netabase_store::netabase_definition_module;
+    /// use log::{debug, info, warn};
     ///
     /// #[netabase_definition_module(MyDefinition, MyKeys)]
     /// mod my_definition {
@@ -857,7 +865,7 @@ where
     /// // Monitor network events in a background task
     /// tokio::spawn(async move {
     ///     while let Ok(event) = receiver.recv().await {
-    ///         println!("Network event: {:?}", event);
+    ///         debug!("Network event: {:?}", event);
     ///     }
     /// });
     /// # Ok(())
@@ -916,6 +924,7 @@ where
     /// # use netabase_store::netabase_definition_module;
     /// # use netabase_store::traits::model::NetabaseModelTrait;
     /// # use libp2p::kad::QueryResult;
+    /// # use log::{debug, info, warn};
     /// #
     /// # #[netabase_definition_module(MyDefinition, MyKeys)]
     /// # mod my_definition {
@@ -945,8 +954,8 @@ where
     /// };
     ///
     /// match netabase.put_record(user).await {
-    ///     Ok(result) => println!("Stored successfully: {:?}", result),
-    ///     Err(e) => eprintln!("Storage failed: {}", e),
+    ///     Ok(result) => debug!("Stored successfully: {:?}", result),
+    ///     Err(e) => warn!("Storage failed: {}", e),
     /// }
     /// # Ok(())
     /// # }
@@ -1045,6 +1054,7 @@ where
     /// # use netabase_store::netabase_definition_module;
     /// # use netabase_store::traits::model::NetabaseModelTrait;
     /// # use libp2p::kad::QueryResult;
+    /// # use log::{debug, info, warn};
     /// #
     /// # #[netabase_definition_module(MyDefinition, MyKeys)]
     /// # mod my_definition {
@@ -1068,8 +1078,8 @@ where
     /// # netabase.start_swarm().await.unwrap();
     /// # let user_key = UserKey::Primary(UserPrimaryKey(1));
     /// match netabase.get_record(user_key).await {
-    ///     Ok(result) => println!("Query completed: {:?}", result),
-    ///     Err(e) => eprintln!("Query failed: {}", e),
+    ///     Ok(result) => debug!("Query completed: {:?}", result),
+    ///     Err(e) => warn!("Query failed: {}", e),
     /// }
     /// # Ok(())
     /// # }
@@ -1130,6 +1140,7 @@ where
     /// # use netabase_store::netabase_definition_module;
     /// # use netabase_store::traits::model::NetabaseModelTrait;
     /// # use libp2p::kad::QueryResult;
+    /// # use log::{debug, info, warn};
     /// #
     /// # #[netabase_definition_module(MyDefinition, MyKeys)]
     /// # mod my_definition {
@@ -1153,8 +1164,8 @@ where
     /// # netabase.start_swarm().await.unwrap();
     /// # let user_key = UserKey::Primary(UserPrimaryKey(1));
     /// match netabase.get_providers(user_key).await {
-    ///     Ok(result) => println!("Query completed: {:?}", result),
-    ///     Err(e) => eprintln!("Provider query failed: {}", e),
+    ///     Ok(result) => debug!("Query completed: {:?}", result),
+    ///     Err(e) => warn!("Provider query failed: {}", e),
     /// }
     /// # Ok(())
     /// # }
@@ -1216,6 +1227,7 @@ where
     /// # use netabase_store::netabase_definition_module;
     /// # use netabase_store::traits::model::NetabaseModelTrait;
     /// # use libp2p::kad::QueryResult;
+    /// # use log::{debug, info, warn};
     /// #
     /// # #[netabase_definition_module(MyDefinition, MyKeys)]
     /// # mod my_definition {
@@ -1245,10 +1257,10 @@ where
     /// let user_key = UserKey::Primary(UserPrimaryKey(1));
     /// match netabase.start_providing(user_key).await {
     ///     Ok(_) => {
-    ///         println!("Now providing the key");
+    ///         debug!("Now providing the key");
     ///         // Other nodes can now discover us as a provider
     ///     }
-    ///     Err(e) => eprintln!("Failed to start providing: {}", e),
+    ///     Err(e) => warn!("Failed to start providing: {}", e),
     /// }
     /// # Ok(())
     /// # }
@@ -1302,6 +1314,7 @@ where
     /// # use netabase::Netabase;
     /// # use netabase_store::netabase_definition_module;
     /// # use netabase_store::traits::model::NetabaseModelTrait;
+    /// # use log::{debug, info, warn};
     /// #
     /// # #[netabase_definition_module(MyDefinition, MyKeys)]
     /// # mod my_definition {
@@ -1329,7 +1342,7 @@ where
     ///
     /// // Later, stop providing it
     /// netabase.stop_providing(user_key).await.unwrap();
-    /// println!("No longer providing this key");
+    /// debug!("No longer providing this key");
     /// # Ok(())
     /// # }
     /// ```
@@ -1385,6 +1398,7 @@ where
     /// # use netabase::Netabase;
     /// # use netabase_store::netabase_definition_module;
     /// # use libp2p::kad::QueryResult;
+    /// # use log::{debug, info, warn};
     /// # use libp2p::{Multiaddr, PeerId};
     /// #
     /// # #[netabase_definition_module(MyDefinition, MyKeys)]
@@ -1418,14 +1432,14 @@ where
     /// match netabase.bootstrap().await {
     ///     Ok(QueryResult::Bootstrap(Ok(result))) => {
     ///         if result.num_remaining == 0 {
-    ///             println!("Successfully joined the DHT network");
+    ///             debug!("Successfully joined the DHT network");
     ///         } else {
-    ///             println!("Bootstrap in progress, {} peers remaining", result.num_remaining);
+    ///             debug!("Bootstrap in progress, {} peers remaining", result.num_remaining);
     ///         }
     ///     }
-    ///     Ok(QueryResult::Bootstrap(Err(e))) => eprintln!("Bootstrap failed: {:?}", e),
-    ///     Ok(_) => println!("Unexpected result"),
-    ///     Err(e) => eprintln!("Bootstrap error: {}", e),
+    ///     Ok(QueryResult::Bootstrap(Err(e))) => warn!("Bootstrap failed: {:?}", e),
+    ///     Ok(_) => debug!("Unexpected result"),
+    ///     Err(e) => warn!("Bootstrap error: {}", e),
     /// }
     /// # Ok(())
     /// # }
@@ -1487,6 +1501,7 @@ where
     /// use netabase_store::traits::definition::NetabaseDefinitionTrait;
     /// use netabase_store::{bincode, serde}; // Re-exported for convenience
     /// use libp2p::{PeerId, Multiaddr};
+    /// use log::{debug, info, warn};
     ///
     /// // Define your data models
     /// #[netabase_definition_module(BlogDefinition, BlogKeys)]
@@ -1514,8 +1529,8 @@ where
     ///     let address: Multiaddr = "/ip4/192.168.1.100/tcp/4001".parse().unwrap();
     ///
     ///     match netabase.add_address(peer_id, address).await {
-    ///         Ok(update) => println!("Routing table updated: {:?}", update),
-    ///         Err(e) => eprintln!("Failed to add address: {}", e),
+    ///         Ok(update) => debug!("Routing table updated: {:?}", update),
+    ///         Err(e) => warn!("Failed to add address: {}", e),
     ///     }
     /// }
     /// ```
@@ -1567,6 +1582,7 @@ where
     /// # use netabase::Netabase;
     /// # use netabase_store::netabase_definition_module;
     /// # use libp2p::{PeerId, Multiaddr};
+    /// # use log::{debug, info, warn};
     /// #
     /// # #[netabase_definition_module(MyDefinition, MyKeys)]
     /// # mod my_definition {
@@ -1592,9 +1608,9 @@ where
     /// let old_address: Multiaddr = "/ip4/192.168.1.100/tcp/4001".parse().unwrap();
     ///
     /// match netabase.remove_address(peer_id, old_address).await {
-    ///     Ok(Some(entry)) => println!("Address removed, peer still has addresses"),
-    ///     Ok(None) => println!("Address removed, peer completely removed from routing table"),
-    ///     Err(e) => eprintln!("Failed to remove address: {}", e),
+    ///     Ok(Some(entry)) => debug!("Address removed, peer still has addresses"),
+    ///     Ok(None) => debug!("Address removed, peer completely removed from routing table"),
+    ///     Err(e) => warn!("Failed to remove address: {}", e),
     /// }
     /// # Ok(())
     /// # }
@@ -1657,6 +1673,7 @@ where
     /// # use netabase::Netabase;
     /// # use netabase_store::netabase_definition_module;
     /// # use libp2p::PeerId;
+    /// # use log::{debug, info, warn};
     /// #
     /// # #[netabase_definition_module(MyDefinition, MyKeys)]
     /// # mod my_definition {
@@ -1682,10 +1699,10 @@ where
     ///
     /// match netabase.remove_peer(problematic_peer).await {
     ///     Ok(Some(entry)) => {
-    ///         println!("Removed peer from routing table");
+    ///         debug!("Removed peer from routing table");
     ///     }
-    ///     Ok(None) => println!("Peer was not in routing table"),
-    ///     Err(e) => eprintln!("Failed to remove peer: {}", e),
+    ///     Ok(None) => debug!("Peer was not in routing table"),
+    ///     Err(e) => warn!("Failed to remove peer: {}", e),
     /// }
     /// # Ok(())
     /// # }
@@ -1744,6 +1761,7 @@ where
     /// ```rust,no_run
     /// # use netabase::Netabase;
     /// # use netabase_store::netabase_definition_module;
+    /// # use log::{debug, info, warn};
     /// #
     /// # #[netabase_definition_module(MyDefinition, MyKeys)]
     /// # mod my_definition {
@@ -1767,12 +1785,12 @@ where
     /// # netabase.start_swarm().await.unwrap();
     /// match netabase.get_mode().await {
     ///     Ok(libp2p::kad::Mode::Client) => {
-    ///         println!("Operating in client mode");
+    ///         debug!("Operating in client mode");
     ///     }
     ///     Ok(libp2p::kad::Mode::Server) => {
-    ///         println!("Operating in server mode");
+    ///         debug!("Operating in server mode");
     ///     }
-    ///     Err(e) => eprintln!("Failed to get mode: {}", e),
+    ///     Err(e) => warn!("Failed to get mode: {}", e),
     /// }
     /// # Ok(())
     /// # }
@@ -1820,6 +1838,7 @@ where
     /// # use netabase::Netabase;
     /// # use netabase_store::netabase_definition_module;
     /// # use libp2p::kad::Mode;
+    /// # use log::{debug, info, warn};
     /// #
     /// # #[netabase_definition_module(MyDefinition, MyKeys)]
     /// # mod my_definition {
@@ -1843,15 +1862,15 @@ where
     /// # netabase.start_swarm().await.unwrap();
     /// // Switch to server mode for full participation
     /// netabase.set_mode(Some(Mode::Server)).await.unwrap();
-    /// println!("Now running in server mode");
+    /// debug!("Now running in server mode");
     ///
     /// // Switch to client mode for lower resource usage
     /// netabase.set_mode(Some(Mode::Client)).await.unwrap();
-    /// println!("Now running in client mode");
+    /// debug!("Now running in client mode");
     ///
     /// // Let the system choose automatically
     /// netabase.set_mode(None).await.unwrap();
-    /// println!("Using automatic mode selection");
+    /// debug!("Using automatic mode selection");
     /// # Ok(())
     /// # }
     /// ```
@@ -1886,6 +1905,7 @@ where
     /// ```rust,no_run
     /// # use netabase::Netabase;
     /// # use netabase_store::netabase_definition_module;
+    /// # use log::{debug, info, warn};
     /// #
     /// # #[netabase_definition_module(MyDefinition, MyKeys)]
     /// # mod my_definition {
@@ -1909,9 +1929,9 @@ where
     /// # netabase.start_swarm().await.unwrap();
     /// match netabase.get_protocol_names().await {
     ///     Ok(protocol) => {
-    ///         println!("Using protocol: {:?}", protocol);
+    ///         debug!("Using protocol: {:?}", protocol);
     ///     }
-    ///     Err(e) => eprintln!("Failed to get protocol: {}", e),
+    ///     Err(e) => warn!("Failed to get protocol: {}", e),
     /// }
     /// # Ok(())
     /// # }
@@ -1959,6 +1979,7 @@ where
     /// # use netabase::Netabase;
     /// # use netabase_store::netabase_definition_module;
     /// # use netabase_store::traits::model::NetabaseModelTrait;
+    /// # use log::{debug, info, warn};
     /// #
     /// # #[netabase_definition_module(MyDefinition, MyKeys)]
     /// # mod my_definition {
@@ -1983,8 +2004,8 @@ where
     /// # let user_key = UserKey::Primary(UserPrimaryKey(1));
     /// // Remove from local storage
     /// match netabase.remove_record(user_key).await {
-    ///     Ok(()) => println!("Record removed from local storage"),
-    ///     Err(e) => eprintln!("Failed to remove record: {}", e),
+    ///     Ok(()) => debug!("Record removed from local storage"),
+    ///     Err(e) => warn!("Failed to remove record: {}", e),
     /// }
     ///
     /// // Note: Other nodes may still have this record
@@ -2032,6 +2053,7 @@ where
     /// ```rust,no_run
     /// # use netabase::Netabase;
     /// # use netabase_store::netabase_definition_module;
+    /// # use log::{debug, info, warn};
     /// #
     /// # #[netabase_definition_module(MyDefinition, MyKeys)]
     /// # mod my_definition {
@@ -2056,12 +2078,12 @@ where
     /// // Get all records from local store
     /// match netabase.query_local_records(None).await {
     ///     Ok(records) => {
-    ///         println!("Found {} records in local store", records.len());
+    ///         debug!("Found {} records in local store", records.len());
     ///         for record in records {
-    ///             println!("Record: {:?}", record);
+    ///             debug!("Record: {:?}", record);
     ///         }
     ///     }
-    ///     Err(e) => eprintln!("Query failed: {}", e),
+    ///     Err(e) => warn!("Query failed: {}", e),
     /// }
     ///
     /// // Get only the first 10 records
@@ -2091,6 +2113,75 @@ where
         match response_rx.await? {
             Ok(records) => Ok(records),
             Err(e) => Err(anyhow::anyhow!("Query local records failed: {}", e)),
+        }
+    }
+
+    /// Store a record directly to the local store without publishing to the DHT.
+    ///
+    /// This method bypasses the DHT and stores the record only in the local Kademlia
+    /// store. This is useful for:
+    /// - Testing and debugging
+    /// - Caching data locally
+    /// - Pre-populating the local store
+    ///
+    /// # Parameters
+    ///
+    /// - `record`: The record to store locally
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the record was stored successfully, or an error if storage failed.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use netabase::Netabase;
+    /// use netabase_store::netabase_definition_module;
+    /// use log::{debug, info, warn};
+    ///
+    /// # #[netabase_definition_module(MyDefinition, MyKeys)]
+    /// # mod my_module {
+    /// #     use netabase_store::{NetabaseModel, netabase};
+    /// #     #[derive(NetabaseModel, Clone, bincode::Encode, bincode::Decode)]
+    /// #     #[netabase(MyDefinition)]
+    /// #     pub struct MyRecord {
+    /// #         #[primary_key]
+    /// #         pub id: String,
+    /// #         pub data: String,
+    /// #     }
+    /// # }
+    /// # use my_module::*;
+    /// # async fn example() -> anyhow::Result<()> {
+    /// let mut netabase = Netabase::<MyDefinition>::new()?;
+    /// netabase.start_swarm().await?;
+    ///
+    /// let record = MyRecord {
+    ///     id: "test-1".to_string(),
+    ///     data: "test data".to_string(),
+    /// };
+    ///
+    /// // Store locally without publishing to DHT
+    /// netabase.put_record_locally(record).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn put_record_locally(&self, record: D) -> anyhow::Result<()> {
+        let (response_tx, response_rx) = oneshot::channel();
+
+        let command = network::swarm::handlers::command_events::Command::Kademlia(
+            network::swarm::handlers::command_events::KademliaCommand::LocalStore(
+                network::swarm::handlers::command_events::LocalStoreCommand::PutRecordLocally {
+                    record,
+                    response_channel: response_tx,
+                },
+            ),
+        );
+
+        self.command_sender.send(command).await?;
+
+        match response_rx.await? {
+            Ok(_) => Ok(()),
+            Err(e) => Err(anyhow::anyhow!("Put record locally failed: {}", e)),
         }
     }
 
