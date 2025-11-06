@@ -13,6 +13,7 @@ use netabase::Netabase;
 use netabase_store::*;
 use tokio::runtime::Runtime;
 use tempfile::TempDir;
+use pprof::criterion::PProfProfiler;
 
 // Test schema for benchmarks
 #[netabase_definition_module(BenchDefinition, BenchKeys)]
@@ -201,14 +202,21 @@ fn bench_event_subscription(c: &mut Criterion) {
     });
 }
 
-criterion_group!(
-    benches,
-    bench_netabase_creation,
-    bench_swarm_lifecycle,
-    bench_local_record_storage,
-    bench_query_local_records,
-    bench_dht_put_record,
-    bench_event_subscription,
-);
+// Configure criterion with profiler support
+fn configure_criterion() -> Criterion {
+    Criterion::default()
+        .with_profiler(pprof::criterion::PProfProfiler::new(100, pprof::criterion::Output::Flamegraph(None)))
+}
+
+criterion_group! {
+    name = benches;
+    config = configure_criterion();
+    targets = bench_netabase_creation,
+        bench_swarm_lifecycle,
+        bench_local_record_storage,
+        bench_query_local_records,
+        bench_dht_put_record,
+        bench_event_subscription
+}
 
 criterion_main!(benches);
