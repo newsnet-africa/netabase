@@ -2141,7 +2141,7 @@ where
     /// # #[netabase_definition_module(MyDefinition, MyKeys)]
     /// # mod my_module {
     /// #     use netabase_store::{NetabaseModel, netabase};
-    /// #     #[derive(NetabaseModel, Clone, bincode::Encode, bincode::Decode)]
+    /// #     #[derive(NetabaseModel, Clone, Debug, bincode::Encode, bincode::Decode, serde::Serialize, serde::Deserialize)]
     /// #     #[netabase(MyDefinition)]
     /// #     pub struct MyRecord {
     /// #         #[primary_key]
@@ -2160,7 +2160,9 @@ where
     /// };
     ///
     /// // Store locally without publishing to DHT
-    /// netabase.put_record_locally(record).await?;
+    /// // Convert the model to a Definition enum
+    /// let definition: MyDefinition = record.into();
+    /// netabase.put_record_locally(definition).await?;
     /// # Ok(())
     /// # }
     /// ```

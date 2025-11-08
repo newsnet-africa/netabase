@@ -2478,7 +2478,7 @@ dependencies = [
 
 [[package]]
 name = "netabase"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2492,7 +2492,7 @@ dependencies = [
  "js-sys",
  "libp2p",
  "log",
- "netabase_deps 0.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "netabase_deps",
  "netabase_store",
  "once_cell",
  "paxakos",
@@ -2513,7 +2513,7 @@ dependencies = [
 
 [[package]]
 name = "netabase_deps"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "bincode",
  "blake3",
@@ -2526,27 +2526,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "netabase_deps"
-version = "0.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92483ee7cfc7d39826955edc175b83600c8db6ff225822993b6d7b9f814b67aa"
-dependencies = [
- "bincode",
- "derive_more",
- "serde",
- "sled",
- "strum",
-]
-
-[[package]]
 name = "netabase_macros"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "anyhow",
  "bincode",
  "derive_more",
  "heck",
- "netabase_deps 0.0.2",
+ "netabase_deps",
  "paxakos",
  "proc-macro2",
  "quote",
@@ -2559,7 +2546,7 @@ dependencies = [
 
 [[package]]
 name = "netabase_store"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2569,7 +2556,7 @@ dependencies = [
  "indexed_db_futures",
  "js-sys",
  "libp2p",
- "netabase_deps 0.0.2",
+ "netabase_deps",
  "netabase_macros",
  "redb",
  "serde",

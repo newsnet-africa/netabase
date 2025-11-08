@@ -165,9 +165,9 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-netabase = "0.0.1"
-netabase_store = "0.0.1"
-netabase_deps = "0.0.1"
+netabase = "0.0.3"
+netabase_store = "0.0.3"
+netabase_deps = "0.0.3"
 
 # Required for macros to work
 bincode = { version = "2.0", features = ["serde"] }
