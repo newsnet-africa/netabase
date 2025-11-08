@@ -729,8 +729,8 @@ This project is licensed under the GPL 3 License.
 
 ## Related Projects
 
-- [netabase_store](../netabase_store) - Type-safe storage layer
-- [gdelt_fetcher](../gdelt_fetcher) - GDELT data source integration
+- [netabase_store](https://github.com/newsnet-africa/netabase_store) - Type-safe storage layer
+- [gdelt_fetcher](https://github.com/newsnet-africa/gdelt_fetcher) - GDELT data source integration
 
 ## Contributing
 
