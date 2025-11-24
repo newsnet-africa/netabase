@@ -570,12 +570,27 @@ Netabase includes a comprehensive test suite to ensure reliability and correctne
    cargo test --test build_verification
    ```
 
-4. **WASM Compilation Tests**: Verifies WASM target compilation
+4. **Network Topology Tests**: Inter-process P2P communication tests with various network configurations
+   ```bash
+   # Run all network topology tests
+   cargo test --test network_topology_tests --features native -- --ignored --test-threads=1
+
+   # Run specific test
+   cargo test --test network_topology_tests test_two_node_basic --features native -- --ignored
+   ```
+
+   Available tests:
+   - `test_two_node_basic`: Simple two-node communication (5 messages)
+   - `test_two_node_many_messages`: Two nodes with 20 messages
+   - `test_multi_sender_single_receiver`: 3 senders, 1 receiver
+   - `test_message_content_integrity`: Verifies message content is preserved
+
+5. **WASM Compilation Tests**: Verifies WASM target compilation
    ```bash
    cargo test --test wasm_compilation
    ```
 
-5. **Benchmarks**: Performance benchmarking
+6. **Benchmarks**: Performance benchmarking
    ```bash
    cargo bench
    ```
@@ -607,6 +622,7 @@ The test suite covers:
 - ✅ **Local Storage**: Query and persistence operations
 - ✅ **Event Subscription**: Network event broadcasting
 - ✅ **Build Verification**: Examples and doctests compilation
+- ✅ **Network Topology Tests**: Inter-process P2P communication
 - ⚠️ **WASM Compilation**: Currently failing (see WASM Support section)
 
 ### CI/CD Integration
@@ -668,21 +684,21 @@ error[E0599]: no function or associated item named `from_ivec` found for type pa
 - Update WASM backends to use the generic serialization methods
 - Properly feature-gate sled-specific `IVec` usage
 
-#### 2. Feature Gating
+#### 2. Feature Gating (Resolved)
 
-**Issue**: Some features are referenced but not properly defined:
-- `feature = "memory"` - Referenced but not in Cargo.toml
-- `feature = "indexeddb"` - Referenced as "indexeddb" but defined as "indexed_db_futures"
+**Previous Issue**: Some features were referenced but not properly defined.
 
-**Resolution Needed**:
-- Add missing feature flags to Cargo.toml
-- Ensure consistent feature naming across the codebase
+**Resolution**: Feature gating has been fixed:
+- `sled`, `redb`, and `libp2p` features are now properly gated
+- The `ToIVec` trait methods are now correctly gated on `feature = "sled"` instead of `feature = "native"`
+- The `RecordStoreExt` trait is properly gated on `all(feature = "libp2p", not(target_arch = "wasm32"))`
 
 ### WASM TODO List
 
 To complete WASM support, the following tasks must be completed:
 
 - [ ] Fix storage backend serialization abstraction (see issue #1 above)
+- [x] Fix feature gating for `sled`, `redb`, and `libp2p` features (resolved)
 - [ ] Properly implement IndexedDB storage backend for WASM
 - [ ] Test WebRTC transport in WASM environment
 - [ ] Test WebSocket-WebSys transport

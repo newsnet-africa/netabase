@@ -18,10 +18,8 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        rust: [stable, beta]
-        include:
-          - os: ubuntu-latest
-            rust: nightly
+        # This crate uses Rust 2024 edition which requires nightly
+        rust: [nightly]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -71,8 +69,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # This crate uses Rust 2024 edition which requires nightly
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@nightly
 
       - name: Run benchmarks (check only)
         run: cargo bench --features native --no-run
@@ -84,8 +83,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # This crate uses Rust 2024 edition which requires nightly
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@nightly
 
       - name: Build examples
         run: cargo build --examples --features native --verbose

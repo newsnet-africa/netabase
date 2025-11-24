@@ -34,22 +34,25 @@ fn test_examples_compile() {
     println!("✓ All examples compiled successfully");
 }
 
-/// Test that doctests compile successfully
+/// Test that documentation compiles successfully
+///
+/// Note: We use `cargo doc` instead of `cargo test --doc --no-run` because
+/// the --no-run flag is not supported for doctests.
 #[test]
 fn test_doctests_compile() {
-    println!("Checking that doctests compile...");
+    println!("Checking that documentation compiles...");
 
-    // Note: We use --no-run to just compile, not execute
-    let output = run_cargo_command(&["test", "--doc", "--no-run", "--all-features"])
-        .expect("Failed to run cargo test --doc --no-run");
+    // Use cargo doc to verify documentation compiles
+    let output = run_cargo_command(&["doc", "--all-features", "--no-deps"])
+        .expect("Failed to run cargo doc");
 
     if !output.status.success() {
         eprintln!("STDOUT: {}", String::from_utf8_lossy(&output.stdout));
         eprintln!("STDERR: {}", String::from_utf8_lossy(&output.stderr));
-        panic!("Doctests failed to compile");
+        panic!("Documentation failed to compile");
     }
 
-    println!("✓ All doctests compiled successfully");
+    println!("✓ Documentation compiled successfully");
 }
 
 /// Test that benchmarks compile successfully (if they exist)

@@ -293,8 +293,15 @@ pub use network::behaviour::clone_impl::NetabaseSwarmEvent;
 
 #[cfg(feature = "native")]
 use libp2p::kad::QueryResult;
+#[cfg(feature = "native")]
 use netabase_store::traits::{
     definition::{NetabaseDefinitionTrait, RecordStoreExt},
+    model::{NetabaseModelTrait, NetabaseModelTraitKey},
+};
+
+#[cfg(not(feature = "native"))]
+use netabase_store::traits::{
+    definition::NetabaseDefinitionTrait,
     model::{NetabaseModelTrait, NetabaseModelTraitKey},
 };
 #[cfg(feature = "native")]

@@ -18,8 +18,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # This crate uses Rust 2024 edition which requires nightly
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@nightly
         with:
           components: clippy
 
@@ -54,8 +55,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # This crate uses Rust 2024 edition which requires nightly
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt
 
@@ -69,8 +71,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # This crate uses Rust 2024 edition which requires nightly
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@nightly
 
       - name: Cache cargo registry
         uses: actions/cache@v4
