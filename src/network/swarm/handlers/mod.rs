@@ -57,11 +57,8 @@ pub(crate) async fn start_swarm_loop<D: NetabaseDefinitionTrait + Send + Sync + 
                 let _ = swarm_event_sender.send(event.clone());
                 swarm_events::handle_swarm_events(config.clone(), &mut swarm, event);
 
-                // Poll outgoing Paxos queue after handling events
-                #[cfg(feature = "paxos")]
-                if let Some(paxos_behaviour) = swarm.behaviour_mut().paxos.as_mut() {
-                    paxos_behaviour.poll_outgoing();
-                }
+                // TODO: Poll outgoing Paxos queue after handling events
+                // This will be implemented when we add the request-response protocol
             },
         }
     }

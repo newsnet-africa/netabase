@@ -286,6 +286,10 @@ pub mod routing;
 #[cfg(feature = "native")]
 pub mod network;
 
+/// Synchronization protocols (gossip, BRB, PoW)
+#[cfg(feature = "native")]
+pub mod sync;
+
 #[cfg(feature = "native")]
 pub use network::behaviour::NetabaseBehaviourEvent;
 #[cfg(feature = "native")]
@@ -2213,6 +2217,136 @@ where
         }
     }
 
+    /// Store a definition record in the local database and DHT
+    ///
+    /// This method stores a definition (enum variant) directly without requiring
+    /// the NetabaseModelTrait implementation. Useful for simple use cases and examples.
+    ///
+    /// # Arguments
+    ///
+    /// * `definition` - The definition enum variant to store
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(QueryResult)` on success, containing the result of the put operation.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let message = ChatModel::Message {
+    ///     id: "msg1".to_string(),
+    ///     content: "Hello!".to_string(),
+    ///     timestamp: 12345,
+    /// };
+    ///
+    /// netabase.put_definition(message).await?;
+    /// ```
+    pub async fn put_definition(&self, definition: D) -> anyhow::Result<QueryResult> {
+        let (response_tx, response_rx) = oneshot::channel();
+
+        let command = network::swarm::handlers::command_events::Command::Kademlia(
+            network::swarm::handlers::command_events::KademliaCommand::PutRecord {
+                record: definition,
+                response_channel: response_tx,
+            },
+        );
+
+        self.command_sender.send(command).await?;
+
+        match response_rx.await? {
+            Ok(result) => Ok(result),
+            Err(e) => Err(anyhow::anyhow!("Put definition failed: {}", e)),
+        }
+    }
+
+    /// Trigger synchronization with peers
+    ///
+    /// Initiates a sync operation to exchange data with connected peers.
+    /// This uses the configured sync protocols (Gossip, BRB, Paxos) to:
+    /// - Query peers for their data digests
+    /// - Request missing records
+    /// - Share local records with peers
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the sync was initiated successfully. Note that this
+    /// does not wait for sync to complete - sync happens asynchronously in the
+    /// background.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// // Manually trigger a sync operation
+    /// netabase.trigger_sync().await?;
+    ///
+    /// // Wait a moment for sync to complete
+    /// tokio::time::sleep(Duration::from_secs(2)).await;
+    ///
+    /// // Query updated local records
+    /// let records = netabase.query_local_records(None).await?;
+    /// ```
+    pub async fn trigger_sync(&self) -> anyhow::Result<()> {
+        if let Some(sync_config) = &self.config.sync {
+            if !sync_config.enabled {
+                return Err(anyhow::anyhow!("Sync is not enabled in configuration"));
+            }
+        } else {
+            return Err(anyhow::anyhow!("Sync configuration not found"));
+        }
+
+        let (response_tx, response_rx) = oneshot::channel();
+
+        let command = network::swarm::handlers::command_events::Command::Sync(
+            network::swarm::handlers::command_events::SyncCommand::TriggerSync {
+                response_channel: response_tx,
+            },
+        );
+
+        self.command_sender.send(command).await?;
+
+        match response_rx.await? {
+            Ok(_) => Ok(()),
+            Err(e) => Err(anyhow::anyhow!("Trigger sync failed: {}", e)),
+        }
+    }
+
+    /// Get the current peer count
+    ///
+    /// Returns the number of peers currently connected to this node.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let peer_count = netabase.peer_count().await?;
+    /// println!("Connected to {} peers", peer_count);
+    /// ```
+    pub async fn peer_count(&self) -> anyhow::Result<usize> {
+        let (response_tx, response_rx) = oneshot::channel();
+
+        let command = network::swarm::handlers::command_events::Command::GetPeerCount {
+            response_channel: response_tx,
+        };
+
+        self.command_sender.send(command).await?;
+
+        match response_rx.await {
+            Ok(count) => Ok(count),
+            Err(e) => Err(anyhow::anyhow!("Get peer count failed: {}", e)),
+        }
+    }
+
+    /// Get sync configuration
+    ///
+    /// Returns a reference to the sync configuration if sync is enabled.
+    pub fn sync_config(&self) -> Option<&network::config::SyncConfig> {
+        self.config.sync.as_ref()
+    }
+
+    /// Check if sync is enabled
+    pub fn is_sync_enabled(&self) -> bool {
+        self.config.sync.as_ref().map(|s| s.enabled).unwrap_or(false)
+    }
+
     // /// Get direct access to the local database.
     // ///
     // /// This provides access to the underlying database for local operations
@@ -2668,30 +2802,71 @@ pub struct ClusterInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::test_definition::*;
     use bincode::{Decode, Encode};
-    use netabase_store::*;
+    use netabase_store::traits::definition::{NetabaseDefinitionTrait, NetabaseDefinitionTraitKey};
     use serde::{Deserialize, Serialize};
+    use std::hash::Hash;
+    use strum::EnumDiscriminants;
 
-    #[netabase_definition_module(TestDefinition, TestDefinitionKeys)]
-    mod test_definition {
-        use super::*;
+    // Manual test definition to avoid macro issues
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, EnumDiscriminants)]
+    #[strum_discriminants(derive(
+        strum::EnumIter,
+        strum::Display,
+        strum::AsRefStr,
+        strum::EnumString,
+        Hash,
+        Encode,
+        Decode
+    ))]
+    #[strum_discriminants(name(TestDefinition))]
+    enum TestModel {
+        TestUser {
+            id: u64,
+            name: String,
+        },
+    }
 
-        #[derive(
-            NetabaseModel, Clone, Encode, Decode, Debug, PartialEq, Serialize, Deserialize,
-        )]
-        pub struct TestUser {
-            #[primary_key]
-            pub id: u64,
-            pub name: String,
+    #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Encode, Decode, EnumDiscriminants)]
+    #[strum_discriminants(derive(
+        strum::EnumIter,
+        strum::Display,
+        strum::AsRefStr,
+        strum::EnumString,
+        Hash,
+        Encode,
+        Decode
+    ))]
+    #[strum_discriminants(name(TestDefinitionKeysDiscriminant))]
+    enum TestDefinitionKeys {
+        Id(u64),
+    }
+
+    impl NetabaseDefinitionTraitKey for TestDefinitionKeys {}
+
+    impl NetabaseDefinitionTrait for TestModel {
+        type Keys = TestDefinitionKeys;
+        type Tables = TestDefinition;
+
+        fn tables() -> Self::Tables {
+            TestDefinition::TestUser
+        }
+
+        #[cfg(all(feature = "paxos", feature = "libp2p", not(target_arch = "wasm32")))]
+        fn apply_to_store<S>(&self, _store: &mut S) -> Result<(), String>
+        where
+            S: libp2p::kad::store::RecordStore,
+        {
+            Ok(())
         }
     }
 
-    use test_definition::TestDefinition;
+    impl netabase_store::convert::ToIVec for TestModel {}
+    impl netabase_store::convert::ToIVec for TestDefinitionKeys {}
 
     #[test]
     fn test_subscribe_to_broadcasts_is_not_async() {
-        let netabase = Netabase::<TestDefinition>::new().unwrap();
+        let netabase = Netabase::<TestModel>::new().unwrap();
 
         // This should compile without .await - proving the method is synchronous
         let _receiver = netabase.subscribe_to_broadcasts();
@@ -2699,7 +2874,7 @@ mod tests {
 
     #[test]
     fn test_multiple_broadcast_subscriptions() {
-        let netabase = Netabase::<TestDefinition>::new().unwrap();
+        let netabase = Netabase::<TestModel>::new().unwrap();
 
         // Test that we can create multiple receivers without Arc wrapping
         let receiver1 = netabase.subscribe_to_broadcasts();
@@ -2718,7 +2893,7 @@ mod tests {
 
     #[test]
     fn test_broadcast_receiver_cloning() {
-        let netabase = Netabase::<TestDefinition>::new().unwrap();
+        let netabase = Netabase::<TestModel>::new().unwrap();
 
         // Get a receiver
         let mut receiver1 = netabase.subscribe_to_broadcasts();

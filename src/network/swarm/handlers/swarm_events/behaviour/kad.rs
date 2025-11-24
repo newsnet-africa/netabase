@@ -6,21 +6,24 @@ use libp2p::{
     },
 };
 use netabase_store::traits::definition::NetabaseDefinitionTrait;
-use once_cell::sync::Lazy;
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use tokio::sync::oneshot::Sender;
 
 // Use the actual KBucketDistance type from libp2p
 use libp2p::kad::KBucketDistance;
 
 // Thread-safe storage for pending queries and their response channels
-static PENDING_QUERIES: Lazy<Mutex<HashMap<QueryId, Box<dyn std::any::Any + Send>>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+static PENDING_QUERIES: OnceLock<Mutex<HashMap<QueryId, Box<dyn std::any::Any + Send>>>> =
+    OnceLock::new();
+
+fn get_pending_queries() -> &'static Mutex<HashMap<QueryId, Box<dyn std::any::Any + Send>>> {
+    PENDING_QUERIES.get_or_init(|| Mutex::new(HashMap::new()))
+}
 
 /// Store a response channel for a query
 pub fn store_query_response_channel<T: 'static + Send>(query_id: QueryId, sender: Sender<T>) {
-    if let Ok(mut pending_queries) = PENDING_QUERIES.lock() {
+    if let Ok(mut pending_queries) = get_pending_queries().lock() {
         pending_queries.insert(query_id, Box::new(sender));
     }
 }
@@ -157,7 +160,7 @@ fn handle_outbound_query_progressed<D: NetabaseDefinitionTrait + Send + Sync + '
     // Check if this is the last step of the query
     if step.last {
         // Try to find and send the result through the stored response channel
-        if let Ok(mut pending_queries) = PENDING_QUERIES.lock()
+        if let Ok(mut pending_queries) = get_pending_queries().lock()
             && let Some(sender_box) = pending_queries.remove(&id)
         {
             // Handle different query result types

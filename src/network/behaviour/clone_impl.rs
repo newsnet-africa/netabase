@@ -14,7 +14,7 @@ pub use crate::network::behaviour::NetabaseBehaviourEvent;
 
 impl<D: NetabaseDefinitionTrait + Send + Sync + 'static> Clone for NetabaseBehaviourEvent<D>
 where
-    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de> + paxakos::LogEntry,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -28,15 +28,6 @@ where
         + Sync
         + 'static
         + FromStr,
-    <D as IntoDiscriminant>::Discriminant: std::marker::Copy,
-    <D as IntoDiscriminant>::Discriminant: std::fmt::Debug,
-    <D as IntoDiscriminant>::Discriminant: std::hash::Hash,
-    <D as IntoDiscriminant>::Discriminant: std::cmp::Eq,
-    <D as IntoDiscriminant>::Discriminant: std::fmt::Display,
-    <D as IntoDiscriminant>::Discriminant: FromStr,
-    <D as IntoDiscriminant>::Discriminant: std::marker::Sync,
-    <D as IntoDiscriminant>::Discriminant: std::marker::Send,
-    <D as IntoDiscriminant>::Discriminant: strum::IntoEnumIterator,
 {
     fn clone(&self) -> Self {
         match self {
@@ -86,11 +77,15 @@ where
             NetabaseBehaviourEvent::ConnectionLimit(i) => {
                 NetabaseBehaviourEvent::ConnectionLimit(*i)
             }
+            #[cfg(feature = "paxos")]
             NetabaseBehaviourEvent::Paxos(_paxos_event) => {
-                // Gossipsub events don't implement Clone, so we skip cloning
-                // TODO: Implement proper event cloning for gossipsub
+                // Paxos events are complex - for now just return a placeholder
+                // In practice, event cloning for paxos may not be needed
                 NetabaseBehaviourEvent::Kad(libp2p::kad::Event::InboundRequest {
-                    request: libp2p::kad::InboundRequest::GetRecord { num_closer_peers: 0, present_locally: false },
+                    request: libp2p::kad::InboundRequest::GetRecord {
+                        num_closer_peers: 0,
+                        present_locally: false,
+                    },
                 })
             }
         }
@@ -103,7 +98,7 @@ pub struct NetabaseSwarmEvent<D: NetabaseDefinitionTrait + Send + Sync + 'static
     pub SwarmEvent<NetabaseBehaviourEvent<D>>,
 )
 where
-    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de> + paxakos::LogEntry,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -116,16 +111,7 @@ where
         + Send
         + Sync
         + 'static
-        + FromStr,
-    <D as IntoDiscriminant>::Discriminant: std::marker::Copy,
-    <D as IntoDiscriminant>::Discriminant: std::fmt::Debug,
-    <D as IntoDiscriminant>::Discriminant: std::hash::Hash,
-    <D as IntoDiscriminant>::Discriminant: std::cmp::Eq,
-    <D as IntoDiscriminant>::Discriminant: std::fmt::Display,
-    <D as IntoDiscriminant>::Discriminant: FromStr,
-    <D as IntoDiscriminant>::Discriminant: std::marker::Sync,
-    <D as IntoDiscriminant>::Discriminant: std::marker::Send,
-    <D as IntoDiscriminant>::Discriminant: strum::IntoEnumIterator;
+        + FromStr;
 
 fn multiaddr_cloner(multi: &Multiaddr) -> Multiaddr {
     Multiaddr::try_from(multi.to_vec()).expect("MultiAddr clone error")
@@ -162,7 +148,7 @@ fn multi_trans_error_cloner(
 
 impl<D: NetabaseDefinitionTrait + Send + Sync + 'static> Clone for NetabaseSwarmEvent<D>
 where
-    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de> + paxakos::LogEntry,
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
     <D as IntoDiscriminant>::Discriminant: AsRef<str>
         + Clone
         + Copy
@@ -176,15 +162,6 @@ where
         + Sync
         + 'static
         + FromStr,
-    <D as IntoDiscriminant>::Discriminant: std::marker::Copy,
-    <D as IntoDiscriminant>::Discriminant: std::fmt::Debug,
-    <D as IntoDiscriminant>::Discriminant: std::hash::Hash,
-    <D as IntoDiscriminant>::Discriminant: std::cmp::Eq,
-    <D as IntoDiscriminant>::Discriminant: std::fmt::Display,
-    <D as IntoDiscriminant>::Discriminant: FromStr,
-    <D as IntoDiscriminant>::Discriminant: std::marker::Sync,
-    <D as IntoDiscriminant>::Discriminant: std::marker::Send,
-    <D as IntoDiscriminant>::Discriminant: strum::IntoEnumIterator,
 {
     fn clone(&self) -> Self {
         match &self.0 {

@@ -10,7 +10,7 @@ pub mod sync_behaviour;
 use libp2p::mdns;
 
 #[cfg(feature = "paxos")]
-use sync_behaviour::paxakos::PaxosBehaviour;
+use sync_behaviour::paxos::PaxosBehaviour;
 
 #[derive(NetworkBehaviour)]
 pub struct NetabaseBehaviour<D: NetabaseDefinitionTrait + Send + Sync + 'static>
@@ -52,6 +52,7 @@ where
     ///
     /// When enabled, this owns the store and provides both consensus and DHT functionality
     /// via its embedded kad field (paxos.kad)
+    #[cfg(feature = "paxos")]
     pub paxos: Toggle<PaxosBehaviour<D>>,
 }
 
@@ -133,11 +134,16 @@ where
         // When paxos is disabled, kad owns the store
         #[cfg(feature = "paxos")]
         let (kad, paxos) = {
-            // Get cluster members from config
-            let cluster_members = config.paxos.cluster_members.clone();
+            use crate::network::behaviour::sync_behaviour::paxos::NodeId;
 
-            // Paxos owns the store, top-level kad is disabled
-            let paxos_behaviour = PaxosBehaviour::new(&peer_id, store, None, cluster_members);
+            // Convert PeerId to NodeId
+            let node_id = NodeId::from(peer_id);
+
+            // Create kad behaviour wrapping the store
+            let kad_behaviour = libp2p::kad::Behaviour::new(peer_id.clone(), store);
+
+            // Paxos owns the kad behaviour, top-level kad is disabled
+            let paxos_behaviour = PaxosBehaviour::new(node_id, kad_behaviour);
             (
                 Toggle::from(None), // kad disabled
                 Toggle::from(Some(paxos_behaviour)) // paxos enabled with embedded kad
@@ -145,13 +151,10 @@ where
         };
 
         #[cfg(not(feature = "paxos"))]
-        let (kad, paxos) = {
+        let kad = {
             // kad owns the store, paxos is disabled
             let kad_behaviour = libp2p::kad::Behaviour::new(peer_id.clone(), store);
-            (
-                Toggle::from(Some(kad_behaviour)), // kad enabled
-                Toggle::from(None) // paxos disabled
-            )
+            Toggle::from(Some(kad_behaviour)) // kad enabled
         };
 
         Ok(Self {
@@ -160,6 +163,7 @@ where
             #[cfg(feature = "native")]
             mdns,
             connection_limit,
+            #[cfg(feature = "paxos")]
             paxos,
         })
     }
@@ -202,8 +206,9 @@ where
     /// Option<&libp2p::kad::Behaviour<NetabaseStore<D>>>
     pub fn kad(&self) -> Option<&libp2p::kad::Behaviour<NetabaseStore<D>>> {
         // Try paxos.kad first (when paxos is enabled)
+        #[cfg(feature = "paxos")]
         if let Some(paxos_behaviour) = self.paxos.as_ref() {
-            return Some(&paxos_behaviour.kad);
+            return Some(&paxos_behaviour.store);
         }
 
         // Fall back to top-level kad (when paxos is disabled)
@@ -220,8 +225,9 @@ where
     /// Option<&mut libp2p::kad::Behaviour<NetabaseStore<D>>>
     pub fn kad_mut(&mut self) -> Option<&mut libp2p::kad::Behaviour<NetabaseStore<D>>> {
         // Try paxos.kad first (when paxos is enabled)
+        #[cfg(feature = "paxos")]
         if let Some(paxos_behaviour) = self.paxos.as_mut() {
-            return Some(&mut paxos_behaviour.kad);
+            return Some(&mut paxos_behaviour.store);
         }
 
         // Fall back to top-level kad (when paxos is disabled)

@@ -5,7 +5,7 @@ use netabase_store::{
     databases::sled_store::SledStore, traits::definition::NetabaseDefinitionTrait,
 };
 
-#[cfg(feature = "native")]
+#[cfg(feature = "redb")]
 use netabase_store::databases::redb_store::RedbStore;
 
 #[cfg(feature = "libp2p")]

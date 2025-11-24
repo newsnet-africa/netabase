@@ -8,6 +8,8 @@ use netabase_store::traits::definition::NetabaseDefinitionTrait;
 pub mod connection_limit;
 pub mod identify;
 pub mod kad;
+#[cfg(feature = "paxos")]
+pub mod paxos;
 #[cfg(feature = "native")]
 pub mod mdns;
 
@@ -62,31 +64,7 @@ pub(crate) fn handle_behaviour_event<D: NetabaseDefinitionTrait + Send + Sync + 
         }
         #[cfg(feature = "paxos")]
         NetabaseBehaviourEvent::Paxos(paxos_event) => {
-            // Handle Paxos consensus events
-            match paxos_event {
-                crate::network::behaviour::sync_behaviour::paxakos::PaxosEvent::Kad(kad_event) => {
-                    // Forward Kademlia events from PaxosBehaviour's embedded Kad
-                    handle_kad_event::<D>(kad_event);
-                }
-                crate::network::behaviour::sync_behaviour::paxakos::PaxosEvent::EntryCommitted { round, entry } => {
-                    println!("✅ Paxos: Entry committed at round {}: {:?}", round, entry);
-                    // Note: The entry is applied to the database in State::apply()
-                    // This event is for notification and monitoring purposes
-                }
-                crate::network::behaviour::sync_behaviour::paxakos::PaxosEvent::BecameCoordinator => {
-                    println!("Paxos: This node became coordinator");
-                }
-                crate::network::behaviour::sync_behaviour::paxakos::PaxosEvent::LostCoordinator => {
-                    println!("Paxos: This node lost coordinator status");
-                }
-                crate::network::behaviour::sync_behaviour::paxakos::PaxosEvent::RoundCompleted { round } => {
-                    println!("Paxos: Consensus round {} completed", round);
-                }
-            }
-        }
-        #[cfg(not(feature = "paxos"))]
-        NetabaseBehaviourEvent::Paxos(_) => {
-            // Paxos feature not enabled
+            paxos::handle_paxos_event::<D>(paxos_event);
         }
     }
 }

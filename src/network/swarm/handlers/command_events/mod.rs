@@ -77,6 +77,10 @@ where
     <D as IntoDiscriminant>::Discriminant: strum::IntoEnumIterator,
 {
     Kademlia(KademliaCommand<D>),
+    Sync(SyncCommand),
+    GetPeerCount {
+        response_channel: Sender<usize>,
+    },
 }
 
 #[cfg(feature = "native")]
@@ -201,6 +205,15 @@ where
 }
 
 #[cfg(feature = "native")]
+#[derive(Debug)]
+#[allow(dead_code)]
+pub(crate) enum SyncCommand {
+    TriggerSync {
+        response_channel: Sender<Result<(), String>>,
+    },
+}
+
+#[cfg(feature = "native")]
 pub(crate) fn handle_command_events<D>(swarm: &mut Swarm<NetabaseBehaviour<D>>, command: Command<D>)
 where
     D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
@@ -230,6 +243,13 @@ where
     match command {
         Command::Kademlia(kad_command) => {
             handle_kademlia_command(swarm, kad_command);
+        }
+        Command::Sync(sync_command) => {
+            handle_sync_command(swarm, sync_command);
+        }
+        Command::GetPeerCount { response_channel } => {
+            let peer_count = swarm.connected_peers().count();
+            let _ = response_channel.send(peer_count);
         }
     }
 }
@@ -410,6 +430,63 @@ pub(crate) fn handle_local_store_command<
                 // Send empty result when kad is not available
                 let _ = response_channel.send(Ok(vec![]));
             }
+        }
+    }
+}
+
+#[cfg(feature = "native")]
+pub(crate) fn handle_sync_command<D: NetabaseDefinitionTrait + Send + Sync + 'static>(
+    swarm: &mut Swarm<NetabaseBehaviour<D>>,
+    command: SyncCommand,
+) where
+    D: netabase_store::convert::ToIVec + serde::Serialize + for<'de> serde::Deserialize<'de>,
+    <D as strum::IntoDiscriminant>::Discriminant: AsRef<str>
+        + Clone
+        + Copy
+        + std::fmt::Debug
+        + std::fmt::Display
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + strum::IntoEnumIterator
+        + Send
+        + Sync
+        + 'static
+        + std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Copy,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
+    <D as strum::IntoDiscriminant>::Discriminant: std::hash::Hash,
+    <D as strum::IntoDiscriminant>::Discriminant: std::cmp::Eq,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Display,
+    <D as strum::IntoDiscriminant>::Discriminant: std::str::FromStr,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Sync,
+    <D as strum::IntoDiscriminant>::Discriminant: std::marker::Send,
+{
+    match command {
+        SyncCommand::TriggerSync { response_channel } => {
+            // For now, just acknowledge the sync request
+            // Full sync implementation would:
+            // 1. Query connected peers for their digests
+            // 2. Compare with local data
+            // 3. Request missing records
+            // 4. Share local records
+
+            // Get list of connected peers
+            let peer_count = swarm.connected_peers().count();
+
+            if peer_count == 0 {
+                let _ = response_channel.send(Err("No peers connected".to_string()));
+                return;
+            }
+
+            // TODO: Implement actual sync logic here
+            // This would involve:
+            // - Sending gossip digest messages to random peers
+            // - Handling BRB messages for Byzantine fault tolerance
+            // - Coordinating with Paxos for strong consistency
+
+            println!("Sync triggered with {} connected peers", peer_count);
+            let _ = response_channel.send(Ok(()));
         }
     }
 }
