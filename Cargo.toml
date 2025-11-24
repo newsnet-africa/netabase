@@ -21,7 +21,7 @@ tokio = { version = "1.47.1", default-features = false }
 
 [package]
 name = "netabase"
-version = "0.0.3"
+version = "0.0.5"
 edition = "2024"
 license = "GPL-3.0-only"
 description = "A peer-to-peer networking layer built on libp2p with integrated type-safe storage, enabling distributed applications with automatic data synchronization across native and WASM environments."
