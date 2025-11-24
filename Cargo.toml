@@ -25,7 +25,6 @@ version = "0.0.3"
 edition = "2024"
 license = "GPL-3.0-only"
 description = "A peer-to-peer networking layer built on libp2p with integrated type-safe storage, enabling distributed applications with automatic data synchronization across native and WASM environments."
-licence-file = "LICENCE"
 readme = "README.md"
 repository = "https://github.com/newsnet-africa/netabase.git"
 keywords = ["key-value", "storage", "wrapper", "libp2p", "wasm"]
@@ -85,7 +84,7 @@ crate-type = ["cdylib", "rlib"]
 anyhow.workspace = true
 derive_more.workspace = true
 libp2p = { workspace = true, features = ["gossipsub"] }
-netabase_store = { version = "0.0.3", path = "../netabase_store", default-features = false }
+netabase_store = { version = "0.0.5", path = "../netabase_store", default-features = false }
 once_cell = "1.19"
 thiserror.workspace = true
 tokio = { version = "1.47.1", default-features = false }
@@ -113,7 +112,7 @@ tempfile = { workspace = true }
 
 
 [dev-dependencies]
-netabase_store = { version = "0.0.3", path = "../netabase_store", features = ["libp2p"] }
+netabase_store = { version = "0.0.5", path = "../netabase_store", features = ["libp2p"] }
 netabase_deps = { version = "0.0.5", path = "../netabase_store/netabase_deps" }
 anyhow = { workspace = true }
 bincode = { workspace = true }
