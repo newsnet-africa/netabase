@@ -1,6 +1,9 @@
 use crate::network::config::StorageBackend;
 use libp2p::{PeerId, connection_limits, identity::Keypair, swarm::NetworkBehaviour};
-use netabase_store::{databases::sled_store::SledStore, traits::definition::{NetabaseDefinitionTrait, RecordStoreExt}};
+use netabase_store::{
+    databases::sled_store::SledStore,
+    traits::definition::{NetabaseDefinitionTrait, RecordStoreExt},
+};
 
 pub mod clone_impl;
 // Sync behaviour module commented out - not yet fully implemented
@@ -14,8 +17,10 @@ use libp2p::mdns;
 pub struct NetabaseBehaviour<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static>
 where
     D: netabase_store::convert::ToIVec,
-    <D as strum::IntoDiscriminant>::Discriminant: netabase_store::traits::definition::NetabaseDiscriminant,
-    <<D as NetabaseDefinitionTrait>::Keys as strum::IntoDiscriminant>::Discriminant: netabase_store::traits::definition::NetabaseKeyDiscriminant,
+    <D as strum::IntoDiscriminant>::Discriminant:
+        netabase_store::traits::definition::NetabaseDiscriminant,
+    <<D as NetabaseDefinitionTrait>::Keys as strum::IntoDiscriminant>::Discriminant:
+        netabase_store::traits::definition::NetabaseKeyDiscriminant,
 {
     pub kad: libp2p::kad::Behaviour<SledStore<D>>,
     pub identify: libp2p::identify::Behaviour,
@@ -24,12 +29,16 @@ where
     pub connection_limit: libp2p::connection_limits::Behaviour,
 }
 
+impl<D: NetabaseDefinitionTrait> NetabaseBehaviour<D> {}
+
 impl<D: NetabaseDefinitionTrait + RecordStoreExt + Send + Sync + 'static> NetabaseBehaviour<D>
 where
     D: netabase_store::convert::ToIVec,
     D::Keys: netabase_store::convert::ToIVec,
-    <D as strum::IntoDiscriminant>::Discriminant: netabase_store::traits::definition::NetabaseDiscriminant,
-    <<D as NetabaseDefinitionTrait>::Keys as strum::IntoDiscriminant>::Discriminant: netabase_store::traits::definition::NetabaseKeyDiscriminant,
+    <D as strum::IntoDiscriminant>::Discriminant:
+        netabase_store::traits::definition::NetabaseDiscriminant,
+    <<D as NetabaseDefinitionTrait>::Keys as strum::IntoDiscriminant>::Discriminant:
+        netabase_store::traits::definition::NetabaseKeyDiscriminant,
 {
     pub fn _new(keypair: &Keypair) -> Result<Self, crate::errors::Error> {
         Self::new_with_config(keypair, None, StorageBackend::default())
@@ -53,8 +62,7 @@ where
         // Create the store - currently using SledStore, backend parameter ignored
         #[cfg(feature = "native")]
         let store = if let Some(name) = name {
-            SledStore::<D>::new(&name)
-                .map_err(|e| crate::errors::Error::Database(e.to_string()))?
+            SledStore::<D>::new(&name).map_err(|e| crate::errors::Error::Database(e.to_string()))?
         } else {
             // Use a default path based on peer_id
             let default_path = format!("./netabase_data/{}", peer_id);
@@ -63,8 +71,8 @@ where
         };
 
         #[cfg(all(feature = "wasm", not(feature = "native")))]
-        let store = SledStore::<D>::temp()
-            .map_err(|e| crate::errors::Error::Database(e.to_string()))?;
+        let store =
+            SledStore::<D>::temp().map_err(|e| crate::errors::Error::Database(e.to_string()))?;
 
         let kad = libp2p::kad::Behaviour::new(peer_id.clone(), store);
         let identify_config = libp2p::identify::Config::new("/newsnet/0.0.1".to_string(), pub_key);

@@ -2,10 +2,10 @@
 # https://nexte.st/book/configuration.html
 
 [profile.default]
-# Run integration tests with single thread to avoid port conflicts
-test-threads = 1
+# Use multiple threads for fast tests
+test-threads = "num-cpus"
 
-# Increase timeout for integration tests (default is 60s)
+# Reasonable timeout for most tests
 slow-timeout = { period = "120s", terminate-after = 3 }
 
 [profile.ci]
@@ -25,18 +25,55 @@ slow-timeout = { period = "300s" }
 # Don't fail fast - we want to see all results
 fail-fast = false
 
-# Filter: Only run integration tests (those marked with #[ignore])
-filter = 'test(//)'
+[profile.all]
+# Profile to run ALL tests including ignored integration tests
+# Use with: cargo nextest run --profile all --run-ignored all
+test-threads = 1
+slow-timeout = { period = "300s", terminate-after = 5 }
+
+# Don't fail fast - we want to see all results
+fail-fast = false
+
+[profile.quick]
+# Quick profile for fast feedback - skips integration tests
+test-threads = "num-cpus"
+slow-timeout = { period = "60s", terminate-after = 2 }
 
 [test-groups]
 # Group tests by type for better organization
+# Tests in the same group run sequentially to avoid port conflicts
 
 integration-p2p = { max-threads = 1 }
 integration-dht = { max-threads = 1 }
 integration-chat = { max-threads = 1 }
+integration-network = { max-threads = 1 }
 
 [[profile.default.overrides]]
-# Specific settings for ignored tests (integration tests)
-filter = 'test(~ignored)'
-test-threads = 1
-slow-timeout = { period = "180s" }
+# Network topology tests need single-threaded execution
+filter = 'test(network_topology_tests::)'
+test-group = 'integration-network'
+slow-timeout = { period = "180s", terminate-after = 3 }
+
+[[profile.default.overrides]]
+# P2P integration tests
+filter = 'test(p2p_integration_tests::)'
+test-group = 'integration-p2p'
+slow-timeout = { period = "180s", terminate-after = 3 }
+
+[[profile.default.overrides]]
+# DHT advanced tests
+filter = 'test(dht_advanced_tests::)'
+test-group = 'integration-dht'
+slow-timeout = { period = "180s", terminate-after = 3 }
+
+[[profile.default.overrides]]
+# Chat integration tests
+filter = 'test(chat_integration_tests::)'
+test-group = 'integration-chat'
+slow-timeout = { period = "180s", terminate-after = 3 }
+
+[[profile.all.overrides]]
+# All integration tests in the 'all' profile
+filter = 'test(~integration) | test(~topology)'
+test-group = 'integration-network'
+slow-timeout = { period = "300s", terminate-after = 5 }

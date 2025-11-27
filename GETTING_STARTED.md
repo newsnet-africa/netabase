@@ -6,10 +6,9 @@ Add these to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-# Main libraries
-netabase = "0.0.1"
-netabase_store = "0.0.1"
-netabase_deps = "0.0.1"
+# Main libraries with features - IMPORTANT!
+netabase = { version = "0.0.6", features = ["native"] }
+netabase_store = { version = "0.0.6", features = ["native"] }
 
 # Required for macros to work
 bincode = { version = "2.0", features = ["serde"] }
@@ -20,9 +19,25 @@ derive_more = { version = "2.0.1", features = ["from", "try_into", "into"] }
 # Runtime dependencies
 tokio = { version = "1.0", features = ["full"] }
 anyhow = "1.0"
+chrono = "0.4"  # For timestamps
+libp2p = "0.56"  # For advanced P2P features
 ```
 
-**Why so many dependencies?** The macros from `netabase_store` generate code that uses these crates. Due to Rust's macro hygiene rules, they must be available in your `Cargo.toml`. The `netabase_deps` crate provides internal dependencies used by the macros.
+### Feature Flags (CRITICAL!)
+
+**You MUST enable the `native` feature for desktop/server applications:**
+
+```toml
+# For desktop/server (recommended):
+netabase = { version = "0.0.6", features = ["native"] }
+netabase_store = { version = "0.0.6", features = ["native"] }
+```
+
+Available features:
+- `native` - Enables TCP, QUIC, mDNS, and Kademlia DHT (desktop/server)
+- `wasm` - Enables WebRTC, WebSocket for browser applications (coming soon)
+
+**Why so many dependencies?** The macros from `netabase_store` generate code that uses these crates. Due to Rust's macro hygiene rules, they must be available in your `Cargo.toml`.
 
 ## Define Your Data Model
 

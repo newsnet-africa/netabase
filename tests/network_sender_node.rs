@@ -77,6 +77,13 @@ fn emit_event(event: SenderEvent) {
 async fn main() -> Result<()> {
     // Parse arguments
     let args: Vec<String> = std::env::args().collect();
+
+    // Handle nextest's --list flag for test discovery
+    if args.iter().any(|a| a == "--list" || a == "--list-tests") {
+        // Print nothing - this binary is not a test suite
+        return Ok(());
+    }
+
     if args.len() < 5 {
         eprintln!(
             "Usage: {} <node_name> <message_count> <wait_for_peers_secs> <message_prefix>",
