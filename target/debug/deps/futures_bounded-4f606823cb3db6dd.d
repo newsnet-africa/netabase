@@ -1,0 +1,10 @@
+/home/rusta/Projects/NewsNet/netabase/target/debug/deps/futures_bounded-4f606823cb3db6dd.d: /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-bounded-0.2.4/src/lib.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-bounded-0.2.4/src/futures_map.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-bounded-0.2.4/src/futures_set.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-bounded-0.2.4/src/futures_tuple_set.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-bounded-0.2.4/src/stream_map.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-bounded-0.2.4/src/stream_set.rs
+
+/home/rusta/Projects/NewsNet/netabase/target/debug/deps/libfutures_bounded-4f606823cb3db6dd.rmeta: /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-bounded-0.2.4/src/lib.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-bounded-0.2.4/src/futures_map.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-bounded-0.2.4/src/futures_set.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-bounded-0.2.4/src/futures_tuple_set.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-bounded-0.2.4/src/stream_map.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-bounded-0.2.4/src/stream_set.rs
+
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-bounded-0.2.4/src/lib.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-bounded-0.2.4/src/futures_map.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-bounded-0.2.4/src/futures_set.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-bounded-0.2.4/src/futures_tuple_set.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-bounded-0.2.4/src/stream_map.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-bounded-0.2.4/src/stream_set.rs:
