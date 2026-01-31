@@ -10,6 +10,7 @@ strum = "*"
 bitflags = { version = "2.10.0", features = ["serde", "serde_core"] }
 serde = { version = "1.0.228", features = ["derive", "serde_derive", "std"] }
 serde-big-array = "0.5.1"
+redb = "3.1.0"
 
 [dev-dependencies]
 netabase_store = {path = "../netabase_store"}

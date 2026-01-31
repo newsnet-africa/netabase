@@ -1202,6 +1202,7 @@ dependencies = [
  "bitflags",
  "libp2p",
  "netabase_store",
+ "redb",
  "serde",
  "serde-big-array",
  "strum",
@@ -1224,6 +1225,7 @@ name = "netabase_store"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "bitflags",
  "clap",
  "derive_more",
  "hex",
@@ -1235,6 +1237,7 @@ dependencies = [
  "rs_merkle",
  "rustc-hash",
  "serde",
+ "serde-big-array",
  "sha2",
  "strum",
  "tempfile",
