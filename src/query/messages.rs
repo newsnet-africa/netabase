@@ -14,7 +14,7 @@ use crate::node::{
 // =========================================================================
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-#[serde(bound = "M::Keys: NetabaseModelKeys<D, M>, <M::Keys as NetabaseModelKeys<D, M>>::Primary: Serialize + DeserializeOwned")]
+#[serde(bound = "M::Keys: NetabaseModelKeys<D, M>, <M::Keys as NetabaseModelKeys<D, M>>::Primary: Serialize + DeserializeOwned, <M::Keys as NetabaseModelKeys<D, M>>::Secondary: Serialize + DeserializeOwned")]
 pub enum DatabaseQuery<D, M>
 where
     D: NetabaseDefinition,
@@ -22,10 +22,16 @@ where
     <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug + 'static,
     <<<M as NetabaseModel<D>>::Keys as NetabaseModelKeys<D, M>>::Blob as IntoDiscriminant>::Discriminant: 'static,
     <M::Keys as NetabaseModelKeys<D, M>>::Primary: Serialize + DeserializeOwned + std::fmt::Debug + Clone + Eq + PartialOrd,
+    <M::Keys as NetabaseModelKeys<D, M>>::Secondary: Serialize + DeserializeOwned + std::fmt::Debug + Clone + Eq + PartialOrd,
 {
     /// Get a single record by its Primary Key
     Get {
         key: <M::Keys as NetabaseModelKeys<D, M>>::Primary,
+    },
+    
+    /// Get records matching a Secondary Key value
+    GetBySecondary {
+        key: <M::Keys as NetabaseModelKeys<D, M>>::Secondary,
     },
     
     /// Check if a record exists (Lightweight HEAD request)

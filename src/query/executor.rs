@@ -44,6 +44,8 @@ where
     for<'b> <<<M as NetabaseModel<D>>::Keys as NetabaseModelKeys<D, M>>::Blob as NetabaseModelBlobKey<D, M>>::BlobItem: std::borrow::Borrow<<<<<M as NetabaseModel<D>>::Keys as NetabaseModelKeys<D, M>>::Blob as NetabaseModelBlobKey<D, M>>::BlobItem as redb::Value>::SelfType<'b>>,
     for<'b> M::TableV: redb::Value<SelfType<'b> = M>,
     for<'b> <<M as NetabaseModel<D>>::Keys as NetabaseModelKeys<D, M>>::Primary: std::borrow::Borrow<<<<M as NetabaseModel<D>>::Keys as NetabaseModelKeys<D, M>>::Primary as redb::Value>::SelfType<'b>>,
+    for<'b> <<M as NetabaseModel<D>>::Keys as NetabaseModelKeys<D, M>>::Secondary: std::borrow::Borrow<<<<M as NetabaseModel<D>>::Keys as NetabaseModelKeys<D, M>>::Secondary as redb::Value>::SelfType<'b>>,
+    for<'v> <<M as NetabaseModel<D>>::Keys as NetabaseModelKeys<D, M>>::Primary: redb::Value<SelfType<'v> = <<M as NetabaseModel<D>>::Keys as NetabaseModelKeys<D, M>>::Primary>,
 {
     type Output = DatabaseQueryResult<M>;
 
@@ -65,6 +67,11 @@ where
                     .map_err(|e: netabase_store::errors::NetabaseError| QueryError::Storage(e.to_string()))?
                     .is_some();
                 Ok(DatabaseQueryResult::Exists(exists))
+            },
+            DatabaseQuery::GetBySecondary { key } => {
+                let results = self.query_by_secondary_key(&key)
+                    .map_err(|e: netabase_store::errors::NetabaseError| QueryError::Storage(e.to_string()))?;
+                Ok(DatabaseQueryResult::Range(results))
             },
             DatabaseQuery::Range { start, end, limit } => {
                 let range = if let (Some(s), Some(e)) = (start, end) {

@@ -1,0 +1,1 @@
+<<<M as NetabaseModel<D>>::Keys as NetabaseModelKeys<D, M>>::Primary as Value>::SelfType<'v> == <<M as NetabaseModel<D>>::Keys as NetabaseModelKeys<D, M>>::Primary

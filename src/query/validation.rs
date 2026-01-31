@@ -1,6 +1,7 @@
 use netabase_store::{
     prelude::{NetabaseDefinition, NetabaseModel},
     traits::registery::models::NetabaseModelKeys,
+    primitives::EntryPath,
 };
 use strum::IntoDiscriminant;
 use serde::{Serialize, Deserialize, de::DeserializeOwned};
@@ -59,10 +60,7 @@ where
         let required_op = Operation::Read;
         let cap_op = capability.resource.operation_type();
         
-        // Simple hierarchy: Read is base. Write implies Read? 
-        // For strictness, let's assume Write implies Read in this logic, 
-        // or the CapabilityPermission implementation handles `is_subset_of`.
-        // But here we check the raw Operation enum.
+        // Simple hierarchy: Read is base. Write implies Read.
         if cap_op != required_op && cap_op != Operation::Write && cap_op != Operation::Mint {
              return Err(ValidationError::InsufficientPermissions { 
                  required: required_op, 
@@ -76,6 +74,9 @@ where
         match self {
             DatabaseQuery::Get { key } | DatabaseQuery::Exists { key } | DatabaseQuery::GetBlob { key, .. } => {
                 validate_key_in_range(key, cap_range)
+            },
+            DatabaseQuery::GetBySecondary { key } => {
+                validate_secondary_key_in_range(key, cap_range)
             },
             DatabaseQuery::Range { start, end, .. } => {
                 // Both start and end must be in range
@@ -109,16 +110,16 @@ where
         CapabilityRange::FullTable => Ok(()),
         CapabilityRange::PrimaryRange(path_range) => {
             match path_range {
-                PathRange::PathPrefix(_) => {
-                    // Prefix check requires key serialization or knowing the key structure matches prefix.
-                    // For safety, we can conservatively allow if prefix is empty, or deny if we can't check.
-                    // Ideally, we'd serialize 'key' to bytes and check starts_with.
-                    // Since we have Serialize bound:
+                PathRange::All => Ok(()),
+                PathRange::Exact(val) => {
+                    if key == val { Ok(()) } else { 
+                        Err(ValidationError::OutOfScope { required_key: format!("{:?}", key) })
+                    }
+                },
+                PathRange::PathPrefix(EntryPath(prefix)) => {
                     if let Ok(key_bytes) = netabase_store::postcard::to_allocvec(key) {
-                        if let PathRange::PathPrefix(crate::store::primitives::EntryPath(prefix)) = path_range {
-                            if key_bytes.starts_with(prefix) {
-                                return Ok(());
-                            }
+                        if key_bytes.starts_with(prefix) {
+                            return Ok(());
                         }
                     }
                     Err(ValidationError::OutOfScope { required_key: format!("{:?}", key) })
@@ -133,9 +134,61 @@ where
             }
         },
         CapabilityRange::SecondaryRange(_) => {
-            // Cannot validate Primary Key against Secondary Range without index lookup
-            // For now, fail safe.
             Err(ValidationError::OutOfScope { required_key: "Cannot validate PK against Secondary Capability".into() })
+        },
+        CapabilityRange::Owner(_) => {
+            // Cannot validate Key against Owner without loading data
+            Err(ValidationError::OutOfScope { required_key: "Cannot validate Key against Owner Capability".into() })
+        }
+    }
+}
+
+// Helper to check if a specific secondary key is covered by the CapabilityRange
+fn validate_secondary_key_in_range<D, M>(
+    key: &<M::Keys as NetabaseModelKeys<D, M>>::Secondary,
+    range: &CapabilityRange<D, M>
+) -> Result<(), ValidationError>
+where
+    D: NetabaseDefinition,
+    M: NetabaseModel<D>,
+    <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug + 'static,
+    <<<M as NetabaseModel<D>>::Keys as NetabaseModelKeys<D, M>>::Blob as IntoDiscriminant>::Discriminant: 'static,
+    <M::Keys as NetabaseModelKeys<D, M>>::Primary: Serialize + DeserializeOwned + std::fmt::Debug + Clone + Eq + PartialOrd,
+    <M::Keys as NetabaseModelKeys<D, M>>::Secondary: Serialize + DeserializeOwned + std::fmt::Debug + Clone + Eq + PartialOrd,
+    M::Keys: std::fmt::Debug + Clone + Eq,
+{
+    match range {
+        CapabilityRange::FullTable => Ok(()),
+        CapabilityRange::SecondaryRange(path_range) => {
+            match path_range {
+                PathRange::All => Ok(()),
+                PathRange::Exact(val) => {
+                    if key == val { Ok(()) } else {
+                        Err(ValidationError::OutOfScope { required_key: format!("{:?}", key) })
+                    }
+                },
+                PathRange::PathPrefix(EntryPath(prefix)) => {
+                    if let Ok(key_bytes) = netabase_store::postcard::to_allocvec(key) {
+                        if key_bytes.starts_with(prefix) {
+                            return Ok(());
+                        }
+                    }
+                    Err(ValidationError::OutOfScope { required_key: format!("{:?}", key) })
+                },
+                PathRange::Range { start, end } => {
+                    if key >= start && key <= end {
+                        Ok(())
+                    } else {
+                        Err(ValidationError::OutOfScope { required_key: format!("{:?}", key) })
+                    }
+                }
+            }
+        },
+        CapabilityRange::PrimaryRange(_) => {
+            Err(ValidationError::OutOfScope { required_key: "Cannot validate Secondary Key against Primary Capability".into() })
+        },
+        CapabilityRange::Owner(_) => {
+            Err(ValidationError::OutOfScope { required_key: "Cannot validate Key against Owner Capability".into() })
         }
     }
 }

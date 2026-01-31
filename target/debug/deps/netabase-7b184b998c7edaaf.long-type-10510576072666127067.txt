@@ -1,0 +1,3 @@
+<<M as NetabaseModel<D>>::Keys as NetabaseModelKeys<D, M>>::Secondary
+<<<M as NetabaseModel<D>>::Keys as NetabaseModelKeys<D, M>>::Secondary as Value>::SelfType<'a>
+for<'a> <<M as NetabaseModel<D>>::Keys as NetabaseModelKeys<D, M>>::Secondary: Borrow<<<<M as NetabaseModel<D>>::Keys as NetabaseModelKeys<D, M>>::Secondary as Value>::SelfType<'a>>

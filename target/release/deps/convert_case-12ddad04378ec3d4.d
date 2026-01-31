@@ -1,0 +1,11 @@
+/home/rusta/Projects/NewsNet/netabase/target/release/deps/convert_case-12ddad04378ec3d4.d: /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/convert_case-0.10.0/src/lib.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/convert_case-0.10.0/src/boundary.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/convert_case-0.10.0/src/case.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/convert_case-0.10.0/src/converter.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/convert_case-0.10.0/src/pattern.rs
+
+/home/rusta/Projects/NewsNet/netabase/target/release/deps/libconvert_case-12ddad04378ec3d4.rlib: /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/convert_case-0.10.0/src/lib.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/convert_case-0.10.0/src/boundary.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/convert_case-0.10.0/src/case.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/convert_case-0.10.0/src/converter.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/convert_case-0.10.0/src/pattern.rs
+
+/home/rusta/Projects/NewsNet/netabase/target/release/deps/libconvert_case-12ddad04378ec3d4.rmeta: /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/convert_case-0.10.0/src/lib.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/convert_case-0.10.0/src/boundary.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/convert_case-0.10.0/src/case.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/convert_case-0.10.0/src/converter.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/convert_case-0.10.0/src/pattern.rs
+
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/convert_case-0.10.0/src/lib.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/convert_case-0.10.0/src/boundary.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/convert_case-0.10.0/src/case.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/convert_case-0.10.0/src/converter.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/convert_case-0.10.0/src/pattern.rs:

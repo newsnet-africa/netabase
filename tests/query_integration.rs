@@ -7,7 +7,7 @@ use netabase::node::capabilities::{
 use netabase::node::metadata::{PublicNodeData, NodePublicKey};
 use netabase::node::primitives::{Signature, SubspaceId};
 use netabase_store::prelude::*;
-use netabase_store::doc_examples::{ExampleDef, User, UserID};
+use netabase_store::doc_examples::{ExampleDef, User, UserID, UserKeys, UserSecondaryKeys, UserEmail};
 use netabase_store::databases::redb::RedbStore;
 use libp2p::PeerId;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -161,4 +161,43 @@ fn test_query_integration_flow() {
     
     let result_exists = read_txn.execute(query_exists).unwrap();
     assert_eq!(result_exists, DatabaseQueryResult::Exists(true));
+
+    // =========================================================================
+    // Test E: Valid Secondary Key Query
+    // =========================================================================
+    
+    // Capability allowing access to users with email "alice@example.com" via Secondary Range
+    let cap_secondary = create_capability(
+        owner_data.clone(),
+        client_data.clone(),
+        CapabilityRange::SecondaryRange(PathRange::Range {
+            start: UserSecondaryKeys::Email(UserEmail("alice@example.com".to_string())),
+            end: UserSecondaryKeys::Email(UserEmail("alice@example.com".to_string())),
+        })
+    );
+
+    let query_secondary_valid = DatabaseQuery::GetBySecondary { 
+        key: UserSecondaryKeys::Email(UserEmail("alice@example.com".to_string())) 
+    };
+
+    assert!(query_secondary_valid.validate(&cap_secondary).is_ok());
+
+    let result_secondary = read_txn.execute(query_secondary_valid).unwrap();
+    if let DatabaseQueryResult::Range(users) = result_secondary {
+        assert_eq!(users.len(), 1);
+        assert_eq!(users[0].name, "Alice");
+    } else {
+        panic!("Expected Range result for secondary query");
+    }
+
+    // =========================================================================
+    // Test F: Out of Scope Secondary Key Query
+    // =========================================================================
+    
+    let query_secondary_invalid = DatabaseQuery::GetBySecondary { 
+        key: UserSecondaryKeys::Email(UserEmail("bob@example.com".to_string())) 
+    };
+
+    let val_err_sec = query_secondary_invalid.validate(&cap_secondary);
+    assert!(matches!(val_err_sec, Err(ValidationError::OutOfScope { .. })));
 }
