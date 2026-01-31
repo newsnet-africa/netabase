@@ -1,6 +1,5 @@
 pub mod capabilities;
+pub mod key;
 pub mod metadata;
 pub mod primitives;
-pub mod key;
-
-pub struct NetabaseNode {}
+pub mod identity;

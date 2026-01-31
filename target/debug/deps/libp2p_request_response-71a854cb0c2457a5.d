@@ -1,0 +1,9 @@
+/home/rusta/Projects/NewsNet/netabase/target/debug/deps/libp2p_request_response-71a854cb0c2457a5.d: /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-request-response-0.29.0/src/lib.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-request-response-0.29.0/src/cbor.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-request-response-0.29.0/src/codec.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-request-response-0.29.0/src/handler.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-request-response-0.29.0/src/handler/protocol.rs
+
+/home/rusta/Projects/NewsNet/netabase/target/debug/deps/liblibp2p_request_response-71a854cb0c2457a5.rmeta: /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-request-response-0.29.0/src/lib.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-request-response-0.29.0/src/cbor.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-request-response-0.29.0/src/codec.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-request-response-0.29.0/src/handler.rs /home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-request-response-0.29.0/src/handler/protocol.rs
+
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-request-response-0.29.0/src/lib.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-request-response-0.29.0/src/cbor.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-request-response-0.29.0/src/codec.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-request-response-0.29.0/src/handler.rs:
+/home/rusta/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libp2p-request-response-0.29.0/src/handler/protocol.rs:

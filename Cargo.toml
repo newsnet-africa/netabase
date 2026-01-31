@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-libp2p = "0.56.0"
+libp2p = { version = "0.56.0", features = ["gossipsub", "identify", "kad", "request-response", "macros", "cbor", "ed25519", "noise", "tcp", "yamux", "dns"] }
 netabase_store = {path = "../netabase_store"}
 strum = "*"
 bitflags = { version = "2.10.0", features = ["serde", "serde_core"] }
