@@ -1,0 +1,1 @@
+netabase_store::capabilities::CapabilityRange<netabase_store::doc_examples::ExampleDef, netabase_store::doc_examples::User>

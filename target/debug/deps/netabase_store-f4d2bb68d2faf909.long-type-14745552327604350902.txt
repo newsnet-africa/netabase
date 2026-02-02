@@ -1,0 +1,2 @@
+<<M as NetabaseModel<D>>::Keys as NetabaseModelKeys<D, M>>::Blob
+<<M as NetabaseModel<D>>::Keys as NetabaseModelKeys<D, M>>::Blob: Key

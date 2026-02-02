@@ -1,6 +1,6 @@
 use netabase_store::{
     prelude::{NetabaseDefinition, NetabaseModel},
-    traits::registery::models::NetabaseModelKeys,
+    traits::registry::models::NetabaseModelKeys,
     primitives::EntryPath,
 };
 use strum::IntoDiscriminant;

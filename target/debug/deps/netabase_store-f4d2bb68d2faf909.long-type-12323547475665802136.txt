@@ -1,0 +1,2 @@
+<<Self as NetabaseModel<D>>::Keys as NetabaseModelKeys<D, Self>>::Blob
+<<Self as NetabaseModel<D>>::Keys as NetabaseModelKeys<D, Self>>::Blob: Key

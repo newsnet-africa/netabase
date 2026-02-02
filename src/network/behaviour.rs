@@ -5,7 +5,7 @@ use libp2p::{
 use netabase_store::{
     prelude::NetabaseDefinition,
     databases::redb::libp2p::Libp2pRedbStore,
-    traits::registery::definition::redb_definition::RedbDefinition,
+    traits::registry::definition::redb_definition::RedbDefinition,
 };
 use serde::{Serialize, Deserialize};
 

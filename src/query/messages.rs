@@ -1,7 +1,7 @@
 use serde::{Serialize, Deserialize, de::DeserializeOwned};
 use netabase_store::{
     prelude::{NetabaseDefinition, NetabaseModel},
-    traits::registery::models::NetabaseModelKeys,
+    traits::registry::models::NetabaseModelKeys,
 };
 use strum::IntoDiscriminant;
 use crate::node::{

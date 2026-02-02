@@ -5,7 +5,7 @@ use netabase::node::metadata::{PublicNodeData, NodePublicKey};
 use netabase::store::primitives::EntryPath;
 use netabase_store::prelude::*;
 use netabase_store::doc_examples::{ExampleDef, User, UserID};
-use netabase_store::traits::registery::definition::redb_definition::RedbDefinition;
+use netabase_store::traits::registry::definition::redb_definition::RedbDefinition;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 use libp2p::PeerId;

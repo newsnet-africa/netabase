@@ -1,7 +1,7 @@
 use serde::{Serialize, Deserialize, de::DeserializeOwned};
 use netabase_store::{
     prelude::{NetabaseDefinition, NetabaseModel},
-    traits::registery::models::{
+    traits::registry::models::{
         NetabaseModelKeys,
         keys::blob::NetabaseModelBlobKey,
         model::RedbNetbaseModel,
@@ -19,7 +19,7 @@ use super::traits::{QueryExecutor, QueryError, QueryResult};
 
 impl<'a, 'db, D, M> QueryExecutor<D, M, DatabaseQuery<D, M>> for RedbTransaction<'db, D>
 where
-    D: netabase_store::traits::registery::definition::redb_definition::RedbDefinition + Clone + 'static,
+    D: netabase_store::traits::registry::definition::redb_definition::RedbDefinition + Clone + 'static,
     M: RedbModelCrud<'db, D> + RedbNetbaseModel<'db, D> + netabase_store::prelude::NetabaseModel<D> + redb::Key + Clone + 'static,
     <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug + 'static,
     
