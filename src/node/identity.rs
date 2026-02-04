@@ -1,7 +1,7 @@
 use libp2p::identity::Keypair;
 use libp2p::PeerId;
+use crate::node::metadata::{NodePublicKey, PublicNodeData};
 use crate::node::primitives::Signature;
-use netabase_store::node_metadata::{NodePublicKey, PublicNodeData};
 
 #[derive(Clone)]
 pub struct NodeIdentity {

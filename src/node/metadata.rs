@@ -12,15 +12,13 @@
 //!
 //! # Feature Flag
 //!
-//! Most types in this module require the `libp2p` feature to be enabled.
+//! Historically these types were gated behind a `libp2p` feature, but
+//! `netabase` now always depends on libp2p so they are available by default.
 
-#[cfg(feature = "libp2p")]
 use libp2p::PeerId;
 use serde::{Serialize, Deserialize};
-
 use netabase_store::traits::registry::definition::NetworkDefinition;
 
-#[cfg(feature = "libp2p")]
 pub struct NodeMetadata<D: NetworkDefinition>
 where
     <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
@@ -30,7 +28,6 @@ where
     rooms: Vec<SubscriptionRoom<D>>,
 }
 
-#[cfg(feature = "libp2p")]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PublicNodeData {
     pub node_id: PeerId,
@@ -42,7 +39,6 @@ pub struct NodePublicKey(pub [u8; 32]);
 
 pub struct SubscriptionRoomKey;
 
-#[cfg(feature = "libp2p")]
 pub struct SubscriptionRoom<D: NetworkDefinition>
 where
     <D as strum::IntoDiscriminant>::Discriminant: std::fmt::Debug,
