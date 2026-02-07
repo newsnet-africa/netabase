@@ -1,7 +1,4 @@
-pub mod node;
-pub mod store;
-pub mod query;
-pub mod network;
-pub mod primitives;
+#![feature(associated_type_defaults)]
 pub mod capabilities;
-pub mod protocol;
+pub mod data;
+pub mod node;
